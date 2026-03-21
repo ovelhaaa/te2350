@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TE-2350 "Antigravity" Web Port</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; background: #1a1a1a; color: #eee; }
+        .control-group { margin-bottom: 20px; background: #2a2a2a; padding: 15px; border-radius: 8px; }
+        label { display: inline-block; width: 100px; font-weight: bold; }
+        input[type="range"] { width: 300px; vertical-align: middle; }
+        span.val { display: inline-block; width: 40px; text-align: right; }
+        button { padding: 10px 20px; font-size: 16px; margin-bottom: 20px; cursor: pointer; background: #4caf50; border: none; color: white; border-radius: 4px; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        #warning { color: #ff9800; font-weight: bold; margin-bottom: 20px; display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>TE-2350 "Antigravity" Web Port</h1>
+    <p>WebAssembly + AudioWorklet port of the RP2040 DSP core.</p>
+
+    <div id="warning"></div>
+
+    <button id="startBtn">Start Audio (Mic)</button>
+
+    <div class="control-group">
+        <label>Time</label>
+        <input type="range" id="time" min="0" max="1" step="0.01" value="0.8">
+        <span class="val" id="timeVal">0.8</span>
+    </div>
+
+    <div class="control-group">
+        <label>Feedback</label>
+        <input type="range" id="feedback" min="0" max="0.99" step="0.01" value="0.90">
+        <span class="val" id="feedbackVal">0.90</span>
+    </div>
+
+    <div class="control-group">
+        <label>Mix</label>
+        <input type="range" id="mix" min="0" max="1" step="0.01" value="0.5">
+        <span class="val" id="mixVal">0.5</span>
+    </div>
+
+    <div class="control-group">
+        <label>Tone</label>
+        <input type="range" id="tone" min="0" max="1" step="0.01" value="0.5">
+        <span class="val" id="toneVal">0.5</span>
+    </div>
+
+    <div class="control-group">
+        <label>Shimmer</label>
+        <input type="range" id="shimmer" min="0" max="1" step="0.01" value="0.0">
+        <span class="val" id="shimmerVal">0.0</span>
+    </div>
+
+    <div class="control-group">
+        <label>Diffusion</label>
+        <input type="range" id="diffusion" min="0" max="1" step="0.01" value="1.0">
+        <span class="val" id="diffusionVal">1.0</span>
+    </div>
+
+    <div class="control-group">
+        <label>Chaos</label>
+        <input type="range" id="chaos" min="0" max="1" step="0.01" value="0.2">
+        <span class="val" id="chaosVal">0.2</span>
+    </div>
+
+    <div class="control-group">
+        <label>Ducking</label>
+        <input type="range" id="ducking" min="0" max="1" step="0.01" value="0.0">
+        <span class="val" id="duckingVal">0.0</span>
+    </div>
+
+    <div class="control-group">
+        <label>Wobble</label>
+        <input type="range" id="wobble" min="0" max="1" step="0.01" value="0.5">
+        <span class="val" id="wobbleVal">0.5</span>
+    </div>
+
+    <div class="control-group">
+        <label>Freeze</label>
+        <input type="checkbox" id="freeze">
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
