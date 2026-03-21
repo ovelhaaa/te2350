@@ -1,0 +1,114 @@
+// web/worklet.js
+import Module from './te2350.js';
+
+class TE2350WorkletProcessor extends AudioWorkletProcessor {
+    constructor() {
+        super();
+        this.wasmLoaded = false;
+
+        // Block size is 128
+        this.blockSize = 128;
+
+        this.port.onmessage = this.handleMessage.bind(this);
+
+        // Initialize Wasm Module
+        this.initWasm();
+    }
+
+    async initWasm() {
+        try {
+            // Module is a factory function created by Emscripten
+            this.wasmModule = await Module();
+
+            // Call C init function
+            const initSuccess = this.wasmModule._wasm_te2350_init();
+            if (!initSuccess) {
+                console.error("WASM TE-2350 init failed.");
+                return;
+            }
+
+            // Allocate memory in Wasm for I/O buffers (float arrays)
+            const bytesPerFloat = 4;
+            this.inPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
+            this.outLPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
+            this.outRPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
+
+            // Create views to easily write/read
+            this.inView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.inPtr, this.blockSize);
+            this.outLView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.outLPtr, this.blockSize);
+            this.outRView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.outRPtr, this.blockSize);
+
+            this.wasmLoaded = true;
+            this.port.postMessage({ type: 'ready' });
+            console.log("TE-2350 WASM module loaded and initialized.");
+        } catch (e) {
+            console.error("Error initializing WASM module:", e);
+        }
+    }
+
+    handleMessage(event) {
+        if (!this.wasmLoaded) return;
+
+        const { param, value } = event.data;
+
+        switch (param) {
+            case 'time': this.wasmModule._wasm_te2350_set_time(value); break;
+            case 'feedback': this.wasmModule._wasm_te2350_set_feedback(value); break;
+            case 'mix': this.wasmModule._wasm_te2350_set_mix(value); break;
+            case 'shimmer': this.wasmModule._wasm_te2350_set_shimmer(value); break;
+            case 'diffusion': this.wasmModule._wasm_te2350_set_diffusion(value); break;
+            case 'chaos': this.wasmModule._wasm_te2350_set_chaos(value); break;
+            case 'tone': this.wasmModule._wasm_te2350_set_tone(value); break;
+            case 'ducking': this.wasmModule._wasm_te2350_set_ducking(value); break;
+            case 'wobble': this.wasmModule._wasm_te2350_set_wobble(value); break;
+            case 'freeze': this.wasmModule._wasm_te2350_set_freeze(value ? 1 : 0); break;
+        }
+    }
+
+    process(inputs, outputs, parameters) {
+        if (!this.wasmLoaded) return true;
+
+        const input = inputs[0];
+        const output = outputs[0];
+
+        // Web Audio process block size is 128 frames
+        const inChannel = input.length > 0 ? input[0] : null;
+        const outLChannel = output[0];
+        const outRChannel = output[1];
+
+        // Ensure we have a valid block size (should be 128)
+        let numSamples = 128;
+        if (inChannel && inChannel.length < numSamples) {
+             numSamples = inChannel.length;
+        }
+
+        // Copy input to Wasm memory (convert stereo to mono sum if needed, but we'll just take L for now)
+        if (inChannel) {
+            // We use simple set for the mono input
+            this.inView.set(inChannel);
+            // If there's a right channel, we could mix it, but let's just use left
+            if (input.length > 1) {
+                for(let i=0; i<numSamples; i++){
+                    this.inView[i] = (inChannel[i] + input[1][i]) * 0.5;
+                }
+            }
+        } else {
+            this.inView.fill(0);
+        }
+
+        // Call WASM process function
+        this.wasmModule._wasm_te2350_process_block(this.inPtr, this.outLPtr, this.outRPtr, numSamples);
+
+        // Copy output from Wasm memory to output buffers
+        if (outLChannel) {
+            outLChannel.set(this.outLView.subarray(0, numSamples));
+        }
+        if (outRChannel) {
+            outRChannel.set(this.outRView.subarray(0, numSamples));
+        }
+
+        return true;
+    }
+}
+
+registerProcessor('te2350-worklet', TE2350WorkletProcessor);
