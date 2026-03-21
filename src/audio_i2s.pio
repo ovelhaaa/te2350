@@ -1,0 +1,106 @@
+.program audio_i2s_tx
+.side_set 2 ; [LRCK, BCLK]
+
+; I2S TX Master - Generates BCLK/LRCK and outputs data
+; Standard I2S Phillips: MSB delayed 1 clock from LRCK transition.
+; Data changes on BCLK fall, sampled on BCLK rise.
+; 2 instructions per bit = 2 clock cycles per bit.
+
+public main_entry:
+.wrap_target
+    ; --- Left Channel (LRCK=0) ---
+    set x, 30           side 0b01 ; 1 bit delay (LRCK=0, BCLK=1)
+l_loop:
+    out pins, 1         side 0b00 ; Data out (BCLK=0)
+    jmp x-- l_loop      side 0b01 ; BCLK=1
+    
+    out pins, 1         side 0b10 ; Last bit + LRCK transition (LRCK=1, BCLK=0)
+
+    ; --- Right Channel (LRCK=1) ---
+    set x, 30           side 0b11 ; 1 bit delay (LRCK=1, BCLK=1)
+r_loop:
+    out pins, 1         side 0b10 ; Data out (BCLK=0)
+    jmp x-- r_loop      side 0b11 ; BCLK=1
+    
+    out pins, 1         side 0b00 ; Last bit + LRCK transition (LRCK=0, BCLK=0)
+.wrap
+
+% c-sdk {
+static inline void audio_i2s_tx_program_init(PIO pio, uint sm, uint offset, uint bclk_pin, uint data_pin) {
+    pio_sm_config c = audio_i2s_tx_program_get_default_config(offset);
+    
+    // Sideset: BCLK (base), LRCK (base+1)
+    sm_config_set_sideset_pins(&c, bclk_pin);
+    sm_config_set_out_pins(&c, data_pin, 1);
+    
+    // Configure GPIO pins
+    pio_gpio_init(pio, bclk_pin);      // BCLK
+    pio_gpio_init(pio, bclk_pin + 1);  // LRCK
+    pio_gpio_init(pio, data_pin);      // DOUT
+    
+    pio_sm_set_consecutive_pindirs(pio, sm, bclk_pin, 2, true);  // BCLK, LRCK as outputs
+    pio_sm_set_consecutive_pindirs(pio, sm, data_pin, 1, true);  // DOUT as output
+    
+    // MSB first, autopull 32 bits
+    sm_config_set_out_shift(&c, false, true, 32);
+    
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}
+
+; ============================================================
+; I2S RX - Samples data synchronized with TX clock
+; Runs at same speed as TX, no blocking waits
+; Uses JMP pin to detect LRCK state for L/R sync
+; ============================================================
+
+.program audio_i2s_rx
+.side_set 1 opt  ; Optional sideset for debug (not used)
+
+; This RX runs in lockstep with TX at the same clock rate.
+; 2 instructions per bit, same as TX.
+; Samples input on "BCLK rising" equivalent (every other instruction).
+
+public entry:
+.wrap_target
+    ; --- Left Channel (32 bits) ---
+    set x, 30
+    nop                     ; Align with TX's 1-bit delay
+left_loop:
+    nop                     ; BCLK low phase (data stable)
+    in pins, 1              ; Sample on BCLK high equivalent
+    jmp x-- left_loop
+    
+    nop                     ; Last bit BCLK low
+    in pins, 1              ; Sample last bit
+
+    ; --- Right Channel (32 bits) ---
+    set x, 30
+    nop                     ; Align with TX's 1-bit delay
+right_loop:
+    nop                     ; BCLK low phase
+    in pins, 1              ; Sample on BCLK high equivalent
+    jmp x-- right_loop
+    
+    nop                     ; Last bit BCLK low
+    in pins, 1              ; Sample last bit
+.wrap
+
+% c-sdk {
+static inline void audio_i2s_rx_program_init(PIO pio, uint sm, uint offset, uint din_pin) {
+    pio_sm_config c = audio_i2s_rx_program_get_default_config(offset);
+    
+    // Input pin for data
+    sm_config_set_in_pins(&c, din_pin);
+    
+    // Configure GPIO - DIN as input with pull-down (silence when disconnected)
+    pio_gpio_init(pio, din_pin);
+    gpio_pull_down(din_pin);  // Default to silence when no input
+    pio_sm_set_consecutive_pindirs(pio, sm, din_pin, 1, false);  // DIN as input
+    
+    // MSB first, autopush 32 bits
+    sm_config_set_in_shift(&c, false, true, 32);
+    
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}
