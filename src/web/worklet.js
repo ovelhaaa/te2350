@@ -61,6 +61,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             case 'tone': this.wasmModule._wasm_te2350_set_tone(value); break;
             case 'ducking': this.wasmModule._wasm_te2350_set_ducking(value); break;
             case 'wobble': this.wasmModule._wasm_te2350_set_wobble(value); break;
+
+            case 'mod_rate': this.wasmModule._wasm_te2350_set_mod(value, this.modDepth !== undefined ? this.modDepth : 0.4); this.modRate = value; break;
+            case 'mod_depth': this.wasmModule._wasm_te2350_set_mod(this.modRate !== undefined ? this.modRate : 0.5, value); this.modDepth = value; break;
             case 'freeze': this.wasmModule._wasm_te2350_set_freeze(value ? 1 : 0); break;
         }
     }

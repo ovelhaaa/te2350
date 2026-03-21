@@ -84,7 +84,7 @@ startBtn.addEventListener('click', () => {
 });
 
 // Parameter Mapping
-const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble'];
+const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble', 'mod_rate', 'mod_depth'];
 
 params.forEach(param => {
     const slider = document.getElementById(param);

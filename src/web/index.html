@@ -20,7 +20,13 @@
     <h1>TE-2350 "Antigravity" Web Port</h1>
     <p>WebAssembly + AudioWorklet port of the RP2040 DSP core.</p>
 
+
     <div id="warning"></div>
+    <div style="background: #333; padding: 10px; border-radius: 4px; font-size: 0.9em; margin-bottom: 20px;">
+        <strong>Note on Sample Rate:</strong> The DSP core is hardcoded to 48 kHz to match the original RP2040 hardware.
+        If your browser runs AudioContext at a different sample rate, the pitch, delay times, and filter responses will be scaled proportionally.
+    </div>
+
 
     <button id="startBtn">Start Audio (Mic)</button>
 
@@ -78,6 +84,18 @@
         <span class="val" id="wobbleVal">0.5</span>
     </div>
 
+
+    <div class="control-group">
+        <label>Mod Rate</label>
+        <input type="range" id="mod_rate" min="0" max="1" step="0.01" value="0.5">
+        <span class="val" id="mod_rateVal">0.5</span>
+    </div>
+
+    <div class="control-group">
+        <label>Mod Depth</label>
+        <input type="range" id="mod_depth" min="0" max="1" step="0.01" value="0.4">
+        <span class="val" id="mod_depthVal">0.4</span>
+    </div>
     <div class="control-group">
         <label>Freeze</label>
         <input type="checkbox" id="freeze">
