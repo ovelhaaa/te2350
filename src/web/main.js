@@ -84,8 +84,8 @@ function stopCurrentSource() {
             micSource = null;
         }
     } else if (activeSource === 'file' && fileSource) {
-        fileSource.stop();
-        fileSource.disconnect();
+        try { fileSource.stop(); } catch (e) { console.warn('Could not stop fileSource', e); }
+        try { fileSource.disconnect(); } catch (e) { console.warn('Could not disconnect fileSource', e); }
         fileSource = null;
     }
 
@@ -161,6 +161,8 @@ async function startFile() {
 
     } catch (err) {
         console.error('Error starting file playback:', err);
+        alert('Could not start file playback. Check console for details.');
+        stopCurrentSource(); // Reset state on error
     }
 }
 
