@@ -8,6 +8,8 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
         // Block size is 128
         this.blockSize = 128;
+        this.modRate = 0.5;
+        this.modDepth = 0.4;
 
         this.port.onmessage = this.handleMessage.bind(this);
 
@@ -61,6 +63,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             case 'tone': this.wasmModule._wasm_te2350_set_tone(value); break;
             case 'ducking': this.wasmModule._wasm_te2350_set_ducking(value); break;
             case 'wobble': this.wasmModule._wasm_te2350_set_wobble(value); break;
+
+            case 'mod_rate': this.modRate = value; this.wasmModule._wasm_te2350_set_mod(this.modRate, this.modDepth); break;
+            case 'mod_depth': this.modDepth = value; this.wasmModule._wasm_te2350_set_mod(this.modRate, this.modDepth); break;
             case 'freeze': this.wasmModule._wasm_te2350_set_freeze(value ? 1 : 0); break;
         }
     }

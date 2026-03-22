@@ -113,3 +113,8 @@ EMSCRIPTEN_KEEPALIVE
 void wasm_te2350_set_freeze(bool freeze) {
     te2350_set_freeze(&pedal, freeze);
 }
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_mod(float rate, float depth) {
+    te2350_set_mod(&pedal, float_to_q31_safe(rate), float_to_q31_safe(depth));
+}
