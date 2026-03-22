@@ -1,0 +1,60 @@
+name: Deploy Web Port to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/web/**'
+      - 'src/**'
+      - 'include/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Build WebAssembly
+        run: |
+          cd src/web
+          make
+
+      - name: Prepare Site Directory
+        run: |
+          mkdir site
+          cp src/web/index.html site/
+          cp src/web/main.js site/
+          cp src/web/worklet.js site/
+          cp src/web/te2350.js site/
+          cp src/web/te2350.wasm site/
+          touch site/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
