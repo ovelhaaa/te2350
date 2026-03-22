@@ -28,7 +28,18 @@
     </div>
 
 
-    <button id="startBtn">Start Audio (Mic)</button>
+    <div class="control-group" style="background: #222;">
+        <div style="margin-bottom: 10px;">
+            <button id="startBtn">Start Audio (Mic)</button>
+        </div>
+        <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+            <input type="file" id="fileInput" accept="audio/*">
+            <button id="playFileBtn" disabled>Play File</button>
+        </div>
+        <div>
+            <button id="stopBtn" disabled style="background: #f44336;">Stop Source</button>
+        </div>
+    </div>
 
     <div class="control-group">
         <label>Time</label>
