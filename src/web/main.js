@@ -3,52 +3,122 @@
 let audioCtx;
 let effectNode;
 let micStream;
+let micSource;
+let fileSource;
 let isPlaying = false;
+let activeSource = null;
 
 const startBtn = document.getElementById('startBtn');
+const playFileBtn = document.getElementById('playFileBtn');
+const stopBtn = document.getElementById('stopBtn');
+const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
 
-async function initAudio() {
-    try {
-        // Request 48kHz for highest fidelity to the original DSP code
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)({
-            sampleRate: 48000
-        });
+let decodedAudioBuffer = null;
 
-        // Fidelity check
-        if (audioCtx.sampleRate !== 48000) {
-            warningDiv.style.display = 'block';
-            warningDiv.textContent = `Warning: AudioContext running at ${audioCtx.sampleRate}Hz instead of 48000Hz. This may affect delay times, filter frequencies, and overall fidelity compared to the original hardware.`;
+fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+        playFileBtn.disabled = true;
+        decodedAudioBuffer = null;
+        return;
+    }
+
+    try {
+        if (!audioCtx) {
+            await initAudioContext();
         }
 
-        // Load the AudioWorklet
-        await audioCtx.audioWorklet.addModule('worklet.js');
-        effectNode = new AudioWorkletNode(audioCtx, 'te2350-worklet', {
-            numberOfInputs: 1,
-            numberOfOutputs: 1,
-            outputChannelCount: [2] // Stereo output
-        });
+        const arrayBuffer = await file.arrayBuffer();
+        decodedAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        playFileBtn.disabled = false;
+        console.log(`Successfully decoded ${file.name}`);
+    } catch (err) {
+        console.error('Error decoding audio file:', err);
+        alert('Failed to decode the selected audio file.');
+        playFileBtn.disabled = true;
+        decodedAudioBuffer = null;
+    }
+});
 
-        // Listen for when Wasm is ready
-        effectNode.port.onmessage = (event) => {
-            if (event.data.type === 'ready') {
-                console.log("Effect node ready.");
-                // Send initial parameter values
-                syncAllParams();
-            }
-        };
+async function initAudioContext() {
+    if (audioCtx) return;
+
+    // Request 48kHz for highest fidelity to the original DSP code
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 48000
+    });
+
+    // Fidelity check
+    if (audioCtx.sampleRate !== 48000) {
+        warningDiv.style.display = 'block';
+        warningDiv.textContent = `Warning: AudioContext running at ${audioCtx.sampleRate}Hz instead of 48000Hz. This may affect delay times, filter frequencies, and overall fidelity compared to the original hardware.`;
+    }
+
+    // Load the AudioWorklet
+    await audioCtx.audioWorklet.addModule('worklet.js');
+    effectNode = new AudioWorkletNode(audioCtx, 'te2350-worklet', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [2] // Stereo output
+    });
+
+    // Listen for when Wasm is ready
+    effectNode.port.onmessage = (event) => {
+        if (event.data.type === 'ready') {
+            console.log("Effect node ready.");
+            // Send initial parameter values
+            syncAllParams();
+        }
+    };
+
+    effectNode.connect(audioCtx.destination);
+}
+
+function stopCurrentSource() {
+    if (activeSource === 'mic' && micStream) {
+        micStream.getTracks().forEach(track => track.stop());
+        micStream = null;
+        if (micSource) {
+            micSource.disconnect();
+            micSource = null;
+        }
+    } else if (activeSource === 'file' && fileSource) {
+        try { fileSource.stop(); } catch (e) { console.warn('Could not stop fileSource', e); }
+        try { fileSource.disconnect(); } catch (e) { console.warn('Could not disconnect fileSource', e); }
+        fileSource = null;
+    }
+
+    activeSource = null;
+    isPlaying = false;
+    stopBtn.disabled = true;
+    startBtn.disabled = false;
+    if (decodedAudioBuffer) {
+        playFileBtn.disabled = false;
+    }
+}
+
+async function startMic() {
+    try {
+        stopCurrentSource();
+
+        if (!audioCtx) {
+            await initAudioContext();
+        }
 
         // Get Microphone
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        const micSource = audioCtx.createMediaStreamSource(micStream);
+        micSource = audioCtx.createMediaStreamSource(micStream);
 
         // Routing
         micSource.connect(effectNode);
-        effectNode.connect(audioCtx.destination);
 
+        activeSource = 'mic';
         isPlaying = true;
-        startBtn.textContent = 'Stop Audio';
-        startBtn.style.background = '#f44336'; // Red
+
+        startBtn.disabled = true;
+        playFileBtn.disabled = true;
+        stopBtn.disabled = false;
 
         // Also resume context if it was suspended
         if (audioCtx.state === 'suspended') {
@@ -56,32 +126,49 @@ async function initAudio() {
         }
 
     } catch (err) {
-        console.error('Error starting audio:', err);
-        alert('Could not start audio. Please ensure microphone permissions are granted.');
+        console.error('Error starting microphone:', err);
+        alert('Could not start microphone. Please ensure microphone permissions are granted.');
     }
 }
 
-function stopAudio() {
-    if (audioCtx) {
-        audioCtx.close();
-        audioCtx = null;
+async function startFile() {
+    if (!decodedAudioBuffer) return;
+
+    try {
+        stopCurrentSource();
+
+        if (!audioCtx) {
+            await initAudioContext();
+        }
+
+        fileSource = audioCtx.createBufferSource();
+        fileSource.buffer = decodedAudioBuffer;
+        fileSource.loop = true; // Loop the file for continuous processing
+
+        fileSource.connect(effectNode);
+        fileSource.start();
+
+        activeSource = 'file';
+        isPlaying = true;
+
+        startBtn.disabled = true;
+        playFileBtn.disabled = true;
+        stopBtn.disabled = false;
+
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+
+    } catch (err) {
+        console.error('Error starting file playback:', err);
+        alert('Could not start file playback. Check console for details.');
+        stopCurrentSource(); // Reset state on error
     }
-    if (micStream) {
-        micStream.getTracks().forEach(track => track.stop());
-        micStream = null;
-    }
-    isPlaying = false;
-    startBtn.textContent = 'Start Audio (Mic)';
-    startBtn.style.background = '#4caf50'; // Green
 }
 
-startBtn.addEventListener('click', () => {
-    if (isPlaying) {
-        stopAudio();
-    } else {
-        initAudio();
-    }
-});
+startBtn.addEventListener('click', startMic);
+playFileBtn.addEventListener('click', startFile);
+stopBtn.addEventListener('click', stopCurrentSource);
 
 // Parameter Mapping
 const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble', 'mod_rate', 'mod_depth'];
