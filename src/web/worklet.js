@@ -20,7 +20,15 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
     async initWasm() {
         try {
             // Module is a factory function created by Emscripten
-            this.wasmModule = await Module();
+            this.wasmModule = await Module({
+                // Ensure Wasm can be loaded relative to the worklet.js script
+                locateFile: (path, prefix) => {
+                    if (path.endsWith('.wasm')) {
+                        return 'te2350.wasm';
+                    }
+                    return prefix + path;
+                }
+            });
 
             // Call C init function
             const initSuccess = this.wasmModule._wasm_te2350_init();
@@ -34,11 +42,6 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             this.inPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
             this.outLPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
             this.outRPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
-
-            // Create views to easily write/read
-            this.inView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.inPtr, this.blockSize);
-            this.outLView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.outLPtr, this.blockSize);
-            this.outRView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.outRPtr, this.blockSize);
 
             this.wasmLoaded = true;
             this.port.postMessage({ type: 'ready' });
@@ -87,18 +90,23 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
              numSamples = inChannel.length;
         }
 
+        // Recreate views to easily write/read and avoid detached buffer errors if Wasm memory grew
+        const inView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.inPtr, numSamples);
+        const outLView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.outLPtr, numSamples);
+        const outRView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.outRPtr, numSamples);
+
         // Copy input to Wasm memory (convert stereo to mono sum if needed, but we'll just take L for now)
         if (inChannel) {
             // We use simple set for the mono input
-            this.inView.set(inChannel);
+            inView.set(inChannel.subarray(0, numSamples));
             // If there's a right channel, we could mix it, but let's just use left
             if (input.length > 1) {
                 for(let i=0; i<numSamples; i++){
-                    this.inView[i] = (inChannel[i] + input[1][i]) * 0.5;
+                    inView[i] = (inChannel[i] + input[1][i]) * 0.5;
                 }
             }
         } else {
-            this.inView.fill(0);
+            inView.fill(0);
         }
 
         // Call WASM process function
@@ -106,10 +114,10 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
         // Copy output from Wasm memory to output buffers
         if (outLChannel) {
-            outLChannel.set(this.outLView.subarray(0, numSamples));
+            outLChannel.set(outLView);
         }
         if (outRChannel) {
-            outRChannel.set(this.outRView.subarray(0, numSamples));
+            outRChannel.set(outRView);
         }
 
         return true;
