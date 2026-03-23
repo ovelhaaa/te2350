@@ -14,6 +14,24 @@ const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
 
+// Debug UI Elements
+const debugCtxState = document.getElementById('debugCtxState');
+const debugSampleRate = document.getElementById('debugSampleRate');
+const debugWorkletLoad = document.getElementById('debugWorkletLoad');
+const debugWasmInit = document.getElementById('debugWasmInit');
+const debugReadyMsg = document.getElementById('debugReadyMsg');
+const debugActiveSource = document.getElementById('debugActiveSource');
+const bypassMode = document.getElementById('bypassMode');
+
+function updateDebugUI() {
+    if (audioCtx) {
+        debugCtxState.textContent = audioCtx.state;
+        debugSampleRate.textContent = audioCtx.sampleRate + ' Hz';
+    }
+    debugActiveSource.textContent = activeSource ? activeSource : 'none';
+}
+setInterval(updateDebugUI, 500); // Poll context state occasionally
+
 let decodedAudioBuffer = null;
 
 fileInput.addEventListener('change', async (e) => {
@@ -44,6 +62,7 @@ fileInput.addEventListener('change', async (e) => {
 async function initAudioContext() {
     if (audioCtx) return;
 
+    console.log("Initializing AudioContext...");
     // Request 48kHz for highest fidelity to the original DSP code
     audioCtx = new (window.AudioContext || window.webkitAudioContext)({
         sampleRate: 48000
@@ -54,25 +73,47 @@ async function initAudioContext() {
         warningDiv.style.display = 'block';
         warningDiv.textContent = `Warning: AudioContext running at ${audioCtx.sampleRate}Hz instead of 48000Hz. This may affect delay times, filter frequencies, and overall fidelity compared to the original hardware.`;
     }
+    updateDebugUI();
 
-    // Load the AudioWorklet
-    await audioCtx.audioWorklet.addModule('worklet.js');
-    effectNode = new AudioWorkletNode(audioCtx, 'te2350-worklet', {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [2] // Stereo output
-    });
+    try {
+        console.log("Adding AudioWorklet module...");
+        debugWorkletLoad.textContent = 'loading...';
+        await audioCtx.audioWorklet.addModule('worklet.js');
+        debugWorkletLoad.textContent = 'success';
+        console.log("AudioWorklet module added successfully.");
 
-    // Listen for when Wasm is ready
-    effectNode.port.onmessage = (event) => {
-        if (event.data.type === 'ready') {
-            console.log("Effect node ready.");
-            // Send initial parameter values
-            syncAllParams();
-        }
-    };
+        console.log("Creating AudioWorkletNode...");
+        effectNode = new AudioWorkletNode(audioCtx, 'te2350-worklet', {
+            numberOfInputs: 1,
+            numberOfOutputs: 1,
+            outputChannelCount: [2] // Stereo output
+        });
+        console.log("AudioWorkletNode created successfully.");
 
-    effectNode.connect(audioCtx.destination);
+        // Listen for when Wasm is ready
+        effectNode.port.onmessage = (event) => {
+            if (event.data.type === 'ready') {
+                console.log("Effect node ready (Wasm initialized).");
+                debugReadyMsg.textContent = 'received';
+                debugWasmInit.textContent = 'success';
+                // Send initial parameter values
+                syncAllParams();
+                // Sync bypass state
+                effectNode.port.postMessage({ param: 'bypass', value: bypassMode.checked });
+            } else if (event.data.type === 'wasm_error') {
+                console.error("Worklet reported Wasm error:", event.data.message);
+                debugWasmInit.textContent = 'failed';
+            } else if (event.data.type === 'debug') {
+                console.log("[Worklet Debug]", event.data.message);
+            }
+        };
+
+        effectNode.connect(audioCtx.destination);
+        console.log("AudioWorkletNode connected to destination.");
+    } catch (err) {
+        console.error("Failed to initialize AudioWorklet:", err);
+        debugWorkletLoad.textContent = 'failed';
+    }
 }
 
 function stopCurrentSource() {
@@ -189,6 +230,13 @@ params.forEach(param => {
 document.getElementById('freeze').addEventListener('change', (e) => {
     if (effectNode && effectNode.port) {
         effectNode.port.postMessage({ param: 'freeze', value: e.target.checked });
+    }
+});
+
+bypassMode.addEventListener('change', (e) => {
+    console.log("Bypass mode:", e.target.checked);
+    if (effectNode && effectNode.port) {
+        effectNode.port.postMessage({ param: 'bypass', value: e.target.checked });
     }
 });
 
