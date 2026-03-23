@@ -18,6 +18,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
         // Debugging state
         this.logCounter = 0;
+        this.hasLoggedWasmInit = false;
 
         // Block size is 128
         this.blockSize = 128;
@@ -102,6 +103,15 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         }
     }
 
+    _hasSignal(channelData, numSamples) {
+        for (let i = 0; i < numSamples; i++) {
+            if (Math.abs(channelData[i]) > 0.0001) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     process(inputs, outputs, parameters) {
         if (!this.wasmLoaded) return true;
 
@@ -154,12 +164,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
             // Check for signal occasionally
             if (this.logCounter % 48000 === 0) { // Approx once per second
-                for (let i = 0; i < numSamples; i++) {
-                    if (Math.abs(inView[i]) > 0.0001) {
-                        hasInputSignal = true;
-                        break;
-                    }
-                }
+                hasInputSignal = this._hasSignal(inView, numSamples);
             }
         } else {
             inView.fill(0);
@@ -174,12 +179,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             outLChannel.set(outLView);
 
             if (this.logCounter % 48000 === 0) {
-                for (let i = 0; i < numSamples; i++) {
-                    if (Math.abs(outLView[i]) > 0.0001) {
-                        hasOutputSignal = true;
-                        break;
-                    }
-                }
+                hasOutputSignal = this._hasSignal(outLView, numSamples);
             }
         }
         if (outRChannel) {
