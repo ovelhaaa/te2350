@@ -18,7 +18,6 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
         // Debugging state
         this.logCounter = 0;
-        this.hasLoggedWasmInit = false;
 
         // Block size is 128
         this.blockSize = 128;
