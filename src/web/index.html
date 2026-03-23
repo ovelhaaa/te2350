@@ -27,6 +27,25 @@
         If your browser runs AudioContext at a different sample rate, the pitch, delay times, and filter responses will be scaled proportionally.
     </div>
 
+    <!-- Debug Panel -->
+    <div class="control-group" style="background: #3a2a2a; border: 1px solid #ff9800;">
+        <h3 style="margin-top: 0; color: #ff9800;">Debug & Status</h3>
+        <ul style="list-style-type: none; padding: 0; margin: 0; font-size: 0.9em; line-height: 1.5;">
+            <li><strong>AudioContext:</strong> <span id="debugCtxState">uninitialized</span></li>
+            <li><strong>Sample Rate:</strong> <span id="debugSampleRate">unknown</span></li>
+            <li><strong>Worklet Module:</strong> <span id="debugWorkletLoad">pending...</span></li>
+            <li><strong>Wasm Init:</strong> <span id="debugWasmInit">pending...</span></li>
+            <li><strong>Ready MSG:</strong> <span id="debugReadyMsg">waiting...</span></li>
+            <li><strong>Source:</strong> <span id="debugActiveSource">none</span></li>
+        </ul>
+        <div style="margin-top: 15px;">
+            <label style="width: auto; margin-right: 10px;">
+                <input type="checkbox" id="bypassMode">
+                <strong style="color: #ff9800;">Diagnostic Bypass DSP (Copy In -> Out)</strong>
+            </label>
+        </div>
+    </div>
+
 
     <div class="control-group" style="background: #222;">
         <div style="margin-bottom: 10px;">
