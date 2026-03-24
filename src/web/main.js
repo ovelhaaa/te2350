@@ -76,9 +76,22 @@ async function initAudioContext() {
     updateDebugUI();
 
     try {
+        console.log("Fetching WebAssembly module...");
+        if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'fetching...';
+        const wasmUrl = new URL('te2350.wasm', window.location.href).href;
+        const response = await fetch(wasmUrl);
+        if (!response.ok) throw new Error(`Failed to fetch wasm: ${response.status}`);
+        const wasmBytes = await response.arrayBuffer();
+        if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'success';
+        console.log("Wasm bytes fetched.");
+
         console.log("Adding AudioWorklet module...");
         debugWorkletLoad.textContent = 'loading...';
-        await audioCtx.audioWorklet.addModule('worklet.js');
+
+        // Pass base URL so the worklet knows exactly where to fetch te2350.js
+        const workletUrl = new URL('./te2350-worklet.bundle.js', window.location.href);
+
+        await audioCtx.audioWorklet.addModule(workletUrl.href);
         debugWorkletLoad.textContent = 'success';
         console.log("AudioWorklet module added successfully.");
 
@@ -90,12 +103,13 @@ async function initAudioContext() {
         });
         console.log("AudioWorkletNode created successfully.");
 
-        // Listen for when Wasm is ready
+        // Listen for messages from the worklet
         effectNode.port.onmessage = (event) => {
             if (event.data.type === 'ready') {
                 console.log("Effect node ready (Wasm initialized).");
                 debugReadyMsg.textContent = 'received';
                 debugWasmInit.textContent = 'success';
+                if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'success';
                 // Send initial parameter values
                 syncAllParams();
                 // Sync bypass state
@@ -103,10 +117,18 @@ async function initAudioContext() {
             } else if (event.data.type === 'wasm_error') {
                 console.error("Worklet reported Wasm error:", event.data.message);
                 debugWasmInit.textContent = 'failed';
+                if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'failed';
             } else if (event.data.type === 'debug') {
                 console.log("[Worklet Debug]", event.data.message);
+            } else if (event.data.type === 'status') {
+                console.log("[Worklet Status]", event.data.message);
+                if (event.data.stage === 'fetch' && typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = event.data.message;
+                else if (event.data.stage === 'init') debugWasmInit.textContent = event.data.message;
             }
         };
+
+        console.log("Sending Wasm bytes to worklet...");
+        effectNode.port.postMessage({ type: 'init_wasm', wasmBytes: wasmBytes });
 
         effectNode.connect(audioCtx.destination);
         console.log("AudioWorkletNode connected to destination.");
