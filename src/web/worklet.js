@@ -8,6 +8,13 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         this.wasmLoaded = false;
         this.bypassMode = false;
 
+        // Ensure memory pointers and instances are explicitly null/0
+        this.wasmInstance = null;
+        this.wasmMemory = null;
+        this.inPtr = 0;
+        this.outLPtr = 0;
+        this.outRPtr = 0;
+
         // Debugging state
         this.logCounter = 0;
         this.hasLoggedWasmInit = false;
@@ -74,7 +81,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             }
 
             // Cache the WebAssembly.Memory instance to avoid GC allocations in the process loop
-            this.wasmMemory = Object.values(this.wasmInstance.exports).find(x => x instanceof WebAssembly.Memory);
+            this.wasmMemory = this.wasmInstance.exports.memory || Object.values(this.wasmInstance.exports).find(x => x instanceof WebAssembly.Memory);
 
             this.wasmLoaded = true;
             this.port.postMessage({ type: 'ready' });
@@ -136,7 +143,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
     }
 
     process(inputs, outputs, parameters) {
-        if (!this.wasmLoaded) return true;
+        if (!this.wasmLoaded || !this.wasmInstance || !this.wasmMemory || !this.inPtr || !this.outLPtr || !this.outRPtr) {
+            return true;
+        }
 
         const input = inputs[0];
         const output = outputs[0];
