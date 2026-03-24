@@ -1,14 +1,6 @@
 // web/worklet.js
-// Ensure we can fall back to standard globals if ES6 module loading fails
-// In Makefile, we'll change it to not be an ES6 module because AudioWorklets
-// can be very picky about them on some platforms (e.g. Chrome Android).
-// So instead of `import Module from ...`, we use `importScripts`.
-
-try {
-    importScripts('te2350.js');
-} catch (e) {
-    console.error("Failed to importScripts('te2350.js'):", e);
-}
+// This file is concatenated directly after `te2350.js` in `te2350-worklet.bundle.js`.
+// Because of this, `createTe2350Module` is already declared in this file's scope.
 
 class TE2350WorkletProcessor extends AudioWorkletProcessor {
     constructor() {
@@ -27,33 +19,45 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
         this.port.onmessage = this.handleMessage.bind(this);
 
-        // Initialize Wasm Module
-        this.initWasm();
+        // Do not call initWasm immediately. Wait for the main thread to pass the wasm bytes.
+        this.port.postMessage({ type: 'status', stage: 'init', message: 'waiting for wasm payload...' });
     }
 
-    async initWasm() {
+    async initWasm(wasmBytes) {
         try {
-            this.port.postMessage({ type: 'debug', message: 'Starting Wasm initialization...' });
+            this.port.postMessage({ type: 'status', stage: 'init', message: 'pending...' });
+            this.port.postMessage({ type: 'debug', message: 'Entering lazy init in bundled worklet...' });
 
-            // Module is a factory function created by Emscripten
-            // If we use importScripts, Module is available globally.
-            if (typeof Module === 'undefined') {
-                throw new Error("Module factory is not defined. Ensure importScripts loaded te2350.js successfully.");
+            if (typeof createTe2350Module !== 'function') {
+                const keys = typeof globalThis !== 'undefined' ? Object.keys(globalThis).filter(k => k.toLowerCase().includes('create') || k.toLowerCase().includes('module') || k.toLowerCase().includes('te2350')) : [];
+                throw new Error(`Wrapper bundled but no factory symbol found (expected createTe2350Module). Found globals: ${keys.join(', ')}`);
             }
 
-            this.wasmModule = await Module({
-                // Ensure Wasm can be loaded relative to the worklet.js script
-                locateFile: (path, prefix) => {
-                    if (path.endsWith('.wasm')) {
-                        return 'te2350.wasm';
-                    }
-                    return prefix + path;
+            this.port.postMessage({ type: 'debug', message: `typeof createTe2350Module: ${typeof createTe2350Module}` });
+            this.port.postMessage({ type: 'debug', message: `Instantiating Wasm from provided ArrayBuffer (${wasmBytes.byteLength} bytes)...` });
+            this.port.postMessage({ type: 'status', stage: 'init', message: 'instantiating custom wasm...' });
+
+            this.port.postMessage({ type: 'debug', message: 'Before createTe2350Module(...)' });
+
+            this.wasmModule = await createTe2350Module({
+                instantiateWasm: (imports, successCallback) => {
+                    this.port.postMessage({ type: 'debug', message: 'instantiateWasm callback entry' });
+                    WebAssembly.instantiate(wasmBytes, imports).then(result => {
+                        this.port.postMessage({ type: 'debug', message: 'successCallback completion' });
+                        successCallback(result.instance, result.module);
+                    }).catch(e => {
+                        this.port.postMessage({ type: 'wasm_error', message: "WebAssembly instantiation failed: " + e.message });
+                    });
+                    // We must return an empty object to indicate we are handling instantiation asynchronously
+                    return {};
                 }
             });
 
-            this.port.postMessage({ type: 'debug', message: 'Wasm module factory instantiated.' });
+            this.port.postMessage({ type: 'debug', message: 'Wasm instantiation successful.' });
+            this.port.postMessage({ type: 'status', stage: 'init', message: 'initializing DSP...' });
 
             // Call C init function
+            this.port.postMessage({ type: 'debug', message: 'Calling _wasm_te2350_init()...' });
             const initSuccess = this.wasmModule._wasm_te2350_init();
             if (!initSuccess) {
                 this.port.postMessage({ type: 'wasm_error', message: "WASM TE-2350 init returned false." });
@@ -62,13 +66,19 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             }
 
             // Allocate memory in Wasm for I/O buffers (float arrays)
+            this.port.postMessage({ type: 'debug', message: 'Allocating buffers...' });
             const bytesPerFloat = 4;
             this.inPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
             this.outLPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
             this.outRPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
 
+            if (!this.inPtr || !this.outLPtr || !this.outRPtr) {
+                throw new Error("Failed to allocate I/O buffers in Wasm memory.");
+            }
+
             this.wasmLoaded = true;
             this.port.postMessage({ type: 'ready' });
+            this.port.postMessage({ type: 'status', stage: 'init', message: 'success' });
             this.port.postMessage({ type: 'debug', message: 'Wasm loaded, buffers allocated, _wasm_te2350_init() succeeded.' });
             console.log("TE-2350 WASM module loaded and initialized.");
         } catch (e) {
@@ -78,9 +88,15 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
     }
 
     handleMessage(event) {
+        const data = event.data;
+        if (data.type === 'init_wasm') {
+            this.initWasm(data.wasmBytes);
+            return;
+        }
+
         if (!this.wasmLoaded) return;
 
-        const { param, value } = event.data;
+        const { param, value } = data;
 
         switch (param) {
             case 'bypass':
@@ -206,4 +222,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
     }
 }
 
-registerProcessor('te2350-worklet', TE2350WorkletProcessor);
+try {
+    registerProcessor('te2350-worklet', TE2350WorkletProcessor);
+    console.log("registerProcessor succeeded for te2350-worklet");
+} catch (e) {
+    console.error("registerProcessor failed:", e);
+}
