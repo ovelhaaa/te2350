@@ -21,7 +21,22 @@ const debugWorkletLoad = document.getElementById('debugWorkletLoad');
 const debugWasmInit = document.getElementById('debugWasmInit');
 const debugReadyMsg = document.getElementById('debugReadyMsg');
 const debugActiveSource = document.getElementById('debugActiveSource');
+const debugLastStage = document.getElementById('debugLastStage');
+const bootstrapLog = document.getElementById('bootstrapLog');
 const bypassMode = document.getElementById('bypassMode');
+
+function logBootstrapStage(stage, details = '') {
+    const time = new Date().toISOString().split('T')[1].slice(0, 12);
+    const msg = `[${time}] [main] ${stage} ${details}`;
+    console.log(msg);
+    if (bootstrapLog) {
+        bootstrapLog.textContent += msg + '\n';
+        bootstrapLog.scrollTop = bootstrapLog.scrollHeight;
+    }
+    if (debugLastStage) {
+        debugLastStage.textContent = stage;
+    }
+}
 
 function updateDebugUI() {
     if (audioCtx) {
@@ -76,36 +91,52 @@ async function initAudioContext() {
     updateDebugUI();
 
     try {
-        console.log("Fetching WebAssembly module...");
+        logBootstrapStage('before_fetch_wasm');
         if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'fetching...';
         const wasmUrl = new URL('te2350.wasm', window.location.href).href;
         const response = await fetch(wasmUrl);
-        if (!response.ok) throw new Error(`Failed to fetch wasm: ${response.status}`);
-        const wasmBytes = await response.arrayBuffer();
-        if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'success';
-        console.log("Wasm bytes fetched.");
+        logBootstrapStage('fetch_response', `status: ${response.status}, ok: ${response.ok}`);
 
-        console.log("Adding AudioWorklet module...");
+        if (!response.ok) throw new Error(`Failed to fetch wasm: ${response.status}`);
+
+        const wasmBytes = await response.arrayBuffer();
+        logBootstrapStage('after_arrayBuffer', `byteLength: ${wasmBytes.byteLength}`);
+
+        if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'success';
+
+        logBootstrapStage('before_add_module');
         debugWorkletLoad.textContent = 'loading...';
 
         // Pass base URL so the worklet knows exactly where to fetch te2350.js
         const workletUrl = new URL('./te2350-worklet.bundle.js', window.location.href);
 
         await audioCtx.audioWorklet.addModule(workletUrl.href);
+        logBootstrapStage('after_add_module');
         debugWorkletLoad.textContent = 'success';
-        console.log("AudioWorklet module added successfully.");
 
-        console.log("Creating AudioWorkletNode...");
+        logBootstrapStage('before_create_node');
         effectNode = new AudioWorkletNode(audioCtx, 'te2350-worklet', {
             numberOfInputs: 1,
             numberOfOutputs: 1,
             outputChannelCount: [2] // Stereo output
         });
-        console.log("AudioWorkletNode created successfully.");
+        logBootstrapStage('after_create_node');
 
         // Listen for messages from the worklet
         effectNode.port.onmessage = (event) => {
-            if (event.data.type === 'ready') {
+            const data = event.data;
+            if (data.type === 'worklet_debug') {
+                const time = new Date().toISOString().split('T')[1].slice(0, 12);
+                const msg = `[${time}] [worklet] ${data.stage} ${data.details || ''}`;
+                console.log(msg);
+                if (bootstrapLog) {
+                    bootstrapLog.textContent += msg + '\n';
+                    bootstrapLog.scrollTop = bootstrapLog.scrollHeight;
+                }
+                if (debugLastStage) {
+                    debugLastStage.textContent = data.stage;
+                }
+            } else if (data.type === 'ready') {
                 console.log("Effect node ready (Wasm initialized).");
                 debugReadyMsg.textContent = 'received';
                 debugWasmInit.textContent = 'success';
@@ -114,25 +145,27 @@ async function initAudioContext() {
                 syncAllParams();
                 // Sync bypass state
                 effectNode.port.postMessage({ param: 'bypass', value: bypassMode.checked });
-            } else if (event.data.type === 'wasm_error') {
-                console.error("Worklet reported Wasm error:", event.data.message);
+            } else if (data.type === 'wasm_error') {
+                console.error("Worklet reported Wasm error:", data.message);
                 debugWasmInit.textContent = 'failed';
                 if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'failed';
-            } else if (event.data.type === 'debug') {
-                console.log("[Worklet Debug]", event.data.message);
-            } else if (event.data.type === 'status') {
-                console.log("[Worklet Status]", event.data.message);
-                if (event.data.stage === 'fetch' && typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = event.data.message;
-                else if (event.data.stage === 'init') debugWasmInit.textContent = event.data.message;
+            } else if (data.type === 'debug') {
+                console.log("[Worklet Debug]", data.message);
+            } else if (data.type === 'status') {
+                console.log("[Worklet Status]", data.message);
+                if (data.stage === 'fetch' && typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = data.message;
+                else if (data.stage === 'init') debugWasmInit.textContent = data.message;
             }
         };
 
-        console.log("Sending Wasm bytes to worklet...");
+        logBootstrapStage('before_postMessage', `init_wasm, bytes: ${wasmBytes.byteLength}`);
         effectNode.port.postMessage({ type: 'init_wasm', wasmBytes: wasmBytes });
+        logBootstrapStage('after_postMessage', 'init_wasm sent');
 
         effectNode.connect(audioCtx.destination);
         console.log("AudioWorkletNode connected to destination.");
     } catch (err) {
+        logBootstrapStage('init_error', `err: ${String(err)}`);
         console.error("Failed to initialize AudioWorklet:", err);
         debugWorkletLoad.textContent = 'failed';
     }

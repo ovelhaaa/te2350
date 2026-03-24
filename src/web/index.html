@@ -38,12 +38,17 @@
             <li><strong>Wasm Init:</strong> <span id="debugWasmInit">pending...</span></li>
             <li><strong>Ready MSG:</strong> <span id="debugReadyMsg">waiting...</span></li>
             <li><strong>Source:</strong> <span id="debugActiveSource">none</span></li>
+            <li><strong style="color: #03a9f4;">Last Stage:</strong> <span id="debugLastStage" style="color: #03a9f4; font-weight: bold;">none</span></li>
         </ul>
         <div style="margin-top: 15px;">
             <label style="width: auto; margin-right: 10px;">
                 <input type="checkbox" id="bypassMode">
                 <strong style="color: #ff9800;">Diagnostic Bypass DSP (Copy In -> Out)</strong>
             </label>
+        </div>
+        <div style="margin-top: 15px;">
+            <h4 style="margin: 0 0 5px 0; color: #bbb;">Bootstrap Log</h4>
+            <pre id="bootstrapLog" style="background: #111; padding: 10px; border-radius: 4px; font-size: 0.8em; overflow-x: auto; max-height: 150px; overflow-y: auto; color: #0f0; margin: 0;"></pre>
         </div>
     </div>
 
