@@ -202,6 +202,12 @@ async function startMic() {
             await initAudioContext();
         }
 
+        if (!effectNode) {
+            console.error('Cannot start microphone: effectNode is not created.');
+            alert('Cannot start microphone: AudioWorklet initialization failed. Please check the console.');
+            return;
+        }
+
         // Get Microphone
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         micSource = audioCtx.createMediaStreamSource(micStream);
