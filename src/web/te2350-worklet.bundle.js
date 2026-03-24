@@ -27,27 +27,25 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
     async initWasm(wasmBytes) {
         try {
+            this.port.postMessage({ type: 'worklet_debug', stage: 'init_wasm_start', details: `bytes: ${wasmBytes?.byteLength || 0}` });
             this.port.postMessage({ type: 'status', stage: 'init', message: 'pending...' });
-            this.port.postMessage({ type: 'debug', message: 'Entering lazy init in bundled worklet...' });
 
             if (typeof createTe2350Module !== 'function') {
                 const keys = typeof globalThis !== 'undefined' ? Object.keys(globalThis).filter(k => k.toLowerCase().includes('create') || k.toLowerCase().includes('module') || k.toLowerCase().includes('te2350')) : [];
                 throw new Error(`Wrapper bundled but no factory symbol found (expected createTe2350Module). Found globals: ${keys.join(', ')}`);
             }
 
-            this.port.postMessage({ type: 'debug', message: `typeof createTe2350Module: ${typeof createTe2350Module}` });
-            this.port.postMessage({ type: 'debug', message: `Instantiating Wasm from provided ArrayBuffer (${wasmBytes.byteLength} bytes)...` });
+            this.port.postMessage({ type: 'worklet_debug', stage: 'before_create_module' });
             this.port.postMessage({ type: 'status', stage: 'init', message: 'instantiating custom wasm...' });
-
-            this.port.postMessage({ type: 'debug', message: 'Before createTe2350Module(...)' });
 
             this.wasmModule = await createTe2350Module({
                 instantiateWasm: (imports, successCallback) => {
-                    this.port.postMessage({ type: 'debug', message: 'instantiateWasm callback entry' });
+                    this.port.postMessage({ type: 'worklet_debug', stage: 'instantiateWasm_enter' });
                     WebAssembly.instantiate(wasmBytes, imports).then(result => {
-                        this.port.postMessage({ type: 'debug', message: 'successCallback completion' });
+                        this.port.postMessage({ type: 'worklet_debug', stage: 'instantiateWasm_done' });
                         successCallback(result.instance, result.module);
                     }).catch(e => {
+                        this.port.postMessage({ type: 'worklet_debug', stage: 'instantiateWasm_error', details: String(e) });
                         this.port.postMessage({ type: 'wasm_error', message: "WebAssembly instantiation failed: " + e.message });
                     });
                     // We must return an empty object to indicate we are handling instantiation asynchronously
@@ -55,11 +53,10 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
                 }
             });
 
-            this.port.postMessage({ type: 'debug', message: 'Wasm instantiation successful.' });
+            this.port.postMessage({ type: 'worklet_debug', stage: 'module_created' });
             this.port.postMessage({ type: 'status', stage: 'init', message: 'initializing DSP...' });
 
             // Call C init function
-            this.port.postMessage({ type: 'debug', message: 'Calling _wasm_te2350_init()...' });
             const initSuccess = this.wasmModule._wasm_te2350_init();
             if (!initSuccess) {
                 this.port.postMessage({ type: 'wasm_error', message: "WASM TE-2350 init returned false." });
@@ -68,7 +65,6 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             }
 
             // Allocate memory in Wasm for I/O buffers (float arrays)
-            this.port.postMessage({ type: 'debug', message: 'Allocating buffers...' });
             const bytesPerFloat = 4;
             this.inPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
             this.outLPtr = this.wasmModule._malloc(this.blockSize * bytesPerFloat);
@@ -80,17 +76,24 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
             this.wasmLoaded = true;
             this.port.postMessage({ type: 'ready' });
+            this.port.postMessage({ type: 'worklet_debug', stage: 'ready_sent' });
             this.port.postMessage({ type: 'status', stage: 'init', message: 'success' });
-            this.port.postMessage({ type: 'debug', message: 'Wasm loaded, buffers allocated, _wasm_te2350_init() succeeded.' });
             console.log("TE-2350 WASM module loaded and initialized.");
         } catch (e) {
             console.error("Error initializing WASM module:", e);
+            this.port.postMessage({
+                type: 'worklet_debug',
+                stage: 'init_wasm_error',
+                details: `err: ${String(e)}, stack: ${e?.stack || ''}`
+            });
             this.port.postMessage({ type: 'wasm_error', message: e.toString() });
         }
     }
 
     handleMessage(event) {
         const data = event.data;
+        this.port.postMessage({ type: 'worklet_debug', stage: 'message_received', details: `msgType: ${data?.type || data?.param || 'unknown'}` });
+
         if (data.type === 'init_wasm') {
             this.initWasm(data.wasmBytes);
             return;
