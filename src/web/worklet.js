@@ -41,6 +41,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
                     this.port.postMessage({ type: 'worklet_debug', stage: 'instantiateWasm_enter' });
                     WebAssembly.instantiate(wasmBytes, imports).then(result => {
                         this.port.postMessage({ type: 'worklet_debug', stage: 'instantiateWasm_done' });
+                        this.wasmInstance = result.instance;
                         successCallback(result.instance, result.module);
                     }).catch(e => {
                         this.port.postMessage({ type: 'worklet_debug', stage: 'instantiateWasm_error', details: String(e) });
@@ -71,6 +72,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             if (!this.inPtr || !this.outLPtr || !this.outRPtr) {
                 throw new Error("Failed to allocate I/O buffers in Wasm memory.");
             }
+
+            // Cache the WebAssembly.Memory instance to avoid GC allocations in the process loop
+            this.wasmMemory = Object.values(this.wasmInstance.exports).find(x => x instanceof WebAssembly.Memory);
 
             this.wasmLoaded = true;
             this.port.postMessage({ type: 'ready' });
@@ -165,9 +169,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         }
 
         // Recreate views to easily write/read and avoid detached buffer errors if Wasm memory grew
-        const inView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.inPtr, numSamples);
-        const outLView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.outLPtr, numSamples);
-        const outRView = new Float32Array(this.wasmModule.HEAPF32.buffer, this.outRPtr, numSamples);
+        const inView = new Float32Array(this.wasmMemory.buffer, this.inPtr, numSamples);
+        const outLView = new Float32Array(this.wasmMemory.buffer, this.outLPtr, numSamples);
+        const outRView = new Float32Array(this.wasmMemory.buffer, this.outRPtr, numSamples);
 
         // Copy input to Wasm memory (convert stereo to mono sum if needed, but we'll just take L for now)
         let hasInputSignal = false;
