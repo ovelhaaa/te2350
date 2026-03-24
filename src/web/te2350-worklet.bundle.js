@@ -10,13 +10,6 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         this.wasmLoaded = false;
         this.bypassMode = false;
 
-        // Ensure memory pointers and instances are explicitly null/0
-        this.wasmInstance = null;
-        this.wasmMemory = null;
-        this.inPtr = 0;
-        this.outLPtr = 0;
-        this.outRPtr = 0;
-
         // Debugging state
         this.logCounter = 0;
         this.hasLoggedWasmInit = false;
