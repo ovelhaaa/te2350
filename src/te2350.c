@@ -51,8 +51,8 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes) {
 
   // Modulation
   dsp_rand_walk_init(&ctx->modulator, 12345, FLOAT_TO_Q31(0.0001f));
-  // Smoother envelope: Attack 0.01 -> 0.005 to reduce "thump"
-  dsp_env_init(&ctx->envelope, FLOAT_TO_Q31(0.005f), FLOAT_TO_Q31(0.001f));
+  // Envelope for ducking: Faster attack, slower release for pumping effect
+  dsp_env_init(&ctx->envelope, FLOAT_TO_Q31(0.05f), FLOAT_TO_Q31(0.0005f));
   
   // Init feedback LP filter (~1kHz @ 48kHz) - Slightly darker
   dsp_onepole_init(&ctx->fb_lp, FLOAT_TO_Q31(0.12f));
@@ -110,18 +110,27 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   }
 
   // 3. Modulation Update with Chaos
-  q31_t rnd = dsp_rand_walk_process(&ctx->modulator);
-  
-  // Apply chaos: increase random walk step size based on p_chaos
-  q31_t chaos_step = q31_mul(FLOAT_TO_Q31(0.01f), ctx->p_chaos);
-  chaos_step = q31_add_sat(FLOAT_TO_Q31(0.001f), chaos_step);  // Base + chaos
-  dsp_rand_walk_set_step(&ctx->modulator, chaos_step);
+  // Make base step proportional to p_rate (so it controls speed).
+  // p_chaos controls random variation of the step size, rather than over-writing it.
+  q31_t base_step = (ctx->p_rate >> 6);
+  if (base_step < FLOAT_TO_Q31(0.0001f)) base_step = FLOAT_TO_Q31(0.0001f);
 
-  // INCREASED modulation scale for deeper effect (was 0x00F00000 = ~240 samples = 5ms)
-  // Now: 0x03000000 = ~6000 samples = ~125ms @ 48kHz for true Tera Echo character
+  // Add some chaotic jitter to the step size
+  // Random multiplier between 1.0 and (1.0 + chaos)
+  static uint32_t chaos_seed = 98765;
+  chaos_seed = chaos_seed * 1664525 + 1013904223;
+  q31_t random_chaos_factor = (q31_t)(chaos_seed >> 1); // 0..MAX
+  q31_t chaos_mod = q31_mul(random_chaos_factor, ctx->p_chaos); // 0..p_chaos
+  
+  q31_t current_step = q31_add_sat(base_step, q31_mul(base_step, chaos_mod));
+  dsp_rand_walk_set_step(&ctx->modulator, current_step);
+
+  q31_t rnd = dsp_rand_walk_process(&ctx->modulator);
+
+  // Apply user depth
   q31_t mod_scale_factor = 0x03000000; // ~125ms max swing
   q31_t mod_val = q31_mul(rnd, mod_scale_factor);
-  mod_val = q31_mul(mod_val, ctx->p_depth); // Apply user depth
+  mod_val = q31_mul(mod_val, ctx->p_depth);
   
   // 4. Freeze Mode Processing
   // Crossfade between normal and frozen states
@@ -167,17 +176,26 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   loop_in = q31_add_sat(loop_in, multi_tap); // Inject taps into diffusion chain
 
   // 6. Diffusion (Modulated Allpasses) - BOSS STYLE
-  // Allpass gains FIXOS (não modulados por envelope)
-  // Damping interno já está implementado no dsp_allpass_process
+  // Diffusion parameter dynamically scales allpass gains and modulation depths
+  // Lower diffusion = distinct articulated echoes
+  // High diffusion = dense ambient cloud
   
-  // Ganhos fixos Boss-style (Levemente reduzidos para evitar clipping)
-  ctx->ap1.gain = FLOAT_TO_Q31(0.55f);
-  ctx->ap2.gain = FLOAT_TO_Q31(0.5f);
-  ctx->ap3.gain = FLOAT_TO_Q31(0.4f);
-  ctx->ap4.gain = FLOAT_TO_Q31(0.4f); // New stage gain
+  // Base fixed gains (scaled by p_diffusion)
+  q31_t diff_gain_ap1 = q31_mul(FLOAT_TO_Q31(0.55f), ctx->p_diffusion);
+  q31_t diff_gain_ap2 = q31_mul(FLOAT_TO_Q31(0.50f), ctx->p_diffusion);
+  q31_t diff_gain_ap3 = q31_mul(FLOAT_TO_Q31(0.40f), ctx->p_diffusion);
+  q31_t diff_gain_ap4 = q31_mul(FLOAT_TO_Q31(0.40f), ctx->p_diffusion);
+
+  ctx->ap1.gain = diff_gain_ap1;
+  ctx->ap2.gain = diff_gain_ap2;
+  ctx->ap3.gain = diff_gain_ap3;
+  ctx->ap4.gain = diff_gain_ap4;
+
+  // Modulate diffusion allpass sizes slightly less if diffusion is low
+  q31_t diff_mod_val = q31_mul(mod_val, ctx->p_diffusion);
 
   // --- AP1 Modulation ---
-  int32_t temp_d1 = ((int32_t)(TE_AP1_SIZE / 2) << 16) + mod_val;
+  int32_t temp_d1 = ((int32_t)(TE_AP1_SIZE / 2) << 16) + diff_mod_val;
   if (temp_d1 < 0x10000)
     temp_d1 = 0x10000;
   if (temp_d1 > ((TE_AP1_SIZE - 2) << 16))
@@ -185,7 +203,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q16_16_t ap1_d = (q16_16_t)temp_d1;
 
   // --- AP2 Modulation (Inverse for decorrelation) ---
-  int32_t temp_d2 = ((int32_t)(TE_AP2_SIZE / 2) << 16) - mod_val;
+  int32_t temp_d2 = ((int32_t)(TE_AP2_SIZE / 2) << 16) - diff_mod_val;
   if (temp_d2 < 0x10000)
     temp_d2 = 0x10000;
   if (temp_d2 > ((TE_AP2_SIZE - 2) << 16))
@@ -197,7 +215,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   
   // --- AP4 Modulation (Slower/Decorrelated) ---
   // Simple fixed modulation offset for now or reused mod
-  int32_t temp_d4 = ((int32_t)(TE_AP4_SIZE / 2) << 16) + (mod_val >> 1);
+  int32_t temp_d4 = ((int32_t)(TE_AP4_SIZE / 2) << 16) + (diff_mod_val >> 1);
   if (temp_d4 < 0x10000) temp_d4 = 0x10000;
   if (temp_d4 > ((TE_AP4_SIZE - 2) << 16)) temp_d4 = ((TE_AP4_SIZE - 2) << 16);
   q31_t stage3 = dsp_allpass_process(&ctx->ap4, stage2, (q16_16_t)temp_d4);
@@ -215,9 +233,11 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   if (d_samp_int < MIN_DELAY_SAMPLES)
     d_samp_int = MIN_DELAY_SAMPLES;
   
-  // Add modulation to main delay - REDUZIDO para remover chorus audível
-  // Boss Tera Echo: ±40 samples (~0.8ms) em vez de ±200 samples
-  int32_t main_delay_mod = (int32_t)(((int64_t)mod_val * 40) >> 31); // ±40 samples
+  // Add modulation to main delay
+  // Base mod is subtle (±40 samples), but wobble parameter increases this significantly
+  // This gives wobble a clearly audible tape wow/flutter effect
+  int32_t wobble_mod_samples = 40 + (int32_t)(((int64_t)ctx->p_wobble * 200) >> 31);
+  int32_t main_delay_mod = (int32_t)(((int64_t)mod_val * wobble_mod_samples) >> 31);
   int32_t d_samp_modulated = d_samp_int + main_delay_mod;
   if (d_samp_modulated < MIN_DELAY_SAMPLES)
     d_samp_modulated = MIN_DELAY_SAMPLES;
@@ -263,23 +283,32 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
       // Apply Saturation (Gentle)
       q31_t fb_sat = dsp_soft_saturate_gentle(filter_out);
       
-      // Apply Pitch Smear (if enabled)
+      // Apply Pitch Smear (Continuous control via p_shimmer)
       q31_t fb_with_smear = fb_sat;
-      if (ctx->p_shimmer > FLOAT_TO_Q31(0.3f)) { 
-        q31_t smear_amount = q31_mul(rnd, FLOAT_TO_Q31(0.0017f)); 
+      if (ctx->p_shimmer > 0) {
+        // Smear amount scaled by shimmer
+        q31_t smear_amount = q31_mul(rnd, q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.005f)));
         q31_t pitched_fb = dsp_pitch_process(&ctx->pitch_shifter, fb_sat, smear_amount);
-        fb_with_smear = q31_add_sat(q31_mul(fb_sat, FLOAT_TO_Q31(0.95f)),
-                                     q31_mul(pitched_fb, FLOAT_TO_Q31(0.05f)));
+
+        // Crossfade between unshifted and shifted feedback using p_shimmer
+        // Map p_shimmer (0..1) to mix (0..0.4 max pitched contribution to prevent chaos)
+        q31_t pitch_mix = q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.4f));
+        q31_t dry_mix = q31_sub_sat(Q31_MAX, pitch_mix);
+
+        fb_with_smear = q31_add_sat(q31_mul(fb_sat, dry_mix),
+                                    q31_mul(pitched_fb, pitch_mix));
       }
       fb_processed = fb_with_smear;
       
-      // Apply Wobble and Feedback Amount
+      // Apply Wobble to Feedback Amount
+      // Give wobble a stronger effect on feedback instability
       q31_t fb_wobble = q31_mul(rnd, ctx->p_wobble);
-      fb_wobble = q31_mul(fb_wobble, FLOAT_TO_Q31(0.15f));
+      fb_wobble = q31_mul(fb_wobble, FLOAT_TO_Q31(0.25f));
       q31_t mod_fb = q31_add_sat(effective_feedback, fb_wobble);
       
-      // Clamp
-      if (mod_fb > FLOAT_TO_Q31(0.98f)) mod_fb = FLOAT_TO_Q31(0.98f);
+      // Clamp - INCREASED MAX FEEDBACK to allow near-oscillation
+      // 0.99f or slightly higher gives beautiful infinite wash, but keep under 1.0 to stay somewhat sane
+      if (mod_fb > FLOAT_TO_Q31(0.995f)) mod_fb = FLOAT_TO_Q31(0.995f);
       if (mod_fb < 0) mod_fb = 0;
       
       feedback_gain_final = mod_fb;
@@ -296,16 +325,34 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // Isso dá movimento sem "chorus audível" no caminho direto
   
   // 11. Envelope Ducking
+  // 11. Envelope Ducking
   // Reduce wet signal when input is strong
+  // Always run the envelope so it tracks correctly
+  q31_t env_level = dsp_env_process(&ctx->envelope, q31_abs(dry));
+
   if (ctx->p_ducking > 0) {
-    q31_t env_level = dsp_env_process(&ctx->envelope, q31_abs(dry));
+    // We want stronger ducking effect.
+    // Amplify the envelope so it hits maximum ducking easier (approx 12dB boost / x4)
+    // Shift left by 2 to multiply by 4. Use saturate to avoid overflow wrap-around.
+    q31_t amp_env;
+    if (env_level > (Q31_MAX >> 2)) {
+      amp_env = Q31_MAX;
+    } else {
+      amp_env = env_level << 2;
+    }
     
     // Invert envelope: more input = less wet
-    q31_t duck_amount = q31_sub_sat(Q31_MAX, env_level);
-    duck_amount = q31_mul(duck_amount, ctx->p_ducking);  // Scale by ducking parameter
-    duck_amount = q31_add_sat(duck_amount, q31_sub_sat(Q31_MAX, ctx->p_ducking));  // Ensure minimum
+    q31_t duck_amount = q31_sub_sat(Q31_MAX, amp_env);
     
-    wet = q31_mul(wet, duck_amount);
+    // Scale ducking effect by parameter.
+    // If ducking is 1.0, duck_amount goes to 0 on loud inputs.
+    // The final gain is 1.0 - (duck_amount_reduction)
+    q31_t reduction = q31_sub_sat(Q31_MAX, duck_amount);
+    reduction = q31_mul(reduction, ctx->p_ducking);
+
+    q31_t final_duck_gain = q31_sub_sat(Q31_MAX, reduction);
+
+    wet = q31_mul(wet, final_duck_gain);
   }
 
   // 12. Output Mixing & Decorrelation
@@ -320,6 +367,15 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   *out_r = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet_r, wet_gain));
 }
 
+// --- Getters ---
+q31_t te2350_get_envelope(te2350_t *ctx) {
+  return ctx->envelope.envelope;
+}
+
+q31_t te2350_get_modulator(te2350_t *ctx) {
+  return ctx->modulator.current_value;
+}
+
 // --- Parameter Setters ---
 void te2350_set_feedback(te2350_t *ctx, q31_t feedback) {
   ctx->p_feedback = feedback;
@@ -332,32 +388,34 @@ void te2350_set_time(te2350_t *ctx, q31_t time) {
 
 void te2350_set_mod(te2350_t *ctx, q31_t rate, q31_t depth) {
   ctx->p_rate = rate;
-  // Map rate 0..1 to step size
-  q31_t step = rate >> 8;
-  dsp_rand_walk_set_step(&ctx->modulator, step);
   ctx->p_depth = depth;
+  // Step size is now dynamically calculated in process loop based on rate and chaos
 }
 
 void te2350_set_tone(te2350_t *ctx, q31_t tone) {
   ctx->p_tone = tone;
   
   // One-Pole Filter Coefficients
-  // Range 0..0.45: Lowpass (Dark -> Open)
-  // Range 0.55..1: Highpass (Open -> Thin)
+  // Increased range for darker lows and thinner highs
+  // Range 0..0.45: Lowpass (Very Dark -> Open)
+  // Range 0.55..1: Highpass (Open -> Very Thin)
   
   if (tone < FLOAT_TO_Q31(0.45f)) {
-      // Lowpass: Coeff 0.02 (Dark) to 0.5 (Open)
-      // tone (0..0.45) * 1.1 = (0..0.5)
-      q31_t c = q31_mul(tone, FLOAT_TO_Q31(1.1f)); 
-      c = q31_add_sat(c, FLOAT_TO_Q31(0.02f));
+      // Lowpass: Coeff 0.005 (Very Dark) to 0.5 (Open)
+      // tone is 0..0.45. We want to map it to roughly 0..0.5.
+      // tone * 1.11 ~ tone + (tone >> 3)
+      q31_t c = q31_add_sat(tone, tone >> 3);
+      c = q31_add_sat(c, FLOAT_TO_Q31(0.005f));
       if (c > FLOAT_TO_Q31(0.5f)) c = FLOAT_TO_Q31(0.5f);
       ctx->fb_lp.coeff = c;
   } else if (tone > FLOAT_TO_Q31(0.55f)) {
-      // Highpass: Coeff 0.02 (Open) to 0.4 (Thin)
+      // Highpass: Coeff 0.02 (Open) to 0.7 (Very Thin)
+      // t is 0..0.45. We want to map it to roughly 0..0.68.
+      // t * 1.5 ~ t + (t >> 1)
       q31_t t = q31_sub_sat(tone, FLOAT_TO_Q31(0.55f));
-      q31_t c = q31_mul(t, FLOAT_TO_Q31(0.9f));
+      q31_t c = q31_add_sat(t, t >> 1); // Steeper curve (x1.5)
       c = q31_add_sat(c, FLOAT_TO_Q31(0.02f));
-      if (c > FLOAT_TO_Q31(0.4f)) c = FLOAT_TO_Q31(0.4f);
+      if (c > FLOAT_TO_Q31(0.7f)) c = FLOAT_TO_Q31(0.7f);
       ctx->fb_lp.coeff = c;
   } else {
       // Neutral: LP Open (0.5)

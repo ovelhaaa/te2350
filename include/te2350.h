@@ -100,6 +100,10 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t size);
  */
 void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r);
 
+// Getters
+q31_t te2350_get_envelope(te2350_t *ctx);
+q31_t te2350_get_modulator(te2350_t *ctx);
+
 // Parameter Setters
 void te2350_set_feedback(te2350_t *ctx, q31_t feedback); // 0..~0.95
 void te2350_set_time(te2350_t *ctx, q31_t time);         // 0..1
