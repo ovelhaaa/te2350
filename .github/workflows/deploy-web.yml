@@ -42,7 +42,7 @@ jobs:
           mkdir site
           cp src/web/index.html site/
           cp src/web/main.js site/
-          cp src/web/worklet.js site/
+          cp src/web/te2350-worklet.bundle.js site/
           cp src/web/te2350.js site/
           cp src/web/te2350.wasm site/
           touch site/.nojekyll
