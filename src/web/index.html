@@ -1,142 +1,697 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TE-2350 "Antigravity" Web Port</title>
-    <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; background: #1a1a1a; color: #eee; }
-        .control-group { margin-bottom: 20px; background: #2a2a2a; padding: 15px; border-radius: 8px; }
-        label { display: inline-block; width: 100px; font-weight: bold; }
-        input[type="range"] { width: 300px; vertical-align: middle; }
-        span.val { display: inline-block; width: 40px; text-align: right; }
-        button { padding: 10px 20px; font-size: 16px; margin-bottom: 20px; cursor: pointer; background: #4caf50; border: none; color: white; border-radius: 4px; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        #warning { color: #ff9800; font-weight: bold; margin-bottom: 20px; display: none; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TE-2350 Antigravity Web Port</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── TOKENS ─────────────────────────────────────────────────────── */
+    :root {
+      --bg:        #0d0f0e;
+      --panel:     #131716;
+      --raised:    #1a1e1c;
+      --border:    #2a302d;
+      --accent:    #00e5a0;
+      --accent2:   #ff6b35;
+      --muted:     #3a4540;
+      --text:      #c8d4cf;
+      --text-dim:  #5a6b64;
+      --red:       #ff3a3a;
+      --mono:      'Share Tech Mono', monospace;
+      --sans:      'Barlow Condensed', sans-serif;
+      --r:         4px;
+    }
+
+    /* ── RESET ───────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 16px; }
+    body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 24px 16px 48px; }
+
+    /* ── HEADER ──────────────────────────────────────────────────────── */
+    header {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-block {}
+    .logo-model {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    h1 {
+      font-family: var(--sans);
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #e8f0ec;
+      line-height: 1;
+    }
+    h1 span { color: var(--accent); }
+    .logo-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      margin-top: 5px;
+      font-weight: 300;
+    }
+    .sr-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      text-align: right;
+      line-height: 1.7;
+    }
+    .sr-badge .val {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    /* ── LAYOUT ──────────────────────────────────────────────────────── */
+    .main-grid {
+      width: 100%;
+      max-width: 900px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    /* ── CARD ────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 20px;
+    }
+    .card-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── STATUS PANEL ────────────────────────────────────────────────── */
+    .status-panel {
+      grid-column: 1;
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .status-rows {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 6px;
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      background: var(--raised);
+      border-radius: var(--r);
+      border: 1px solid var(--border);
+    }
+    .status-key {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+    }
+    .status-val {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text);
+    }
+    .status-val.ok   { color: var(--accent); }
+    .status-val.bad  { color: var(--red); }
+    .status-val.wait { color: var(--accent2); }
+    .status-val.dim  { color: var(--text-dim); }
+
+    /* ── LOG FOOTER ──────────────────────────────────────────────────── */
+    .log-footer {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 16px;
+    }
+
+    /* ── LOG ─────────────────────────────────────────────────────────── */
+    #bootstrapLog {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      line-height: 1.7;
+      overflow-y: auto;
+      max-height: 120px;
+      background: #090b0a;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin: 0;
+    }
+    #bootstrapLog .entry { color: var(--text-dim); }
+    #bootstrapLog .entry.ok  { color: var(--accent); }
+    #bootstrapLog .entry.err { color: var(--red); }
+
+    /* ── TRANSPORT ───────────────────────────────────────────────────── */
+    .transport { }
+    .transport-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 10px 20px;
+      border-radius: var(--r);
+      border: 1px solid var(--border);
+      background: var(--raised);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+      position: relative;
+    }
+    .btn:hover:not(:disabled) { background: var(--muted); border-color: var(--accent); color: #fff; }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled {
+      background: #111;
+      color: #333;
+      border-color: #222;
+      cursor: not-allowed;
+    }
+    .btn.primary {
+      background: var(--accent);
+      color: #0d0f0e;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+    .btn.primary:hover:not(:disabled) { background: #00ffb4; }
+    .btn.danger { border-color: var(--red); }
+    .btn.danger:hover:not(:disabled) { background: var(--red); color: #fff; }
+    .btn.toggle-active {
+      background: var(--accent2);
+      color: #0d0f0e;
+      border-color: var(--accent2);
+    }
+
+    /* ── SLIDERS ─────────────────────────────────────────────────────── */
+    .sliders-grid {
+    }
+    .knobs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    /* individual knob card */
+    .knob-cell {
+      background: var(--raised);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.15s;
+    }
+    .knob-cell:focus-within { border-color: var(--accent); }
+
+    .knob-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .knob-name {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .knob-value {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    /* arc meter behind slider */
+    .knob-arc {
+      position: relative;
+      height: 4px;
+      background: var(--muted);
+      border-radius: 2px;
+      overflow: visible;
+    }
+    .knob-arc-fill {
+      position: absolute;
+      left: 0; top: 0;
+      height: 4px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent), #00ffb4);
+      width: 50%;
+      transition: width 0.05s;
+    }
+
+    /* custom range input */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 20px;
+      background: transparent;
+      cursor: pointer;
+      margin: 0;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 2px;
+      background: var(--muted);
+      border-radius: 1px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #0d0f0e;
+      margin-top: -6px;
+      box-shadow: 0 0 6px rgba(0,229,160,0.4);
+      transition: box-shadow 0.1s, background 0.1s;
+    }
+    input[type="range"]:hover::-webkit-slider-thumb {
+      box-shadow: 0 0 12px rgba(0,229,160,0.7);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 2px;
+      background: var(--muted);
+      border-radius: 1px;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #0d0f0e;
+    }
+
+    /* toggles */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--raised);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: border-color 0.15s;
+      margin: 0;
+      user-select: none;
+    }
+    .toggle-row:hover { border-color: var(--accent2); }
+
+    .toggle-row input[type="checkbox"] {
+      display: none;
+    }
+
+    .toggle-row:has(input[type="checkbox"]:checked) {
+      background: rgba(255,107,53,0.12);
+      border-color: var(--accent2);
+    }
+
+    .toggle-label {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .toggle-row:has(input[type="checkbox"]:checked) .toggle-label { color: var(--accent2); }
+
+    .toggle-pip {
+      width: 32px;
+      height: 16px;
+      border-radius: 8px;
+      background: var(--muted);
+      position: relative;
+      transition: background 0.2s;
+    }
+    .toggle-pip::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle-row:has(input[type="checkbox"]:checked) .toggle-pip { background: var(--accent2); }
+    .toggle-row:has(input[type="checkbox"]:checked) .toggle-pip::after {
+      transform: translateX(16px);
+      background: #fff;
+    }
+
+    /* bypass toggle specific styling */
+    .bypass-row {
+      padding: 8px 14px;
+    }
+    .bypass-row:hover { border-color: var(--red); }
+    .bypass-row:has(input[type="checkbox"]:checked) {
+      background: rgba(255,58,58,0.10);
+      border-color: var(--red);
+    }
+    .bypass-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .bypass-row:has(input[type="checkbox"]:checked) .bypass-label { color: var(--red); }
+    .bypass-row:has(input[type="checkbox"]:checked) .toggle-pip { background: var(--red); }
+
+    /* note */
+    #warning {
+      color: var(--accent2);
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      display: none;
+      background: rgba(255, 107, 53, 0.1);
+      padding: 10px;
+      border: 1px solid var(--accent2);
+      border-radius: var(--r);
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 2px; }
+
+    /* ── VU meter ─────────────────────────────────────────────────────── */
+    .vu-strip {
+      display: flex;
+      gap: 3px;
+      align-items: flex-end;
+      height: 24px;
+    }
+    .vu-bar {
+      width: 6px;
+      border-radius: 1px;
+      background: var(--muted);
+      animation: vu-pulse 1.2s ease-in-out infinite;
+      animation-play-state: paused;
+    }
+    .vu-bar.active { animation-play-state: running; }
+    @keyframes vu-pulse {
+      0%,100% { opacity: 0.3; }
+      50%      { opacity: 1; }
+    }
+
+    /* responsive */
+    @media (max-width: 680px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .status-panel { grid-column: 1; grid-row: auto; }
+      .transport   { grid-column: 1; grid-row: auto; }
+      .sliders-grid { grid-column: 1; grid-row: auto; }
+    }
+  </style>
 </head>
 <body>
 
-    <h1>TE-2350 "Antigravity" Web Port</h1>
-    <p>WebAssembly + AudioWorklet port of the RP2040 DSP core.</p>
-
-
-    <div id="warning"></div>
-    <div style="background: #333; padding: 10px; border-radius: 4px; font-size: 0.9em; margin-bottom: 20px;">
-        <strong>Note on Sample Rate:</strong> The DSP core is hardcoded to 48 kHz to match the original RP2040 hardware.
-        If your browser runs AudioContext at a different sample rate, the pitch, delay times, and filter responses will be scaled proportionally.
+  <!-- ── HEADER ──────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo-block">
+      <div class="logo-model">RP2350 · WebAssembly Port</div>
+      <h1>TE-2350 <span>Antigravity</span></h1>
+      <div class="logo-sub">WebAssembly + AudioWorklet DSP Engine</div>
     </div>
+    <div class="sr-badge">
+      <div>AudioContext</div>
+      <div class="val" id="debugCtxState">uninitialized</div>
+      <div style="margin-top:4px">Sample Rate</div>
+      <div class="val" id="debugSampleRate">—</div>
+    </div>
+  </header>
 
-    <!-- Debug Panel -->
-    <div class="control-group" style="background: #3a2a2a; border: 1px solid #ff9800;">
-        <h3 style="margin-top: 0; color: #ff9800;">Debug & Status</h3>
-        <ul style="list-style-type: none; padding: 0; margin: 0; font-size: 0.9em; line-height: 1.5;">
-            <li><strong>AudioContext:</strong> <span id="debugCtxState">uninitialized</span></li>
-            <li><strong>Sample Rate:</strong> <span id="debugSampleRate">unknown</span></li>
-            <li><strong>Worklet Module:</strong> <span id="debugWorkletLoad">pending...</span></li>
-            <li><strong>Wasm Fetch:</strong> <span id="debugWasmFetch">pending...</span></li>
-            <li><strong>Wasm Init:</strong> <span id="debugWasmInit">pending...</span></li>
-            <li><strong>Ready MSG:</strong> <span id="debugReadyMsg">waiting...</span></li>
-            <li><strong>Source:</strong> <span id="debugActiveSource">none</span></li>
-            <li><strong style="color: #03a9f4;">Last Stage:</strong> <span id="debugLastStage" style="color: #03a9f4; font-weight: bold;">none</span></li>
-        </ul>
-        <div style="margin-top: 15px;">
-            <label style="width: auto; margin-right: 10px;">
-                <input type="checkbox" id="bypassMode">
-                <strong style="color: #ff9800;">Diagnostic Bypass DSP (Copy In -> Out)</strong>
-            </label>
+  <div id="warning"></div>
+
+  <!-- ── MAIN GRID ────────────────────────────────────────────────── -->
+  <div class="main-grid">
+
+    <!-- ── RIGHT TOP: transport ── -->
+    <div class="card transport">
+      <div class="card-label">Transport</div>
+      <div class="transport-buttons">
+        <button class="btn primary" id="startBtn">▶ Start Audio (Mic)</button>
+        <button class="btn"         id="btn-file">⊕ Play File</button>
+        <button class="btn danger"  id="stopBtn" disabled>■ Stop Source</button>
+        <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+        <!-- Play File original real button mapped in main.js will be kept functional via JS mapping, but here's the hidden original one just in case we need it to be in DOM for some reason, though we update JS to hook btn-file -->
+        <button id="playFileBtn" style="display: none;">Play File Hidden</button>
+        <div style="flex:1"></div>
+        <div class="vu-strip" id="vu">
+          <div class="vu-bar" style="height:8px;  animation-delay:.0s"></div>
+          <div class="vu-bar" style="height:14px; animation-delay:.15s"></div>
+          <div class="vu-bar" style="height:20px; animation-delay:.30s"></div>
+          <div class="vu-bar" style="height:16px; animation-delay:.45s"></div>
+          <div class="vu-bar" style="height:10px; animation-delay:.60s"></div>
+          <div class="vu-bar" style="height:18px; animation-delay:.75s"></div>
+          <div class="vu-bar" style="height:12px; animation-delay:.90s"></div>
         </div>
-        <div style="margin-top: 15px;">
-            <h4 style="margin: 0 0 5px 0; color: #bbb;">Bootstrap Log</h4>
-            <pre id="bootstrapLog" style="background: #111; padding: 10px; border-radius: 4px; font-size: 0.8em; overflow-x: auto; max-height: 150px; overflow-y: auto; color: #0f0; margin: 0;"></pre>
+      </div>
+    </div>
+
+    <!-- ── RIGHT BOTTOM: parameters ── -->
+    <div class="card sliders-grid">
+      <div class="card-label">Parameters</div>
+      <div class="knobs" id="knobs-container">
+
+        <!-- Time -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Time</span>
+            <span class="knob-value" id="timeVal">0.80</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-time" style="width:80%"></div>
+          </div>
+          <input type="range" id="time" min="0" max="1" step="0.01" value="0.80" oninput="document.getElementById('arc-time').style.width = (this.value * 100) + '%'">
         </div>
-    </div>
 
-
-    <div class="control-group" style="background: #222;">
-        <div style="margin-bottom: 10px;">
-            <button id="startBtn">Start Audio (Mic)</button>
+        <!-- Feedback -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Feedback</span>
+            <span class="knob-value" id="feedbackVal">0.90</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-feedback" style="width:90%"></div>
+          </div>
+          <input type="range" id="feedback" min="0" max="0.99" step="0.01" value="0.90" oninput="document.getElementById('arc-feedback').style.width = (this.value * 100) + '%'">
         </div>
-        <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-            <input type="file" id="fileInput" accept="audio/*">
-            <button id="playFileBtn" disabled>Play File</button>
+
+        <!-- Mix -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Mix</span>
+            <span class="knob-value" id="mixVal">0.50</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-mix" style="width:50%"></div>
+          </div>
+          <input type="range" id="mix" min="0" max="1" step="0.01" value="0.50" oninput="document.getElementById('arc-mix').style.width = (this.value * 100) + '%'">
         </div>
-        <div>
-            <button id="stopBtn" disabled style="background: #f44336;">Stop Source</button>
+
+        <!-- Tone -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Tone</span>
+            <span class="knob-value" id="toneVal">0.50</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-tone" style="width:50%"></div>
+          </div>
+          <input type="range" id="tone" min="0" max="1" step="0.01" value="0.50" oninput="document.getElementById('arc-tone').style.width = (this.value * 100) + '%'">
         </div>
+
+        <!-- Shimmer -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Shimmer</span>
+            <span class="knob-value" id="shimmerVal">0.00</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-shimmer" style="width:0%"></div>
+          </div>
+          <input type="range" id="shimmer" min="0" max="1" step="0.01" value="0.00" oninput="document.getElementById('arc-shimmer').style.width = (this.value * 100) + '%'">
+        </div>
+
+        <!-- Diffusion -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Diffusion</span>
+            <span class="knob-value" id="diffusionVal">1.00</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-diffusion" style="width:100%"></div>
+          </div>
+          <input type="range" id="diffusion" min="0" max="1" step="0.01" value="1.00" oninput="document.getElementById('arc-diffusion').style.width = (this.value * 100) + '%'">
+        </div>
+
+        <!-- Chaos -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Chaos</span>
+            <span class="knob-value" id="chaosVal">0.20</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-chaos" style="width:20%"></div>
+          </div>
+          <input type="range" id="chaos" min="0" max="1" step="0.01" value="0.20" oninput="document.getElementById('arc-chaos').style.width = (this.value * 100) + '%'">
+        </div>
+
+        <!-- Ducking -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Ducking</span>
+            <span class="knob-value" id="duckingVal">0.00</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-ducking" style="width:0%"></div>
+          </div>
+          <input type="range" id="ducking" min="0" max="1" step="0.01" value="0.00" oninput="document.getElementById('arc-ducking').style.width = (this.value * 100) + '%'">
+        </div>
+
+        <!-- Wobble -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Wobble</span>
+            <span class="knob-value" id="wobbleVal">0.50</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-wobble" style="width:50%"></div>
+          </div>
+          <input type="range" id="wobble" min="0" max="1" step="0.01" value="0.50" oninput="document.getElementById('arc-wobble').style.width = (this.value * 100) + '%'">
+        </div>
+
+        <!-- Mod Rate -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Mod Rate</span>
+            <span class="knob-value" id="mod_rateVal">0.50</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-mod_rate" style="width:50%"></div>
+          </div>
+          <input type="range" id="mod_rate" min="0" max="1" step="0.01" value="0.50" oninput="document.getElementById('arc-mod_rate').style.width = (this.value * 100) + '%'">
+        </div>
+
+        <!-- Mod Depth -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Mod Depth</span>
+            <span class="knob-value" id="mod_depthVal">0.40</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-mod_depth" style="width:40%"></div>
+          </div>
+          <input type="range" id="mod_depth" min="0" max="1" step="0.01" value="0.40" oninput="document.getElementById('arc-mod_depth').style.width = (this.value * 100) + '%'">
+        </div>
+
+      </div>
+      <div style="margin-top: 14px;">
+        <label class="toggle-row">
+          <span class="toggle-label">Freeze</span>
+          <input type="checkbox" id="freeze">
+          <div class="toggle-pip"></div>
+        </label>
+      </div>
     </div>
 
-    <div class="control-group">
-        <label>Time</label>
-        <input type="range" id="time" min="0" max="1" step="0.01" value="0.8">
-        <span class="val" id="timeVal">0.8</span>
-    </div>
+  </div><!-- end main-grid -->
 
-    <div class="control-group">
-        <label>Feedback</label>
-        <input type="range" id="feedback" min="0" max="0.99" step="0.01" value="0.90">
-        <span class="val" id="feedbackVal">0.90</span>
+  <!-- ── STATUS ───────────────────────────────────────────────────── -->
+  <div class="card log-footer">
+    <div class="card-label">System Status</div>
+    <div class="status-rows">
+      <div class="status-row">
+        <span class="status-key">Worklet Module</span>
+        <span class="status-val wait" id="debugWorkletLoad">pending...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-key">Wasm Fetch</span>
+        <span class="status-val wait" id="debugWasmFetch">pending...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-key">Wasm Init</span>
+        <span class="status-val wait" id="debugWasmInit">pending...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-key">Ready MSG</span>
+        <span class="status-val wait" id="debugReadyMsg">waiting...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-key">Source</span>
+        <span class="status-val dim" id="debugActiveSource">none</span>
+      </div>
+      <div class="status-row">
+        <span class="status-key">Last Stage</span>
+        <span class="status-val dim" id="debugLastStage">none</span>
+      </div>
     </div>
+  </div>
 
-    <div class="control-group">
-        <label>Mix</label>
-        <input type="range" id="mix" min="0" max="1" step="0.01" value="0.5">
-        <span class="val" id="mixVal">0.5</span>
+  <!-- ── BOOTSTRAP LOG ────────────────────────────────────────────── -->
+  <div class="card log-footer">
+    <div class="card-label">Bootstrap Log</div>
+    <div style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+      <pre id="bootstrapLog"></pre>
+      <label class="toggle-row bypass-row" style="white-space:nowrap; flex-shrink:0; align-self:flex-end;">
+        <span class="bypass-label">Diagnostic Bypass (copy in→out)</span>
+        <input type="checkbox" id="bypassMode">
+        <div class="toggle-pip"></div>
+      </label>
     </div>
+  </div>
 
-    <div class="control-group">
-        <label>Tone</label>
-        <input type="range" id="tone" min="0" max="1" step="0.01" value="0.5">
-        <span class="val" id="toneVal">0.5</span>
-    </div>
-
-    <div class="control-group">
-        <label>Shimmer</label>
-        <input type="range" id="shimmer" min="0" max="1" step="0.01" value="0.0">
-        <span class="val" id="shimmerVal">0.0</span>
-    </div>
-
-    <div class="control-group">
-        <label>Diffusion</label>
-        <input type="range" id="diffusion" min="0" max="1" step="0.01" value="1.0">
-        <span class="val" id="diffusionVal">1.0</span>
-    </div>
-
-    <div class="control-group">
-        <label>Chaos</label>
-        <input type="range" id="chaos" min="0" max="1" step="0.01" value="0.2">
-        <span class="val" id="chaosVal">0.2</span>
-    </div>
-
-    <div class="control-group">
-        <label>Ducking</label>
-        <input type="range" id="ducking" min="0" max="1" step="0.01" value="0.0">
-        <span class="val" id="duckingVal">0.0</span>
-    </div>
-
-    <div class="control-group">
-        <label>Wobble</label>
-        <input type="range" id="wobble" min="0" max="1" step="0.01" value="0.5">
-        <span class="val" id="wobbleVal">0.5</span>
-    </div>
-
-
-    <div class="control-group">
-        <label>Mod Rate</label>
-        <input type="range" id="mod_rate" min="0" max="1" step="0.01" value="0.5">
-        <span class="val" id="mod_rateVal">0.5</span>
-    </div>
-
-    <div class="control-group">
-        <label>Mod Depth</label>
-        <input type="range" id="mod_depth" min="0" max="1" step="0.01" value="0.4">
-        <span class="val" id="mod_depthVal">0.4</span>
-    </div>
-    <div class="control-group">
-        <label>Freeze</label>
-        <input type="checkbox" id="freeze">
-    </div>
-
-    <script src="main.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
