@@ -10,9 +10,36 @@ let activeSource = null;
 
 const startBtn = document.getElementById('startBtn');
 const playFileBtn = document.getElementById('playFileBtn');
+const btnFile = document.getElementById('btn-file'); // The visible Play File button
 const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
+
+// VU Meter mapping
+const vuBars = document.querySelectorAll('.vu-bar');
+let vuInterval;
+
+function setVu(on) {
+    if (on) {
+        vuBars.forEach(b => b.classList.add('active'));
+        if (!vuInterval) {
+            vuInterval = setInterval(() => {
+                vuBars.forEach(b => {
+                    b.style.height = (Math.random() * 18 + 6) + 'px';
+                });
+            }, 300);
+        }
+    } else {
+        vuBars.forEach(b => {
+            b.classList.remove('active');
+            b.style.height = '6px';
+        });
+        if (vuInterval) {
+            clearInterval(vuInterval);
+            vuInterval = null;
+        }
+    }
+}
 
 // Debug UI Elements
 const debugCtxState = document.getElementById('debugCtxState');
@@ -66,6 +93,9 @@ fileInput.addEventListener('change', async (e) => {
         decodedAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
         playFileBtn.disabled = false;
         console.log(`Successfully decoded ${file.name}`);
+
+        // Auto-play when a file is selected
+        startFile();
     } catch (err) {
         console.error('Error decoding audio file:', err);
         alert('Failed to decode the selected audio file.');
@@ -73,6 +103,14 @@ fileInput.addEventListener('change', async (e) => {
         decodedAudioBuffer = null;
     }
 });
+
+btnFile.addEventListener('click', () => {
+    fileInput.click();
+});
+
+// Since btnFile is now just used to open fileInput, we should enable it from the start
+btnFile.disabled = false;
+playFileBtn.disabled = true;
 
 async function initAudioContext() {
     if (audioCtx) return;
@@ -192,6 +230,8 @@ function stopCurrentSource() {
     if (decodedAudioBuffer) {
         playFileBtn.disabled = false;
     }
+    btnFile.disabled = false; // file input button is always enabled
+    setVu(false);
 }
 
 async function startMic() {
@@ -220,7 +260,9 @@ async function startMic() {
 
         startBtn.disabled = true;
         playFileBtn.disabled = true;
+        btnFile.disabled = true; // disable file selection while playing mic
         stopBtn.disabled = false;
+        setVu(true);
 
         // Also resume context if it was suspended
         if (audioCtx.state === 'suspended') {
@@ -255,7 +297,9 @@ async function startFile() {
 
         startBtn.disabled = true;
         playFileBtn.disabled = true;
+        btnFile.disabled = true; // disable file selection while playing
         stopBtn.disabled = false;
+        setVu(true);
 
         if (audioCtx.state === 'suspended') {
             await audioCtx.resume();
