@@ -218,15 +218,15 @@ int main() {
                 te2350_set_mix(&pedal, v); changed = true; 
             }
 
-            // Shimmer / Pitch (Mantendo int como estava no revert)
+            // Shimmer / Pitch (Continuous 0.0 to 1.0)
             if (c == 'e') { 
-                 pedal.p_shimmer -= 5;
-                 if(pedal.p_shimmer < 0) pedal.p_shimmer = 0;
-                 changed = true;
+                 q31_t v = pedal.p_shimmer - FLOAT_TO_Q31(0.05f);
+                 if(v < 0) v = 0;
+                 te2350_set_shimmer(&pedal, v); changed = true;
             }
             if (c == 'r') { 
-                 pedal.p_shimmer += 5;
-                 changed = true;
+                 q31_t v = q31_add_sat(pedal.p_shimmer, FLOAT_TO_Q31(0.05f));
+                 te2350_set_shimmer(&pedal, v); changed = true;
             }
 
             // Tone - NEW
@@ -265,11 +265,11 @@ int main() {
             
             if (changed || c == 'p') {
                 // Approximate float conversion for display
-                printf("T:%.2f F:%.2f M:%.2f S:%d D:%.2f Ton:%.2f\n", 
+                printf("T:%.2f F:%.2f M:%.2f S:%.2f D:%.2f Ton:%.2f\n",
                     (double)pedal.p_time / 2147483648.0,
                     (double)pedal.p_feedback / 2147483648.0,
                     (double)pedal.p_mix / 2147483648.0,
-                    pedal.p_shimmer,
+                    (double)pedal.p_shimmer / 2147483648.0,
                     (double)pedal.p_diffusion / 2147483648.0,
                     (double)pedal.p_tone / 2147483648.0
                 );
@@ -291,7 +291,7 @@ int main() {
              
              // 1. Get Envelope (Volume) -> Brightness
              // Env is Q31.
-             q31_t env = pedal.envelope.envelope;
+             q31_t env = te2350_get_envelope(&pedal);
              uint8_t bright = (uint8_t)(env >> 23); 
              
              // Idle Heartbeat: Always show at least faint light to prove it works
@@ -299,7 +299,7 @@ int main() {
              if (bright > 50) bright = 50; 
              
              // 2. Get Modulator (Chaos) -> Hue
-             q31_t mod = pedal.modulator.current_value; 
+             q31_t mod = te2350_get_modulator(&pedal);
              int8_t hue_shift = (int8_t)(mod >> 26); 
              uint8_t hue = 140 + hue_shift; // Base cyan/blue
              
