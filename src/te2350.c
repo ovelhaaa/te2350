@@ -4,14 +4,36 @@
 // Fixed modulation scales to prevent chaos
 #define MOD_SCALE_SHIFT 10
 
-// Parameter smoothing coefficient for time (one-pole lowpass)
-// ~0.002 gives smooth "tape varispeed" effect (~5ms response at 48kHz block rate)
-#define TIME_SMOOTH_COEFF ((q31_t)0x00418937) // ~0.002 in Q31
+static void update_tone_filter(te2350_t *ctx);
 
-// Minimum delay in samples (prevents feedback explosion at very short delays)
-#define MIN_DELAY_SAMPLES 100
+bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sample_rate) {
+  if (sample_rate <= 0.0f) {
+    sample_rate = 48000.0f; // Safe fallback
+  }
+  ctx->sample_rate = sample_rate;
 
-bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes) {
+  // Calculate Sample Rate Derived Parameters
+  float sr_ratio = sample_rate / 48000.0f;
+
+  // Smoothing coefficient: want ~5ms response for fast things, maybe slower for time.
+  // For smoothing variables per sample, coeff = ~ 1 - exp(-1 / (tau * fs))
+  // tau = 0.010s -> coeff ~ 0.00208 at 48k
+  // original time_smooth_coeff was ~0.002.
+  // Let's use a slightly faster one for non-time params (~10ms)
+  // and keep time relatively slow.
+
+  float time_smooth_f = 0.002f * (48000.0f / sample_rate); // ~10-20ms
+  ctx->time_smooth_coeff = float_to_q31_safe(time_smooth_f);
+
+  // Buffer length limits (keep max_d within bounds minus modulation headroom)
+  ctx->max_delay_samples = TE_MAIN_DELAY_SIZE - 400; // Original
+  ctx->min_delay_samples = (int32_t)(100 * sr_ratio);
+  if (ctx->min_delay_samples < 1) ctx->min_delay_samples = 1;
+
+  // Pre-calculate wobble modulation parameters (avoids float math in loop)
+  ctx->wobble_mod_base = (int32_t)(40 * sr_ratio);
+  ctx->wobble_mod_scale = (int32_t)(200 * sr_ratio);
+
   // Partition memory
   q31_t *mem = (q31_t *)memory_block;
   size_t available_words = total_bytes / sizeof(q31_t);
@@ -57,26 +79,44 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes) {
   // Init feedback LP filter (~1kHz @ 48kHz) - Slightly darker
   dsp_onepole_init(&ctx->fb_lp, FLOAT_TO_Q31(0.12f));
 
-  // Defaults
+  // Default parameters
   ctx->p_feedback = FLOAT_TO_Q31(0.9f);
-  ctx->p_time = FLOAT_TO_Q31(0.9);
-  ctx->p_time_smoothed = FLOAT_TO_Q31(0.5f); // Initialize to match target
+  ctx->p_time = FLOAT_TO_Q31(0.9f);
+  ctx->p_rate = FLOAT_TO_Q31(0.5f); // Medium rate
   ctx->p_depth = FLOAT_TO_Q31(0.4f);
+  // Default tone should match original dark voicing (0.12f filter coeff)
+  // Mapping logic: coeff = tone + (tone >> 3) + 0.005
+  // For ~0.12, tone roughly = 0.1f (0.1 + 0.0125 + 0.005 = ~0.1175)
+  ctx->p_tone = FLOAT_TO_Q31(0.1f); // Darker tone
   ctx->p_mix = FLOAT_TO_Q31(0.5f);  // 50/50 mix default
+  ctx->p_shimmer = 0;                      // No pitch shift by default
+  ctx->p_diffusion = FLOAT_TO_Q31(1.0f);   // Full diffusion by default
+  ctx->p_chaos = FLOAT_TO_Q31(0.2f);       // Moderate chaos
+  ctx->p_ducking = 0;                      // No ducking by default
+  ctx->p_wobble = FLOAT_TO_Q31(0.5f);      // Slight wobble by default
+
+  // Smoothed initialization
+  ctx->p_time_smoothed = ctx->p_time;
+  ctx->p_feedback_smoothed = ctx->p_feedback;
+  ctx->p_mix_smoothed = ctx->p_mix;
+  ctx->p_tone_smoothed = ctx->p_tone;
+  ctx->p_diffusion_smoothed = ctx->p_diffusion;
+
+  // Internal state
   ctx->feedback_state = 0;
+  ctx->chaos_seed = 98765;
   
   // Freeze mode
   ctx->freeze_mode = false;
   ctx->freeze_crossfade = 0;
   
-  // Multi-tap delays (Prime numbers for less rhythmic repeats)
-  // ~37ms, ~83ms, ~137ms, ~199ms @ 48kHz
   // Multi-tap delays (Prime numbers, spread over larger buffer)
-  // Range expanded to ~315ms
-  ctx->tap_delays[0] = 2399;   // ~50ms
-  ctx->tap_delays[1] = 5801;   // ~120ms
-  ctx->tap_delays[2] = 9811;   // ~205ms
-  ctx->tap_delays[3] = 15101;  // ~315ms (Safe < 16384)
+  // Range expanded to ~315ms. Scale by sample rate ratio.
+  ctx->tap_delays[0] = (size_t)(2399 * sr_ratio);   // ~50ms
+  ctx->tap_delays[1] = (size_t)(5801 * sr_ratio);   // ~120ms
+  ctx->tap_delays[2] = (size_t)(9811 * sr_ratio);   // ~205ms
+  ctx->tap_delays[3] = (size_t)(15101 * sr_ratio);  // ~315ms (Safe < 16384)
+  if (ctx->tap_delays[3] >= TE_MAIN_DELAY_SIZE) ctx->tap_delays[3] = TE_MAIN_DELAY_SIZE - 1; // Sanity check
   
   // Gains: Reduced to prevent clipping (Headroom)
   ctx->tap_gains[0] = FLOAT_TO_Q31(0.20f);
@@ -84,13 +124,6 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes) {
   ctx->tap_gains[2] = FLOAT_TO_Q31(0.35f);
   ctx->tap_gains[3] = FLOAT_TO_Q31(0.30f);
   
-  // New parameters (defaults)
-  ctx->p_shimmer = 40;                      // No pitch shift by default
-  ctx->p_diffusion = FLOAT_TO_Q31(1.0f);   // Full diffusion by default
-  ctx->p_chaos = FLOAT_TO_Q31(0.2f);       // Moderate chaos
-  ctx->p_ducking = 0;                      // No ducking by default
-  ctx->p_wobble = FLOAT_TO_Q31(0.5f);      // Slight wobble by default
-
   return true;
 }
 
@@ -99,15 +132,28 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t dry = dsp_dc_blockProcess(&ctx->dc_block, in_mono);
 
   // 2. Parameter Smoothing (Zipper Noise Elimination)
+
+  // Generic helper macro for one-pole smoothing
+  #define SMOOTH_PARAM(target, current, coeff) \
+    do { \
+      q31_t diff = q31_sub_sat((target), (current)); \
+      q31_t delta = q31_mul(diff, (coeff)); \
+      if (diff > 0 && delta == 0) delta = 1; \
+      if (diff < 0 && delta == 0) delta = -1; \
+      (current) = q31_add_sat((current), delta); \
+    } while(0)
+
   // One-pole lowpass filter on delay time for smooth "tape varispeed" effect
-  {
-    q31_t diff = q31_sub_sat(ctx->p_time, ctx->p_time_smoothed);
-    q31_t delta = q31_mul(diff, TIME_SMOOTH_COEFF);
-    // Ensure we always make progress towards target (avoid stuck due to rounding)
-    if (diff > 0 && delta == 0) delta = 1;
-    if (diff < 0 && delta == 0) delta = -1;
-    ctx->p_time_smoothed = q31_add_sat(ctx->p_time_smoothed, delta);
-  }
+  SMOOTH_PARAM(ctx->p_time, ctx->p_time_smoothed, ctx->time_smooth_coeff);
+
+  // Other parameters can use a slightly faster coefficient (e.g. 5x faster)
+  q31_t fast_smooth = ctx->time_smooth_coeff * 5;
+  if (fast_smooth > FLOAT_TO_Q31(0.1f)) fast_smooth = FLOAT_TO_Q31(0.1f);
+
+  SMOOTH_PARAM(ctx->p_feedback, ctx->p_feedback_smoothed, fast_smooth);
+  SMOOTH_PARAM(ctx->p_mix, ctx->p_mix_smoothed, fast_smooth);
+  SMOOTH_PARAM(ctx->p_tone, ctx->p_tone_smoothed, fast_smooth);
+  SMOOTH_PARAM(ctx->p_diffusion, ctx->p_diffusion_smoothed, fast_smooth);
 
   // 3. Modulation Update with Chaos
   // Make base step proportional to p_rate (so it controls speed).
@@ -117,9 +163,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   // Add some chaotic jitter to the step size
   // Random multiplier between 1.0 and (1.0 + chaos)
-  static uint32_t chaos_seed = 98765;
-  chaos_seed = chaos_seed * 1664525 + 1013904223;
-  q31_t random_chaos_factor = (q31_t)(chaos_seed >> 1); // 0..MAX
+  ctx->chaos_seed = ctx->chaos_seed * 1664525 + 1013904223;
+  q31_t random_chaos_factor = (q31_t)(ctx->chaos_seed >> 1); // 0..MAX
   q31_t chaos_mod = q31_mul(random_chaos_factor, ctx->p_chaos); // 0..p_chaos
   
   q31_t current_step = q31_add_sat(base_step, q31_mul(base_step, chaos_mod));
@@ -151,7 +196,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // NOTE: 'dry' variable remains untouched for output mixing!
   
   // Boost feedback during freeze (approach 0.98)
-  q31_t effective_feedback = ctx->p_feedback;
+  q31_t effective_feedback = ctx->p_feedback_smoothed;
   if (ctx->freeze_mode && ctx->freeze_crossfade > 0) {
     q31_t freeze_fb = FLOAT_TO_Q31(0.98f);
     q31_t fb_boost = q31_sub_sat(freeze_fb, effective_feedback);
@@ -180,11 +225,11 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // Lower diffusion = distinct articulated echoes
   // High diffusion = dense ambient cloud
   
-  // Base fixed gains (scaled by p_diffusion)
-  q31_t diff_gain_ap1 = q31_mul(FLOAT_TO_Q31(0.55f), ctx->p_diffusion);
-  q31_t diff_gain_ap2 = q31_mul(FLOAT_TO_Q31(0.50f), ctx->p_diffusion);
-  q31_t diff_gain_ap3 = q31_mul(FLOAT_TO_Q31(0.40f), ctx->p_diffusion);
-  q31_t diff_gain_ap4 = q31_mul(FLOAT_TO_Q31(0.40f), ctx->p_diffusion);
+  // Base fixed gains (scaled by p_diffusion_smoothed)
+  q31_t diff_gain_ap1 = q31_mul(FLOAT_TO_Q31(0.55f), ctx->p_diffusion_smoothed);
+  q31_t diff_gain_ap2 = q31_mul(FLOAT_TO_Q31(0.50f), ctx->p_diffusion_smoothed);
+  q31_t diff_gain_ap3 = q31_mul(FLOAT_TO_Q31(0.40f), ctx->p_diffusion_smoothed);
+  q31_t diff_gain_ap4 = q31_mul(FLOAT_TO_Q31(0.40f), ctx->p_diffusion_smoothed);
 
   ctx->ap1.gain = diff_gain_ap1;
   ctx->ap2.gain = diff_gain_ap2;
@@ -192,7 +237,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   ctx->ap4.gain = diff_gain_ap4;
 
   // Modulate diffusion allpass sizes slightly less if diffusion is low
-  q31_t diff_mod_val = q31_mul(mod_val, ctx->p_diffusion);
+  q31_t diff_mod_val = q31_mul(mod_val, ctx->p_diffusion_smoothed);
 
   // --- AP1 Modulation ---
   int32_t temp_d1 = ((int32_t)(TE_AP1_SIZE / 2) << 16) + diff_mod_val;
@@ -225,24 +270,21 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   dsp_delay_write(&ctx->main_delay, stage3);
 
   // Read from main delay using SMOOTHED time parameter + modulation
-  // Use larger buffer range (minus headroom for modulation)
-  size_t max_d = TE_MAIN_DELAY_SIZE - 400;
-  
   // Convert smoothed Q31 time (0..1) to sample count
-  int32_t d_samp_int = (int32_t)(((int64_t)ctx->p_time_smoothed * max_d) >> 31);
-  if (d_samp_int < MIN_DELAY_SAMPLES)
-    d_samp_int = MIN_DELAY_SAMPLES;
+  int32_t d_samp_int = (int32_t)(((int64_t)ctx->p_time_smoothed * ctx->max_delay_samples) >> 31);
+  if (d_samp_int < ctx->min_delay_samples)
+    d_samp_int = ctx->min_delay_samples;
   
   // Add modulation to main delay
-  // Base mod is subtle (±40 samples), but wobble parameter increases this significantly
+  // Base mod is subtle (±40 samples at 48k), but wobble parameter increases this significantly
   // This gives wobble a clearly audible tape wow/flutter effect
-  int32_t wobble_mod_samples = 40 + (int32_t)(((int64_t)ctx->p_wobble * 200) >> 31);
+  int32_t wobble_mod_samples = ctx->wobble_mod_base + (int32_t)(((int64_t)ctx->p_wobble * ctx->wobble_mod_scale) >> 31);
   int32_t main_delay_mod = (int32_t)(((int64_t)mod_val * wobble_mod_samples) >> 31);
   int32_t d_samp_modulated = d_samp_int + main_delay_mod;
-  if (d_samp_modulated < MIN_DELAY_SAMPLES)
-    d_samp_modulated = MIN_DELAY_SAMPLES;
-  if (d_samp_modulated > (int32_t)max_d)
-    d_samp_modulated = max_d;
+  if (d_samp_modulated < ctx->min_delay_samples)
+    d_samp_modulated = ctx->min_delay_samples;
+  if (d_samp_modulated > ctx->max_delay_samples)
+    d_samp_modulated = ctx->max_delay_samples;
 
   // Use Hermite interpolation for highest quality (reduced artifacts)
   q16_16_t delay_samples_frac = (q16_16_t)d_samp_modulated << 16;
@@ -272,9 +314,12 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   } else {
       // NORMAL MODE (or Transition):
       
+      // Update tone filter coefficients based on smoothed tone
+      update_tone_filter(ctx);
+
       // Apply Tone Filter
       q31_t lp = dsp_onepole_lp(&ctx->fb_lp, delay_out);
-      if (ctx->p_tone > FLOAT_TO_Q31(0.55f)) {
+      if (ctx->p_tone_smoothed > FLOAT_TO_Q31(0.55f)) {
           filter_out = q31_sub_sat(delay_out, lp); // HP
       } else {
           filter_out = lp; // LP
@@ -359,9 +404,9 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // Right channel: decorrelated through AP3
   q31_t wet_r = dsp_allpass_process(&ctx->ap3, wet, (TE_AP3_SIZE / 2) << 16);
 
-  // Variable Dry/Wet Mix (controlled by p_mix parameter)
-  q31_t dry_gain = q31_sub_sat(Q31_MAX, ctx->p_mix);
-  q31_t wet_gain = ctx->p_mix;
+  // Variable Dry/Wet Mix (controlled by p_mix_smoothed parameter)
+  q31_t dry_gain = q31_sub_sat(Q31_MAX, ctx->p_mix_smoothed);
+  q31_t wet_gain = ctx->p_mix_smoothed;
 
   *out_l = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet, wet_gain));
   *out_r = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet_r, wet_gain));
@@ -394,6 +439,11 @@ void te2350_set_mod(te2350_t *ctx, q31_t rate, q31_t depth) {
 
 void te2350_set_tone(te2350_t *ctx, q31_t tone) {
   ctx->p_tone = tone;
+}
+
+// Helper to update tone filter coefficient from smoothed tone parameter
+static void update_tone_filter(te2350_t *ctx) {
+  q31_t tone = ctx->p_tone_smoothed;
   
   // One-Pole Filter Coefficients
   // Increased range for darker lows and thinner highs
@@ -402,16 +452,12 @@ void te2350_set_tone(te2350_t *ctx, q31_t tone) {
   
   if (tone < FLOAT_TO_Q31(0.45f)) {
       // Lowpass: Coeff 0.005 (Very Dark) to 0.5 (Open)
-      // tone is 0..0.45. We want to map it to roughly 0..0.5.
-      // tone * 1.11 ~ tone + (tone >> 3)
       q31_t c = q31_add_sat(tone, tone >> 3);
       c = q31_add_sat(c, FLOAT_TO_Q31(0.005f));
       if (c > FLOAT_TO_Q31(0.5f)) c = FLOAT_TO_Q31(0.5f);
       ctx->fb_lp.coeff = c;
   } else if (tone > FLOAT_TO_Q31(0.55f)) {
       // Highpass: Coeff 0.02 (Open) to 0.7 (Very Thin)
-      // t is 0..0.45. We want to map it to roughly 0..0.68.
-      // t * 1.5 ~ t + (t >> 1)
       q31_t t = q31_sub_sat(tone, FLOAT_TO_Q31(0.55f));
       q31_t c = q31_add_sat(t, t >> 1); // Steeper curve (x1.5)
       c = q31_add_sat(c, FLOAT_TO_Q31(0.02f));

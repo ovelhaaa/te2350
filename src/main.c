@@ -164,7 +164,8 @@ int main() {
     printf("TE-2350 Starting...\n");
 
     // Init Effect
-    if (!te2350_init(&pedal, memory_pool, MEM_POOL_SIZE)) {
+    // RP2040 I2S audio driver runs at 48kHz
+    if (!te2350_init(&pedal, memory_pool, MEM_POOL_SIZE, 48000.0f)) {
         printf("Effect Init FAILED\n");
     }
     te2350_set_time(&pedal, FLOAT_TO_Q31(0.8f));  // Long delay for cloud

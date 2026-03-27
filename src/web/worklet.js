@@ -56,7 +56,8 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             this.port.postMessage({ type: 'status', stage: 'init', message: 'initializing DSP...' });
 
             // Call C init function
-            const initSuccess = this.wasmModule._wasm_te2350_init();
+            // Get sampleRate from the AudioWorkletGlobalScope
+            const initSuccess = this.wasmModule._wasm_te2350_init(sampleRate);
             if (!initSuccess) {
                 this.port.postMessage({ type: 'wasm_error', message: "WASM TE-2350 init returned false." });
                 console.error("WASM TE-2350 init failed.");

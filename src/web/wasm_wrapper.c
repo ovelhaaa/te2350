@@ -28,8 +28,8 @@ static q31_t out_l_q31[BLOCK_SIZE];
 static q31_t out_r_q31[BLOCK_SIZE];
 
 EMSCRIPTEN_KEEPALIVE
-bool wasm_te2350_init() {
-    bool success = te2350_init(&pedal, memory_pool, MEM_POOL_SIZE);
+bool wasm_te2350_init(float sample_rate) {
+    bool success = te2350_init(&pedal, memory_pool, MEM_POOL_SIZE, sample_rate);
 
     // Set some defaults (similar to main.c)
     if (success) {
