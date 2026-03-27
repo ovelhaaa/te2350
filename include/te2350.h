@@ -56,22 +56,37 @@ typedef struct {
   q31_t freeze_crossfade;  // 0 = normal, Q31_MAX = frozen
 
   // --- Parameters (Q31) ---
+  // Targets
   q31_t p_feedback;
   q31_t p_time;          // Main delay time target (0..1 -> maps to ms)
-  q31_t p_time_smoothed; // Smoothed delay time (eliminates zipper noise)
   q31_t p_rate;   // Modulation rate
   q31_t p_depth;  // Modulation depth
   q31_t p_tone;   // Damping cutoff
-  q31_t p_spread; // Stereo spread
   q31_t p_mix;    // Dry/Wet mix (0 = 100% dry, Q31_MAX = 100% wet)
-  
-  // New parameters
   q31_t p_shimmer;    // Pitch shift amount (0 = no shift, Q31_MAX = +1 octave)
   q31_t p_diffusion;  // Allpass diffusion amount (0 = off, Q31_MAX = full)
   q31_t p_chaos;      // Chaos/instability amount (0 = stable, Q31_MAX = chaotic)
   q31_t p_ducking;    // Envelope ducking amount (0 = off, Q31_MAX = full duck)
   q31_t p_wobble;     // Feedback wobble amount (0 = stable, Q31_MAX = wobbly)
+
+  // Smoothed runtime values
+  q31_t p_time_smoothed;
+  q31_t p_feedback_smoothed;
+  q31_t p_mix_smoothed;
+  q31_t p_tone_smoothed;
+  q31_t p_diffusion_smoothed;
   
+  // Internal State
+  uint32_t chaos_seed;
+  float sample_rate; // Operating sample rate
+
+  // Derived Sample-Rate Coefficients
+  int32_t max_delay_samples; // Scaled max main delay samples
+  int32_t min_delay_samples; // Scaled min main delay samples
+  q31_t time_smooth_coeff; // Sample-rate adjusted smoothing speed
+  int32_t wobble_mod_base; // Base modulation samples for wobble
+  int32_t wobble_mod_scale; // Scale modulation samples for wobble
+
   // Multi-tap delay parameters
   #define TE_NUM_TAPS 4
   size_t tap_delays[TE_NUM_TAPS];
@@ -86,9 +101,10 @@ typedef struct {
  * @param memory_block Pointer to a single large memory block (at least 64KB
  * recommended).
  * @param size Size of the memory block in bytes.
+ * @param sample_rate The operating sample rate (e.g., 48000.0f).
  * @return true if successful, false if memory too small.
  */
-bool te2350_init(te2350_t *ctx, void *memory_block, size_t size);
+bool te2350_init(te2350_t *ctx, void *memory_block, size_t size, float sample_rate);
 
 /**
  * @brief Process one audio frame (Mono In -> Stereo Out).
