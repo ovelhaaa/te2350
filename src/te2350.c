@@ -82,9 +82,13 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   // Init feedback LP filter (~1kHz @ 48kHz) - Slightly darker
   dsp_onepole_init(&ctx->fb_lp, FLOAT_TO_Q31(0.12f));
 
+  // Init Melody Generator
+  dsp_melody_init(&ctx->melody);
+
   // Default parameters
-  ctx->p_octave_feedback_enabled = false;
-  ctx->p_octave_feedback = 0;
+  ctx->p_melody_enabled = false;
+  ctx->octave_feedback_enabled = false;
+  ctx->octave_feedback_amount = 0;
   ctx->p_feedback = FLOAT_TO_Q31(0.9f);
   ctx->p_time = FLOAT_TO_Q31(0.9f);
   ctx->p_rate = FLOAT_TO_Q31(0.5f); // Medium rate
@@ -109,6 +113,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
 
   // Internal state
   ctx->feedback_state = 0;
+  ctx->bloom_state = 0;
   ctx->chaos_seed = 98765;
   
   // Freeze mode
@@ -117,24 +122,34 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   
   // Multi-tap delays (Prime numbers, spread over larger buffer)
   // Range expanded to ~315ms. Scale by sample rate ratio.
-  ctx->tap_delays[0] = (size_t)(2399 * sr_ratio);   // ~50ms
-  ctx->tap_delays[1] = (size_t)(5801 * sr_ratio);   // ~120ms
-  ctx->tap_delays[2] = (size_t)(9811 * sr_ratio);   // ~205ms
-  ctx->tap_delays[3] = (size_t)(15101 * sr_ratio);  // ~315ms (Safe < 16384)
+  // Respaced using roughly golden ratio multiples to sound less regular,
+  // creating a more diffuse and ethereal cascade.
+  ctx->tap_delays[0] = (size_t)(2689 * sr_ratio);   // ~56ms
+  ctx->tap_delays[1] = (size_t)(6827 * sr_ratio);   // ~142ms
+  ctx->tap_delays[2] = (size_t)(10501 * sr_ratio);  // ~218ms
+  ctx->tap_delays[3] = (size_t)(14947 * sr_ratio);  // ~311ms
   if (ctx->tap_delays[3] >= TE_MAIN_DELAY_SIZE) ctx->tap_delays[3] = TE_MAIN_DELAY_SIZE - 1; // Sanity check
   
-  // Gains: Reduced to prevent clipping (Headroom)
-  ctx->tap_gains[0] = FLOAT_TO_Q31(0.20f);
-  ctx->tap_gains[1] = FLOAT_TO_Q31(0.30f);
-  ctx->tap_gains[2] = FLOAT_TO_Q31(0.35f);
-  ctx->tap_gains[3] = FLOAT_TO_Q31(0.30f);
+  // Gains: Tapered volume, descending to mimic a fading echo effect.
+  // The first tap is strongest, the last tap is weakest but widest.
+  ctx->tap_gains[0] = FLOAT_TO_Q31(0.50f);
+  ctx->tap_gains[1] = FLOAT_TO_Q31(0.40f);
+  ctx->tap_gains[2] = FLOAT_TO_Q31(0.30f);
+  ctx->tap_gains[3] = FLOAT_TO_Q31(0.20f);
   
   return true;
 }
 
 void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
+  // 0. Melody Generator
+  q31_t melody_sig = 0;
+  if (ctx->p_melody_enabled) {
+    melody_sig = dsp_melody_process(&ctx->melody);
+  }
+
   // 1. Input Conditioning
-  q31_t dry = dsp_dc_blockProcess(&ctx->dc_block, in_mono);
+  q31_t mixed_in = q31_add_sat(in_mono, melody_sig);
+  q31_t dry = dsp_dc_blockProcess(&ctx->dc_block, mixed_in);
 
   // 2. Parameter Smoothing (Zipper Noise Elimination)
 
@@ -209,16 +224,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     effective_feedback = q31_add_sat(effective_feedback, fb_boost);
   }
 
-  // 5. Multi-Tap Injection (Pre-diffusion) - BOSS STYLE
-  // Taps read from main delay and injected BEFORE allpasses
+  // 5. Multi-Tap Extraction (Pre-diffusion) for Wet Core
+  // Taps read from main delay
   q31_t multi_tap = 0;
   for (int i = 0; i < TE_NUM_TAPS; i++) {
     q31_t tap = dsp_delay_read(&ctx->main_delay, ctx->tap_delays[i]);
-    // Gains reduzidos drasticamente (-18dB range) para evitar explosão
-    // Shift >> 3 divide por 8, mais os gains originais que já eram < 1.0
     q31_t tap_scaled = q31_mul(tap, ctx->tap_gains[i] >> 3); 
     multi_tap = q31_add_sat(multi_tap, tap_scaled);
   }
+
+  // The 'wet_core' is the clean delay taps
+  q31_t wet_core = multi_tap;
 
   // 6. Feedback Loop Injection
   q31_t fb_signal = ctx->feedback_state;
@@ -349,10 +365,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
                                     q31_mul(pitched_fb, pitch_mix));
       }
       // Apply Octave in Feedback (Pitch shift by +12 semitones = 2.0x ratio = Q31_MAX)
-      if (ctx->p_octave_feedback_enabled && ctx->p_octave_feedback > 0) {
+      if (ctx->octave_feedback_enabled && ctx->octave_feedback_amount > 0) {
           q31_t octave_fb = dsp_pitch_process(&ctx->octave_shifter, fb_with_smear, Q31_MAX);
-          fb_with_smear = q31_add_sat(q31_mul(fb_with_smear, q31_sub_sat(Q31_MAX, ctx->p_octave_feedback)),
-                                      q31_mul(octave_fb, ctx->p_octave_feedback));
+          fb_with_smear = q31_add_sat(q31_mul(fb_with_smear, q31_sub_sat(Q31_MAX, ctx->octave_feedback_amount)),
+                                      q31_mul(octave_fb, ctx->octave_feedback_amount));
       }
 
       fb_processed = fb_with_smear;
@@ -373,44 +389,62 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   
   ctx->feedback_state = q31_mul(fb_processed, feedback_gain_final);
   
-  // 9. Multi-Tap Delay moved to Input (Pre-diffusion)
-  
-  // Blend main delay output (70%) - Taps removed from here (moved to input)
-  q31_t wet = delay_out;
+  // 9. Define the Diffuse Component
+  // 'wet_diff' is the diffuse cloud that has passed through the allpasses
+  // and delay modulation
+  q31_t wet_diff = delay_out;
+
+  // 10. Define the Ethereal Air Layer
+  // 'wet_air' applies light filtering (borrowed from diffusion chain behavior)
+  // For air, we take a bit of the diffused signal, heavily scaled
+  q31_t wet_air = q31_mul(wet_diff, FLOAT_TO_Q31(0.5f));
   
   // NOTE: Pitch shifter agora está APENAS no feedback loop (pitch smear sutil)
   // Isso dá movimento sem "chorus audível" no caminho direto
   
-  // 11. Envelope Ducking
-  // 11. Envelope Ducking
-  // Reduce wet signal when input is strong
-  // Always run the envelope so it tracks correctly
+  // 11. Envelope Ducking and Bloom
+  // Run envelope follower
   q31_t env_level = dsp_env_process(&ctx->envelope, q31_abs(dry));
 
-  if (ctx->p_ducking > 0) {
-    // We want stronger ducking effect.
-    // Amplify the envelope so it hits maximum ducking easier (approx 12dB boost / x4)
-    // Shift left by 2 to multiply by 4. Use saturate to avoid overflow wrap-around.
-    q31_t amp_env;
-    if (env_level > (Q31_MAX >> 2)) {
-      amp_env = Q31_MAX;
-    } else {
-      amp_env = env_level << 2;
-    }
-    
-    // Invert envelope: more input = less wet
-    q31_t duck_amount = q31_sub_sat(Q31_MAX, amp_env);
-    
-    // Scale ducking effect by parameter.
-    // If ducking is 1.0, duck_amount goes to 0 on loud inputs.
-    // The final gain is 1.0 - (duck_amount_reduction)
-    q31_t reduction = q31_sub_sat(Q31_MAX, duck_amount);
-    reduction = q31_mul(reduction, ctx->p_ducking);
-
-    q31_t final_duck_gain = q31_sub_sat(Q31_MAX, reduction);
-
-    wet = q31_mul(wet, final_duck_gain);
+  // Update bloom state: slow release for trailing ambient cloud
+  // Bloom rises with envelope, but falls much slower to create the "opening" effect
+  if (env_level > ctx->bloom_state) {
+      ctx->bloom_state = env_level; // Fast attack
+  } else {
+      ctx->bloom_state = q31_sub_sat(ctx->bloom_state, FLOAT_TO_Q31(0.0001f)); // Slow release
+      if (ctx->bloom_state < 0) ctx->bloom_state = 0;
   }
+
+  // Calculate final gains for layers based on ducking and bloom
+  // Amplified envelope for ducking (approx 12dB boost / x4)
+  q31_t amp_env;
+  if (env_level > (Q31_MAX >> 2)) {
+    amp_env = Q31_MAX;
+  } else {
+    amp_env = env_level << 2;
+  }
+
+  q31_t duck_amount = q31_sub_sat(Q31_MAX, amp_env);
+  q31_t duck_reduction = q31_sub_sat(Q31_MAX, duck_amount);
+  duck_reduction = q31_mul(duck_reduction, ctx->p_ducking);
+  q31_t final_duck_gain = q31_sub_sat(Q31_MAX, duck_reduction);
+
+  // Mix the layers based on bloom
+  // Bloom effect: During attack (env high), `wet_core` dominates.
+  // During release (bloom falls slowly), `wet_diff` and `wet_air` open up.
+  // We'll define base weights for the "signature sound"
+  q31_t core_weight = q31_sub_sat(Q31_MAX, ctx->bloom_state); // Less core when blooming heavily
+  if (core_weight < FLOAT_TO_Q31(0.3f)) core_weight = FLOAT_TO_Q31(0.3f); // Always some core
+
+  q31_t diff_weight = FLOAT_TO_Q31(0.7f); // Base diff weight
+  q31_t air_weight  = ctx->bloom_state; // Air grows as bloom state does
+
+  q31_t layered_wet_l = q31_add_sat(q31_mul(wet_core, core_weight),
+                                    q31_mul(wet_diff, diff_weight));
+  layered_wet_l = q31_add_sat(layered_wet_l, q31_mul(wet_air, air_weight));
+
+  // Apply ducking to the combined layer
+  q31_t wet = q31_mul(layered_wet_l, final_duck_gain);
 
   // 12. Output Mixing & Decorrelation
   // Create a separate read for the right channel from the main delay (offset by 48 samples / 1ms)
@@ -420,31 +454,18 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q16_16_t delay_samples_frac_r = (q16_16_t)d_samp_r << 16;
   q31_t delay_out_r = dsp_delay_read_hermite(&ctx->main_delay, delay_samples_frac_r);
 
-  // Blend wet and delay_out_r for stereo differences
-  q31_t wet_r_base = delay_out_r;
-  if (ctx->p_ducking > 0) {
-      q31_t amp_env;
-      if (env_level > (Q31_MAX >> 2)) {
-        amp_env = Q31_MAX;
-      } else {
-        amp_env = env_level << 2;
-      }
-      q31_t duck_amount = q31_sub_sat(Q31_MAX, amp_env);
-      q31_t reduction = q31_sub_sat(Q31_MAX, duck_amount);
-      reduction = q31_mul(reduction, ctx->p_ducking);
-      q31_t final_duck_gain = q31_sub_sat(Q31_MAX, reduction);
-      wet_r_base = q31_mul(wet_r_base, final_duck_gain);
-  }
+  // Construct the right channel layer similarly
+  q31_t wet_diff_r = delay_out_r;
+  q31_t wet_air_r  = q31_mul(wet_diff_r, FLOAT_TO_Q31(0.5f));
 
-  // Right channel: decorrelated through AP3
-  q31_t wet_r = dsp_allpass_process(&ctx->ap3, wet_r_base, (TE_AP3_SIZE / 2) << 16);
+  q31_t layered_wet_r = q31_add_sat(q31_mul(wet_core, core_weight),
+                                    q31_mul(wet_diff_r, diff_weight));
+  layered_wet_r = q31_add_sat(layered_wet_r, q31_mul(wet_air_r, air_weight));
 
-  // Bloom / Cloud Crossfade
-  // Use env_level to determine how much we hear the direct taps (wet_core) vs the diffusion chain (wet_diff)
-  // Since wet is already post-diffusion (main_delay contains the diffusion output),
-  // we actually want the envelope to bring up the diffused sound after the note.
-  // We can treat `wet` as the diffused sound.
-  // Actually, `delay_out` comes from `main_delay`, which has the allpasses inside it.
+  // Right channel decorrelated through AP3
+  q31_t decorr_r = dsp_allpass_process(&ctx->ap3, layered_wet_r, (TE_AP3_SIZE / 2) << 16);
+
+  q31_t wet_r = q31_mul(decorr_r, final_duck_gain);
 
   // Variable Dry/Wet Mix (controlled by p_mix_smoothed parameter)
   q31_t dry_gain = q31_sub_sat(Q31_MAX, ctx->p_mix_smoothed);
@@ -519,9 +540,16 @@ void te2350_set_freeze(te2350_t *ctx, bool freeze) {
   ctx->freeze_mode = freeze;
 }
 
-void te2350_set_octave_feedback(te2350_t *ctx, bool enabled, q31_t amount) {
-  ctx->p_octave_feedback_enabled = enabled;
-  ctx->p_octave_feedback = amount;
+void te2350_set_melody_enabled(te2350_t *ctx, bool enabled) {
+  ctx->p_melody_enabled = enabled;
+}
+
+void te2350_set_octave_feedback_enabled(te2350_t *ctx, bool enabled) {
+  ctx->octave_feedback_enabled = enabled;
+}
+
+void te2350_set_octave_feedback_amount(te2350_t *ctx, q31_t amount) {
+  ctx->octave_feedback_amount = amount;
 }
 
 void te2350_set_shimmer(te2350_t *ctx, q31_t shimmer) {

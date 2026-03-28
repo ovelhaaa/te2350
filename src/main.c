@@ -51,26 +51,13 @@ te2350_t pedal;
 #define MEM_POOL_SIZE (128 * 1024) // Increased to 128KB for longer delay
 static q31_t memory_pool[MEM_POOL_SIZE / 4];
 
-// --- Generative Melody: Em Pentatonic ---
-static dsp_melody_t melody;
-static bool melody_enabled = false;  // Disabled by default
-
 // --- Audio Callback ---
 void process_audio_block(int32_t *rx_buffer, int32_t *tx_buffer, size_t sample_count) {
     for (size_t i = 0; i < sample_count; i++) {
-        q31_t dry_signal = 0;
-        
-        // 1. Sequencer Logic (only if melody enabled)
-        if (melody_enabled) {
-            dry_signal = dsp_melody_process(&melody);
-        }
-
-        // 3. Mix External Input (if any) + Generated Melody
         q31_t in_sig = rx_buffer[i * 2];
-        q31_t mixed = in_sig + dry_signal; // Basic summing
         
         q31_t out_l, out_r;
-        te2350_process(&pedal, mixed, &out_l, &out_r);
+        te2350_process(&pedal, in_sig, &out_l, &out_r);
 
         tx_buffer[i * 2]     = out_l;
         tx_buffer[i * 2 + 1] = out_r;
@@ -116,8 +103,6 @@ int main() {
     }
     te2350_set_time(&pedal, FLOAT_TO_Q31(0.8f));  // Long delay for cloud
     te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.90f)); // High feedback for sustain
-    
-    dsp_melody_init(&melody);
 
     // Init Audio
     if (!audio_init(process_audio_block)) {
@@ -206,26 +191,26 @@ int main() {
             
             // Melody Generator Toggle
             if (c == 'm') {
-                melody_enabled = !melody_enabled;
-                printf("Melody Generator: %s\n", melody_enabled ? "ON" : "OFF");
+                te2350_set_melody_enabled(&pedal, !pedal.p_melody_enabled);
+                printf("Melody Generator: %s\n", pedal.p_melody_enabled ? "ON" : "OFF");
             }
             
             // Octave Feedback Toggle
             if (c == 'o') {
-                te2350_set_octave_feedback(&pedal, !pedal.p_octave_feedback_enabled, pedal.p_octave_feedback);
-                printf("Octave Feedback: %s\n", pedal.p_octave_feedback_enabled ? "ON" : "OFF");
+                te2350_set_octave_feedback_enabled(&pedal, !pedal.octave_feedback_enabled);
+                printf("Octave Feedback: %s\n", pedal.octave_feedback_enabled ? "ON" : "OFF");
             }
 
             // Octave Feedback Amount
             if (c == 'i') {
-                q31_t v = pedal.p_octave_feedback - FLOAT_TO_Q31(0.05f);
+                q31_t v = pedal.octave_feedback_amount - FLOAT_TO_Q31(0.05f);
                 if(v < 0) v = 0;
-                te2350_set_octave_feedback(&pedal, pedal.p_octave_feedback_enabled, v);
+                te2350_set_octave_feedback_amount(&pedal, v);
                 changed = true;
             }
             if (c == 'u') {
-                q31_t v = q31_add_sat(pedal.p_octave_feedback, FLOAT_TO_Q31(0.05f));
-                te2350_set_octave_feedback(&pedal, pedal.p_octave_feedback_enabled, v);
+                q31_t v = q31_add_sat(pedal.octave_feedback_amount, FLOAT_TO_Q31(0.05f));
+                te2350_set_octave_feedback_amount(&pedal, v);
                 changed = true;
             }
 
@@ -238,7 +223,7 @@ int main() {
                     (double)pedal.p_shimmer / 2147483648.0,
                     (double)pedal.p_diffusion / 2147483648.0,
                     (double)pedal.p_tone / 2147483648.0,
-                    (double)pedal.p_octave_feedback / 2147483648.0
+                    (double)pedal.octave_feedback_amount / 2147483648.0
                 );
             }
         }

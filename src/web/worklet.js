@@ -111,8 +111,8 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
                 this.bypassMode = value;
                 this.port.postMessage({ type: 'debug', message: `Bypass mode set to ${this.bypassMode}` });
                 break;
-            case 'octave_feedback_enabled': this.octaveFeedbackEnabled = value; this.wasmModule._wasm_te2350_set_octave_feedback(this.octaveFeedbackEnabled ? 1 : 0, this.octaveFeedbackAmount || 0); break;
-            case 'octave_feedback': this.octaveFeedbackAmount = value; this.wasmModule._wasm_te2350_set_octave_feedback(this.octaveFeedbackEnabled ? 1 : 0, this.octaveFeedbackAmount || 0); break;
+            case 'octave_feedback_enabled': this.octaveFeedbackEnabled = value; this.wasmModule._wasm_te2350_set_octave_feedback_enabled(this.octaveFeedbackEnabled ? 1 : 0); break;
+            case 'octave_feedback': this.octaveFeedbackAmount = value; this.wasmModule._wasm_te2350_set_octave_feedback_amount(this.octaveFeedbackAmount || 0); break;
             case 'melody_enabled': this.wasmModule._wasm_te2350_set_melody(value ? 1 : 0); break;
             case 'time': this.wasmModule._wasm_te2350_set_time(value); break;
             case 'feedback': this.wasmModule._wasm_te2350_set_feedback(value); break;

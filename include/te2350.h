@@ -6,7 +6,7 @@
 #include "dsp_math.h"
 #include "dsp_modulation.h"
 #include "dsp_pitch.h"
-
+#include "dsp_melody.h"
 
 // --- Tuning Constants ---
 // Just defaults or limits.
@@ -52,15 +52,20 @@ typedef struct {
 
   // --- State ---
   q31_t feedback_state;
+  q31_t bloom_state;
   
   // Freeze mode state
   bool freeze_mode;
   q31_t freeze_crossfade;  // 0 = normal, Q31_MAX = frozen
 
+  // Melody Generator
+  bool p_melody_enabled;
+  dsp_melody_t melody;
+
   // --- Parameters (Q31) ---
   // Targets
-  bool p_octave_feedback_enabled;
-  q31_t p_octave_feedback; // Amount 0..1
+  bool octave_feedback_enabled;
+  q31_t octave_feedback_amount; // Amount 0..1
   q31_t p_feedback;
   q31_t p_time;          // Main delay time target (0..1 -> maps to ms)
   q31_t p_rate;   // Modulation rate
@@ -133,7 +138,9 @@ void te2350_set_mix(te2350_t *ctx, q31_t mix);           // 0..1 (dry..wet)
 void te2350_set_freeze(te2350_t *ctx, bool freeze);      // Enable/disable freeze
 
 // New parameter setters
-void te2350_set_octave_feedback(te2350_t *ctx, bool enabled, q31_t amount);
+void te2350_set_melody_enabled(te2350_t *ctx, bool enabled);
+void te2350_set_octave_feedback_enabled(te2350_t *ctx, bool enabled);
+void te2350_set_octave_feedback_amount(te2350_t *ctx, q31_t amount);
 void te2350_set_shimmer(te2350_t *ctx, q31_t shimmer);   // 0..1 (pitch shift amount)
 void te2350_set_diffusion(te2350_t *ctx, q31_t diffusion); // 0..1 (allpass diffusion)
 void te2350_set_chaos(te2350_t *ctx, q31_t chaos);       // 0..1 (modulation chaos)
