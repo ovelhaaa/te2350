@@ -317,7 +317,7 @@ playFileBtn.addEventListener('click', startFile);
 stopBtn.addEventListener('click', stopCurrentSource);
 
 // Parameter Mapping
-const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble', 'mod_rate', 'mod_depth'];
+const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble', 'mod_rate', 'mod_depth', 'octave_feedback'];
 
 params.forEach(param => {
     const slider = document.getElementById(param);
@@ -338,6 +338,18 @@ document.getElementById('freeze').addEventListener('change', (e) => {
     }
 });
 
+document.getElementById('octave_feedback_enabled').addEventListener('change', (e) => {
+    if (effectNode && effectNode.port) {
+        effectNode.port.postMessage({ param: 'octave_feedback_enabled', value: e.target.checked });
+    }
+});
+
+document.getElementById('melody_enabled').addEventListener('change', (e) => {
+    if (effectNode && effectNode.port) {
+        effectNode.port.postMessage({ param: 'melody_enabled', value: e.target.checked });
+    }
+});
+
 bypassMode.addEventListener('change', (e) => {
     console.log("Bypass mode:", e.target.checked);
     if (effectNode && effectNode.port) {
@@ -353,4 +365,8 @@ function syncAllParams() {
     });
     const freeze = document.getElementById('freeze').checked;
     effectNode.port.postMessage({ param: 'freeze', value: freeze });
+    const octaveFb = document.getElementById('octave_feedback_enabled').checked;
+    effectNode.port.postMessage({ param: 'octave_feedback_enabled', value: octaveFb });
+    const melody = document.getElementById('melody_enabled').checked;
+    effectNode.port.postMessage({ param: 'melody_enabled', value: melody });
 }

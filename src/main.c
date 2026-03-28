@@ -13,6 +13,7 @@
 
 #include "../include/audio_driver.h"
 #include "../include/te2350.h"
+#include "../include/dsp_melody.h"
 
 #define WS2812_PIN 16
 #define IS_RGBW false
@@ -51,23 +52,8 @@ te2350_t pedal;
 static q31_t memory_pool[MEM_POOL_SIZE / 4];
 
 // --- Generative Melody: Em Pentatonic ---
-// Notes: E3, G3, A3, B3, D4, E4, G4, A4
-static const float scale_freqs[] = { 
-    164.81f, 196.00f, 220.00f, 246.94f, 293.66f, 329.63f, 392.00f, 440.00f 
-};
-
-static uint32_t mel_phase = 0;
-static uint32_t mel_inc = 0;
-static uint32_t mel_timer = 0;
-static uint32_t mel_next_time = 0;
-static int32_t  mel_env = 0;
-static uint32_t rnd_seed = 12345;
+static dsp_melody_t melody;
 static bool melody_enabled = false;  // Disabled by default
-
-static uint32_t fast_rand(void) {
-    rnd_seed = rnd_seed * 1664525 + 1013904223;
-    return rnd_seed;
-}
 
 // --- Audio Callback ---
 void process_audio_block(int32_t *rx_buffer, int32_t *tx_buffer, size_t sample_count) {
@@ -76,47 +62,7 @@ void process_audio_block(int32_t *rx_buffer, int32_t *tx_buffer, size_t sample_c
         
         // 1. Sequencer Logic (only if melody enabled)
         if (melody_enabled) {
-            mel_timer++;
-            if (mel_timer >= mel_next_time) {
-                mel_timer = 0;
-                // Next note duration logic (Rhythmic Variation)
-                // Base BPM ~120 (48000 samples/sec -> 24000 samples per beat)
-                
-                uint32_t r = fast_rand() % 100;
-                if (r < 20) {
-                    // 1/16th notes (bursts)
-                    mel_next_time = 6000;
-                } else if (r < 50) {
-                    // 1/8th notes
-                    mel_next_time = 12000;
-                } else if (r < 80) {
-                    // 1/4 notes (beat)
-                    mel_next_time = 24000;
-                } else {
-                    // Long notes / pauses
-                    mel_next_time = 48000 + (fast_rand() % 24000);
-                }
-                
-                // Humanize (jitter)
-                mel_next_time += (fast_rand() % 500);
-                
-                // Pick random note from scale
-                int note_idx = fast_rand() % (sizeof(scale_freqs)/sizeof(scale_freqs[0]));
-                float freq = scale_freqs[note_idx];
-                mel_inc = (uint32_t)(freq * 89478.4853f); // (2^32 / 48000)
-                
-                // Trigger Envelope (low velocity)
-                mel_env = 0x05000000; // ~-26dBFS peak
-            }
-
-            // 2. Sound Generation
-            mel_phase += mel_inc;
-            // Simple Envelope Decay
-            if (mel_env > 256) mel_env -= (mel_env >> 14);
-            
-            // Triangle-ish Wave (less harsh than saw)
-            int32_t wav = (mel_phase >> 1) ^ (mel_phase & 0x80000000 ? 0xFFFFFFFF : 0);
-            dry_signal = ((int64_t)wav * mel_env) >> 30;
+            dry_signal = dsp_melody_process(&melody);
         }
 
         // 3. Mix External Input (if any) + Generated Melody
@@ -171,7 +117,7 @@ int main() {
     te2350_set_time(&pedal, FLOAT_TO_Q31(0.8f));  // Long delay for cloud
     te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.90f)); // High feedback for sustain
     
-    // synth_init_test(440.0f); // Removed
+    dsp_melody_init(&melody);
 
     // Init Audio
     if (!audio_init(process_audio_block)) {
@@ -179,7 +125,7 @@ int main() {
         while(1) { gpio_put(25,1); sleep_ms(50); gpio_put(25,0); sleep_ms(50); }
     }
 
-    printf("Sys Running. Cmds: q/w(Time), a/s(Fbk), z/x(Mix), e/r(Shim), t/y(Ton), d/f(Diff), c(Freeze), m(Melody)\n");
+    printf("Sys Running. Cmds: q/w(Time), a/s(Fbk), z/x(Mix), e/r(Shim), t/y(Ton), d/f(Diff), c(Freeze), m(Melody), o(Octave Toggle), i/u(Octave Amt)\n");
 
     // Main loop: Serial Processing
     while (true) {
@@ -264,15 +210,35 @@ int main() {
                 printf("Melody Generator: %s\n", melody_enabled ? "ON" : "OFF");
             }
             
+            // Octave Feedback Toggle
+            if (c == 'o') {
+                te2350_set_octave_feedback(&pedal, !pedal.p_octave_feedback_enabled, pedal.p_octave_feedback);
+                printf("Octave Feedback: %s\n", pedal.p_octave_feedback_enabled ? "ON" : "OFF");
+            }
+
+            // Octave Feedback Amount
+            if (c == 'i') {
+                q31_t v = pedal.p_octave_feedback - FLOAT_TO_Q31(0.05f);
+                if(v < 0) v = 0;
+                te2350_set_octave_feedback(&pedal, pedal.p_octave_feedback_enabled, v);
+                changed = true;
+            }
+            if (c == 'u') {
+                q31_t v = q31_add_sat(pedal.p_octave_feedback, FLOAT_TO_Q31(0.05f));
+                te2350_set_octave_feedback(&pedal, pedal.p_octave_feedback_enabled, v);
+                changed = true;
+            }
+
             if (changed || c == 'p') {
                 // Approximate float conversion for display
-                printf("T:%.2f F:%.2f M:%.2f S:%.2f D:%.2f Ton:%.2f\n",
+                printf("T:%.2f F:%.2f M:%.2f S:%.2f D:%.2f Ton:%.2f OctFb:%.2f\n",
                     (double)pedal.p_time / 2147483648.0,
                     (double)pedal.p_feedback / 2147483648.0,
                     (double)pedal.p_mix / 2147483648.0,
                     (double)pedal.p_shimmer / 2147483648.0,
                     (double)pedal.p_diffusion / 2147483648.0,
-                    (double)pedal.p_tone / 2147483648.0
+                    (double)pedal.p_tone / 2147483648.0,
+                    (double)pedal.p_octave_feedback / 2147483648.0
                 );
             }
         }

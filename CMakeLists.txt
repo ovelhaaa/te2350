@@ -34,6 +34,7 @@ add_executable(te2350
     src/dsp_filters.c
     src/dsp_modulation.c
     src/dsp_pitch.c
+    src/dsp_melody.c
     src/audio_driver.c
     src/audio_i2s.pio
 )
