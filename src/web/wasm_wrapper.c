@@ -4,6 +4,7 @@
 
 #include "../../include/te2350.h"
 #include "../../include/dsp_math.h"
+#include "../../include/dsp_melody.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -13,6 +14,8 @@
 
 // Global effect instance
 static te2350_t pedal;
+static dsp_melody_t melody;
+static bool melody_enabled = false;
 
 // Memory pool for delay lines (128KB, same as main.c)
 #define MEM_POOL_SIZE (128 * 1024)
@@ -35,6 +38,7 @@ bool wasm_te2350_init(float sample_rate) {
     if (success) {
         te2350_set_time(&pedal, FLOAT_TO_Q31(0.8f));
         te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.90f));
+        dsp_melody_init(&melody);
     }
     return success;
 }
@@ -52,7 +56,11 @@ void wasm_te2350_process_block(float* in_f32, float* out_l_f32, float* out_r_f32
 
     // Process
     for (int i = 0; i < num_samples; i++) {
-        te2350_process(&pedal, in_q31[i], &out_l_q31[i], &out_r_q31[i]);
+        q31_t mixed_in = in_q31[i];
+        if (melody_enabled) {
+            mixed_in = q31_add_sat(mixed_in, dsp_melody_process(&melody));
+        }
+        te2350_process(&pedal, mixed_in, &out_l_q31[i], &out_r_q31[i]);
     }
 
     // Convert Q31 to float
@@ -77,6 +85,11 @@ void wasm_te2350_set_feedback(float feedback) {
 EMSCRIPTEN_KEEPALIVE
 void wasm_te2350_set_mix(float mix) {
     te2350_set_mix(&pedal, float_to_q31_safe(mix));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_octave_feedback(bool enabled, float amount) {
+    te2350_set_octave_feedback(&pedal, enabled, float_to_q31_safe(amount));
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -117,4 +130,9 @@ void wasm_te2350_set_freeze(bool freeze) {
 EMSCRIPTEN_KEEPALIVE
 void wasm_te2350_set_mod(float rate, float depth) {
     te2350_set_mod(&pedal, float_to_q31_safe(rate), float_to_q31_safe(depth));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_melody(bool enabled) {
+    melody_enabled = enabled;
 }

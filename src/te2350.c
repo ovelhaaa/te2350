@@ -64,6 +64,9 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ALLOC_BUF(TE_PITCH_SIZE);
   dsp_pitch_init(&ctx->pitch_shifter, buf_TE_PITCH_SIZE, TE_PITCH_SIZE);
 
+  ALLOC_BUF(TE_OCTAVE_PITCH_SIZE);
+  dsp_pitch_init(&ctx->octave_shifter, buf_TE_OCTAVE_PITCH_SIZE, TE_OCTAVE_PITCH_SIZE);
+
   // Init modules
   dsp_dc_blocker_init(&ctx->dc_block);
 
@@ -80,6 +83,8 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   dsp_onepole_init(&ctx->fb_lp, FLOAT_TO_Q31(0.12f));
 
   // Default parameters
+  ctx->p_octave_feedback_enabled = false;
+  ctx->p_octave_feedback = 0;
   ctx->p_feedback = FLOAT_TO_Q31(0.9f);
   ctx->p_time = FLOAT_TO_Q31(0.9f);
   ctx->p_rate = FLOAT_TO_Q31(0.5f); // Medium rate
@@ -343,6 +348,13 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
         fb_with_smear = q31_add_sat(q31_mul(fb_sat, dry_mix),
                                     q31_mul(pitched_fb, pitch_mix));
       }
+      // Apply Octave in Feedback (Pitch shift by +12 semitones = 2.0x ratio = Q31_MAX)
+      if (ctx->p_octave_feedback_enabled && ctx->p_octave_feedback > 0) {
+          q31_t octave_fb = dsp_pitch_process(&ctx->octave_shifter, fb_with_smear, Q31_MAX);
+          fb_with_smear = q31_add_sat(q31_mul(fb_with_smear, q31_sub_sat(Q31_MAX, ctx->p_octave_feedback)),
+                                      q31_mul(octave_fb, ctx->p_octave_feedback));
+      }
+
       fb_processed = fb_with_smear;
       
       // Apply Wobble to Feedback Amount
@@ -353,7 +365,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
       
       // Clamp - INCREASED MAX FEEDBACK to allow near-oscillation
       // 0.99f or slightly higher gives beautiful infinite wash, but keep under 1.0 to stay somewhat sane
-      if (mod_fb > FLOAT_TO_Q31(0.995f)) mod_fb = FLOAT_TO_Q31(0.995f);
+      if (mod_fb > FLOAT_TO_Q31(0.999f)) mod_fb = FLOAT_TO_Q31(0.999f);
       if (mod_fb < 0) mod_fb = 0;
       
       feedback_gain_final = mod_fb;
@@ -401,8 +413,38 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   }
 
   // 12. Output Mixing & Decorrelation
+  // Create a separate read for the right channel from the main delay (offset by 48 samples / 1ms)
+  // to widen the stereo image
+  int32_t d_samp_r = d_samp_modulated - 48; // Try 1ms offset
+  if (d_samp_r < ctx->min_delay_samples) d_samp_r = ctx->min_delay_samples;
+  q16_16_t delay_samples_frac_r = (q16_16_t)d_samp_r << 16;
+  q31_t delay_out_r = dsp_delay_read_hermite(&ctx->main_delay, delay_samples_frac_r);
+
+  // Blend wet and delay_out_r for stereo differences
+  q31_t wet_r_base = delay_out_r;
+  if (ctx->p_ducking > 0) {
+      q31_t amp_env;
+      if (env_level > (Q31_MAX >> 2)) {
+        amp_env = Q31_MAX;
+      } else {
+        amp_env = env_level << 2;
+      }
+      q31_t duck_amount = q31_sub_sat(Q31_MAX, amp_env);
+      q31_t reduction = q31_sub_sat(Q31_MAX, duck_amount);
+      reduction = q31_mul(reduction, ctx->p_ducking);
+      q31_t final_duck_gain = q31_sub_sat(Q31_MAX, reduction);
+      wet_r_base = q31_mul(wet_r_base, final_duck_gain);
+  }
+
   // Right channel: decorrelated through AP3
-  q31_t wet_r = dsp_allpass_process(&ctx->ap3, wet, (TE_AP3_SIZE / 2) << 16);
+  q31_t wet_r = dsp_allpass_process(&ctx->ap3, wet_r_base, (TE_AP3_SIZE / 2) << 16);
+
+  // Bloom / Cloud Crossfade
+  // Use env_level to determine how much we hear the direct taps (wet_core) vs the diffusion chain (wet_diff)
+  // Since wet is already post-diffusion (main_delay contains the diffusion output),
+  // we actually want the envelope to bring up the diffused sound after the note.
+  // We can treat `wet` as the diffused sound.
+  // Actually, `delay_out` comes from `main_delay`, which has the allpasses inside it.
 
   // Variable Dry/Wet Mix (controlled by p_mix_smoothed parameter)
   q31_t dry_gain = q31_sub_sat(Q31_MAX, ctx->p_mix_smoothed);
@@ -451,9 +493,9 @@ static void update_tone_filter(te2350_t *ctx) {
   // Range 0.55..1: Highpass (Open -> Very Thin)
   
   if (tone < FLOAT_TO_Q31(0.45f)) {
-      // Lowpass: Coeff 0.005 (Very Dark) to 0.5 (Open)
+      // Lowpass: Coeff 0.01 (Very Dark) to 0.5 (Open)
       q31_t c = q31_add_sat(tone, tone >> 3);
-      c = q31_add_sat(c, FLOAT_TO_Q31(0.005f));
+      c = q31_add_sat(c, FLOAT_TO_Q31(0.01f));
       if (c > FLOAT_TO_Q31(0.5f)) c = FLOAT_TO_Q31(0.5f);
       ctx->fb_lp.coeff = c;
   } else if (tone > FLOAT_TO_Q31(0.55f)) {
@@ -475,6 +517,11 @@ void te2350_set_mix(te2350_t *ctx, q31_t mix) {
 
 void te2350_set_freeze(te2350_t *ctx, bool freeze) {
   ctx->freeze_mode = freeze;
+}
+
+void te2350_set_octave_feedback(te2350_t *ctx, bool enabled, q31_t amount) {
+  ctx->p_octave_feedback_enabled = enabled;
+  ctx->p_octave_feedback = amount;
 }
 
 void te2350_set_shimmer(te2350_t *ctx, q31_t shimmer) {
