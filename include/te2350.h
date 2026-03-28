@@ -23,6 +23,7 @@
 #define TE_AP3_SIZE 673   // Prime number
 #define TE_AP4_SIZE 977   // Prime number (New stage)
 #define TE_PITCH_SIZE 2048  // Pitch shifter buffer
+#define TE_OCTAVE_PITCH_SIZE 2048 // Pitch shifter for octave feedback
 
 typedef struct {
   // --- Components ---
@@ -47,6 +48,7 @@ typedef struct {
   
   // Pitch shifter
   dsp_pitch_shifter_t pitch_shifter;
+  dsp_pitch_shifter_t octave_shifter;
 
   // --- State ---
   q31_t feedback_state;
@@ -57,6 +59,8 @@ typedef struct {
 
   // --- Parameters (Q31) ---
   // Targets
+  bool p_octave_feedback_enabled;
+  q31_t p_octave_feedback; // Amount 0..1
   q31_t p_feedback;
   q31_t p_time;          // Main delay time target (0..1 -> maps to ms)
   q31_t p_rate;   // Modulation rate
@@ -129,6 +133,7 @@ void te2350_set_mix(te2350_t *ctx, q31_t mix);           // 0..1 (dry..wet)
 void te2350_set_freeze(te2350_t *ctx, bool freeze);      // Enable/disable freeze
 
 // New parameter setters
+void te2350_set_octave_feedback(te2350_t *ctx, bool enabled, q31_t amount);
 void te2350_set_shimmer(te2350_t *ctx, q31_t shimmer);   // 0..1 (pitch shift amount)
 void te2350_set_diffusion(te2350_t *ctx, q31_t diffusion); // 0..1 (allpass diffusion)
 void te2350_set_chaos(te2350_t *ctx, q31_t chaos);       // 0..1 (modulation chaos)
