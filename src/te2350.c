@@ -432,12 +432,15 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // Mix the layers based on bloom
   // Bloom effect: During attack (env high), `wet_core` dominates.
   // During release (bloom falls slowly), `wet_diff` and `wet_air` open up.
-  // We'll define base weights for the "signature sound"
-  q31_t core_weight = q31_sub_sat(Q31_MAX, ctx->bloom_state); // Less core when blooming heavily
-  if (core_weight < FLOAT_TO_Q31(0.3f)) core_weight = FLOAT_TO_Q31(0.3f); // Always some core
+  // We'll define base weights for the "signature sound".
+  // Note: Weights are normalized (scaled down) to prevent hard clipping
+  // when summing the layers. Total sum stays roughly around 1.0 (Q31_MAX).
+  q31_t inv_bloom = q31_sub_sat(Q31_MAX, ctx->bloom_state);
+  q31_t core_weight = q31_mul(inv_bloom, FLOAT_TO_Q31(0.6f)); // Less core when blooming heavily
+  if (core_weight < FLOAT_TO_Q31(0.15f)) core_weight = FLOAT_TO_Q31(0.15f); // Always some core
 
-  q31_t diff_weight = FLOAT_TO_Q31(0.7f); // Base diff weight
-  q31_t air_weight  = ctx->bloom_state; // Air grows as bloom state does
+  q31_t diff_weight = FLOAT_TO_Q31(0.4f); // Base diff weight
+  q31_t air_weight  = q31_mul(ctx->bloom_state, FLOAT_TO_Q31(0.45f)); // Air grows as bloom state does
 
   q31_t layered_wet_l = q31_add_sat(q31_mul(wet_core, core_weight),
                                     q31_mul(wet_diff, diff_weight));
