@@ -84,9 +84,13 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
 
   // Init Melody Generator
   dsp_melody_init(&ctx->melody);
+  dsp_melody_set_volume(&ctx->melody, FLOAT_TO_Q31(0.18f));
+  dsp_melody_set_density(&ctx->melody, FLOAT_TO_Q31(0.45f));
+  dsp_melody_set_decay(&ctx->melody, FLOAT_TO_Q31(0.55f));
 
   // Default parameters
   ctx->p_melody_enabled = false;
+  ctx->p_melody_only = false;
   ctx->octave_feedback_enabled = false;
   ctx->octave_feedback_amount = 0;
   ctx->p_feedback = FLOAT_TO_Q31(0.9f);
@@ -142,13 +146,12 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
 
 void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // 0. Melody Generator
-  q31_t melody_sig = 0;
-  if (ctx->p_melody_enabled) {
-    melody_sig = dsp_melody_process(&ctx->melody);
-  }
+  dsp_melody_set_enabled(&ctx->melody, ctx->p_melody_enabled);
+  q31_t melody_sig = dsp_melody_process(&ctx->melody);
 
   // 1. Input Conditioning
-  q31_t mixed_in = q31_add_sat(in_mono, melody_sig);
+  q31_t external_in = ctx->p_melody_only ? 0 : in_mono;
+  q31_t mixed_in = q31_add_sat(external_in, melody_sig);
   q31_t dry = dsp_dc_blockProcess(&ctx->dc_block, mixed_in);
 
   // 2. Parameter Smoothing (Zipper Noise Elimination)
@@ -338,12 +341,14 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
       // Update tone filter coefficients based on smoothed tone
       update_tone_filter(ctx);
 
-      // Apply Tone Filter
+      // Apply loop voicing: LP body + gentle HP cleanup to avoid mud build-up
       q31_t lp = dsp_onepole_lp(&ctx->fb_lp, delay_out);
+      q31_t hp = q31_sub_sat(delay_out, lp);
+      q31_t loop_hp_cleanup = q31_mul(hp, FLOAT_TO_Q31(0.28f));
       if (ctx->p_tone_smoothed > FLOAT_TO_Q31(0.55f)) {
-          filter_out = q31_sub_sat(delay_out, lp); // HP
+          filter_out = q31_add_sat(hp, q31_mul(loop_hp_cleanup, FLOAT_TO_Q31(0.6f)));
       } else {
-          filter_out = lp; // LP
+          filter_out = q31_add_sat(lp, loop_hp_cleanup);
       }
       
       // Apply Saturation (Gentle)
@@ -364,7 +369,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
         fb_with_smear = q31_add_sat(q31_mul(fb_sat, dry_mix),
                                     q31_mul(pitched_fb, pitch_mix));
       }
-      // Apply Octave in Feedback (Pitch shift by +12 semitones = 2.0x ratio = Q31_MAX)
+      // Apply Octave in Feedback directly in the feedback path
       if (ctx->octave_feedback_enabled && ctx->octave_feedback_amount > 0) {
           q31_t octave_fb = dsp_pitch_process(&ctx->octave_shifter, fb_with_smear, Q31_MAX);
           fb_with_smear = q31_add_sat(q31_mul(fb_with_smear, q31_sub_sat(Q31_MAX, ctx->octave_feedback_amount)),
@@ -389,15 +394,14 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   
   ctx->feedback_state = q31_mul(fb_processed, feedback_gain_final);
   
-  // 9. Define the Diffuse Component
-  // 'wet_diff' is the diffuse cloud that has passed through the allpasses
-  // and delay modulation
-  q31_t wet_diff = delay_out;
-
-  // 10. Define the Ethereal Air Layer
-  // 'wet_air' applies light filtering (borrowed from diffusion chain behavior)
-  // For air, we take a bit of the diffused signal, heavily scaled
-  q31_t wet_air = q31_mul(wet_diff, FLOAT_TO_Q31(0.5f));
+  // 9. Layered wet structure:
+  // wet_core = recognizable taps/echoes
+  // wet_diff = diffuse field from delay/allpass chain
+  // wet_air  = high airy halo
+  q31_t wet_diff = q31_add_sat(q31_mul(delay_out, FLOAT_TO_Q31(0.72f)),
+                               q31_mul(stage3, FLOAT_TO_Q31(0.28f)));
+  q31_t wet_air = q31_mul(q31_sub_sat(wet_diff, dsp_onepole_lp(&ctx->fb_lp, wet_diff)),
+                          FLOAT_TO_Q31(0.35f));
   
   // NOTE: Pitch shifter agora está APENAS no feedback loop (pitch smear sutil)
   // Isso dá movimento sem "chorus audível" no caminho direto
@@ -429,18 +433,14 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   duck_reduction = q31_mul(duck_reduction, ctx->p_ducking);
   q31_t final_duck_gain = q31_sub_sat(Q31_MAX, duck_reduction);
 
-  // Mix the layers based on bloom
-  // Bloom effect: During attack (env high), `wet_core` dominates.
-  // During release (bloom falls slowly), `wet_diff` and `wet_air` open up.
-  // We'll define base weights for the "signature sound"
-  q31_t core_weight = q31_sub_sat(Q31_MAX, ctx->bloom_state); // Less core when blooming heavily
-  if (core_weight < FLOAT_TO_Q31(0.3f)) core_weight = FLOAT_TO_Q31(0.3f); // Always some core
+  // Bloom: focused attack, opening cloud after transient
+  q31_t bloom = ctx->bloom_state;
+  q31_t core_weight = q31_sub_sat(FLOAT_TO_Q31(0.85f), q31_mul(bloom, FLOAT_TO_Q31(0.45f)));
+  if (core_weight < FLOAT_TO_Q31(0.35f)) core_weight = FLOAT_TO_Q31(0.35f);
+  q31_t diff_weight = q31_add_sat(FLOAT_TO_Q31(0.35f), q31_mul(bloom, FLOAT_TO_Q31(0.50f)));
+  q31_t air_weight  = q31_add_sat(FLOAT_TO_Q31(0.08f), q31_mul(bloom, FLOAT_TO_Q31(0.42f)));
 
-  q31_t diff_weight = FLOAT_TO_Q31(0.7f); // Base diff weight
-  q31_t air_weight  = ctx->bloom_state; // Air grows as bloom state does
-
-  q31_t layered_wet_l = q31_add_sat(q31_mul(wet_core, core_weight),
-                                    q31_mul(wet_diff, diff_weight));
+  q31_t layered_wet_l = q31_add_sat(q31_mul(wet_core, core_weight), q31_mul(wet_diff, diff_weight));
   layered_wet_l = q31_add_sat(layered_wet_l, q31_mul(wet_air, air_weight));
 
   // Apply ducking to the combined layer
@@ -454,12 +454,19 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q16_16_t delay_samples_frac_r = (q16_16_t)d_samp_r << 16;
   q31_t delay_out_r = dsp_delay_read_hermite(&ctx->main_delay, delay_samples_frac_r);
 
-  // Construct the right channel layer similarly
-  q31_t wet_diff_r = delay_out_r;
-  q31_t wet_air_r  = q31_mul(wet_diff_r, FLOAT_TO_Q31(0.5f));
+  // Right channel uses asymmetric early reflections and polarity shift
+  q31_t er1 = dsp_delay_read(&ctx->main_delay, ctx->tap_delays[0] >> 1);
+  q31_t er2 = dsp_delay_read(&ctx->main_delay, (ctx->tap_delays[1] * 3) >> 2);
+  q31_t wet_core_r = q31_add_sat(q31_mul(wet_core, FLOAT_TO_Q31(0.85f)),
+                                 q31_add_sat(q31_mul(er1, FLOAT_TO_Q31(0.18f)),
+                                             q31_mul(-er2, FLOAT_TO_Q31(0.14f))));
 
-  q31_t layered_wet_r = q31_add_sat(q31_mul(wet_core, core_weight),
-                                    q31_mul(wet_diff_r, diff_weight));
+  q31_t wet_diff_r = q31_add_sat(q31_mul(delay_out_r, FLOAT_TO_Q31(0.68f)),
+                                 q31_mul(stage2, FLOAT_TO_Q31(0.22f)));
+  q31_t wet_air_r = q31_mul(q31_sub_sat(wet_diff_r, dsp_onepole_lp(&ctx->fb_lp, wet_diff_r)),
+                            FLOAT_TO_Q31(0.35f));
+
+  q31_t layered_wet_r = q31_add_sat(q31_mul(wet_core_r, core_weight), q31_mul(wet_diff_r, diff_weight));
   layered_wet_r = q31_add_sat(layered_wet_r, q31_mul(wet_air_r, air_weight));
 
   // Right channel decorrelated through AP3
@@ -542,6 +549,23 @@ void te2350_set_freeze(te2350_t *ctx, bool freeze) {
 
 void te2350_set_melody_enabled(te2350_t *ctx, bool enabled) {
   ctx->p_melody_enabled = enabled;
+  dsp_melody_set_enabled(&ctx->melody, enabled);
+}
+
+void te2350_set_melody_only(te2350_t *ctx, bool only) {
+  ctx->p_melody_only = only;
+}
+
+void te2350_set_melody_volume(te2350_t *ctx, q31_t volume) {
+  dsp_melody_set_volume(&ctx->melody, volume);
+}
+
+void te2350_set_melody_density(te2350_t *ctx, q31_t density) {
+  dsp_melody_set_density(&ctx->melody, density);
+}
+
+void te2350_set_melody_decay(te2350_t *ctx, q31_t decay) {
+  dsp_melody_set_decay(&ctx->melody, decay);
 }
 
 void te2350_set_octave_feedback_enabled(te2350_t *ctx, bool enabled) {
@@ -549,6 +573,8 @@ void te2350_set_octave_feedback_enabled(te2350_t *ctx, bool enabled) {
 }
 
 void te2350_set_octave_feedback_amount(te2350_t *ctx, q31_t amount) {
+  if (amount < 0) amount = 0;
+  if (amount > Q31_MAX) amount = Q31_MAX;
   ctx->octave_feedback_amount = amount;
 }
 

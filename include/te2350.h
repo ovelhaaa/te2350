@@ -18,7 +18,6 @@
 
 #define TE_MAIN_DELAY_SIZE 16384 // Doubled for "bleeps" and texture
 #define TE_AP1_SIZE 1103  // Prime number to avoid ringing
-#define TE_AP1_SIZE 1103  // Prime number to avoid ringing
 #define TE_AP2_SIZE 1327  // Prime number
 #define TE_AP3_SIZE 673   // Prime number
 #define TE_AP4_SIZE 977   // Prime number (New stage)
@@ -60,6 +59,7 @@ typedef struct {
 
   // Melody Generator
   bool p_melody_enabled;
+  bool p_melody_only;
   dsp_melody_t melody;
 
   // --- Parameters (Q31) ---
@@ -139,6 +139,10 @@ void te2350_set_freeze(te2350_t *ctx, bool freeze);      // Enable/disable freez
 
 // New parameter setters
 void te2350_set_melody_enabled(te2350_t *ctx, bool enabled);
+void te2350_set_melody_only(te2350_t *ctx, bool only);
+void te2350_set_melody_volume(te2350_t *ctx, q31_t volume);
+void te2350_set_melody_density(te2350_t *ctx, q31_t density);
+void te2350_set_melody_decay(te2350_t *ctx, q31_t decay);
 void te2350_set_octave_feedback_enabled(te2350_t *ctx, bool enabled);
 void te2350_set_octave_feedback_amount(te2350_t *ctx, q31_t amount);
 void te2350_set_shimmer(te2350_t *ctx, q31_t shimmer);   // 0..1 (pitch shift amount)

@@ -12,6 +12,11 @@ typedef struct {
     uint32_t mel_timer;
     uint32_t mel_next_time;
     int32_t  mel_env;
+    int32_t  mel_env_decay;
+    q31_t volume;
+    q31_t density;
+    q31_t decay;
+    bool enabled;
     uint32_t rnd_seed;
 } dsp_melody_t;
 
@@ -29,5 +34,10 @@ void dsp_melody_init(dsp_melody_t *ctx);
  * @return Generated sample (Q31).
  */
 q31_t dsp_melody_process(dsp_melody_t *ctx);
+
+void dsp_melody_set_enabled(dsp_melody_t *ctx, bool enabled);
+void dsp_melody_set_volume(dsp_melody_t *ctx, q31_t volume);
+void dsp_melody_set_density(dsp_melody_t *ctx, q31_t density);
+void dsp_melody_set_decay(dsp_melody_t *ctx, q31_t decay);
 
 #endif // DSP_MELODY_H

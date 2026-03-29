@@ -134,3 +134,23 @@ EMSCRIPTEN_KEEPALIVE
 void wasm_te2350_set_melody(bool enabled) {
     te2350_set_melody_enabled(&pedal, enabled);
 }
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_melody_only(bool only) {
+    te2350_set_melody_only(&pedal, only);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_melody_volume(float volume) {
+    te2350_set_melody_volume(&pedal, float_to_q31_safe(volume));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_melody_density(float density) {
+    te2350_set_melody_density(&pedal, float_to_q31_safe(density));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_melody_decay(float decay) {
+    te2350_set_melody_decay(&pedal, float_to_q31_safe(decay));
+}
