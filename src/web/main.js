@@ -15,7 +15,7 @@ const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
 const capabilityBindings = {
-    octave_feedback: { id: 'octave_feedback', type: 'slider', label: 'Octave Feedback Amount' },
+    octave_feedback_amount: { id: 'octave_feedback_amount', type: 'slider', label: 'Octave Feedback Amount' },
     octave_feedback_enabled: { id: 'octave_feedback_enabled', type: 'toggle', label: 'Octave Feedback Toggle' },
     melody_enabled: { id: 'melody_enabled', type: 'toggle', label: 'Melody Generator Toggle' },
     melody_only: { id: 'melody_only', type: 'toggle', label: 'Melody Only Toggle' },
@@ -363,11 +363,18 @@ playFileBtn.addEventListener('click', startFile);
 stopBtn.addEventListener('click', stopCurrentSource);
 
 // Parameter Mapping
-const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble', 'mod_rate', 'mod_depth', 'octave_feedback', 'melody_volume', 'melody_density', 'melody_decay'];
+const params = [
+    'time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble',
+    'mod_rate', 'mod_depth', 'octave_feedback_amount', 'melody_volume', 'melody_density', 'melody_decay'
+];
 
 params.forEach(param => {
     const slider = document.getElementById(param);
     const valDisplay = document.getElementById(param + 'Val');
+    if (!slider || !valDisplay) {
+        console.warn(`Missing slider binding for "${param}"`);
+        return;
+    }
 
     slider.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
@@ -413,6 +420,7 @@ function syncAllParams() {
     if (!effectNode || !effectNode.port) return;
     params.forEach(param => {
         const slider = document.getElementById(param);
+        if (!slider) return;
         effectNode.port.postMessage({ param: param, value: parseFloat(slider.value) });
     });
     const freeze = document.getElementById('freeze').checked;

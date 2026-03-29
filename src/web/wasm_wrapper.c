@@ -131,8 +131,13 @@ void wasm_te2350_set_mod(float rate, float depth) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void wasm_te2350_set_melody(bool enabled) {
+void wasm_te2350_set_melody_enabled(bool enabled) {
     te2350_set_melody_enabled(&pedal, enabled);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_melody(bool enabled) { // Backward-compatible alias
+    wasm_te2350_set_melody_enabled(enabled);
 }
 
 EMSCRIPTEN_KEEPALIVE
