@@ -117,9 +117,14 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
                 this.octaveFeedbackEnabled = value;
                 this._invokeWasm('_wasm_te2350_set_octave_feedback_enabled', [this.octaveFeedbackEnabled ? 1 : 0], param);
                 break;
-            case 'octave_feedback':
+            case 'octave_feedback_amount':
                 this.octaveFeedbackAmount = value;
                 this._invokeWasm('_wasm_te2350_set_octave_feedback_amount', [this.octaveFeedbackAmount || 0], param);
+                break;
+            case 'octave_feedback':
+                // Backward compatibility for older UIs.
+                this.octaveFeedbackAmount = value;
+                this._invokeWasm('_wasm_te2350_set_octave_feedback_amount', [this.octaveFeedbackAmount || 0], 'octave_feedback_amount');
                 break;
             case 'melody_enabled':
                 this._invokeWasm('_wasm_te2350_set_melody', [value ? 1 : 0], param);
@@ -199,7 +204,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
     _reportCapabilities() {
         const OPTIONAL_CAPABILITIES = {
             octave_feedback_enabled: '_wasm_te2350_set_octave_feedback_enabled',
-            octave_feedback: '_wasm_te2350_set_octave_feedback_amount',
+            octave_feedback_amount: '_wasm_te2350_set_octave_feedback_amount',
             melody_enabled: '_wasm_te2350_set_melody',
             melody_only: '_wasm_te2350_set_melody_only',
             melody_volume: '_wasm_te2350_set_melody_volume',

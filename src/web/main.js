@@ -15,7 +15,7 @@ const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
 const capabilityBindings = {
-    octave_feedback: { id: 'octave_feedback', type: 'slider', label: 'Octave Feedback Amount' },
+    octave_feedback_amount: { id: 'octave_feedback_amount', type: 'slider', label: 'Octave Feedback Amount' },
     octave_feedback_enabled: { id: 'octave_feedback_enabled', type: 'toggle', label: 'Octave Feedback Toggle' },
     melody_enabled: { id: 'melody_enabled', type: 'toggle', label: 'Melody Generator Toggle' },
     melody_only: { id: 'melody_only', type: 'toggle', label: 'Melody Only Toggle' },
@@ -363,64 +363,78 @@ playFileBtn.addEventListener('click', startFile);
 stopBtn.addEventListener('click', stopCurrentSource);
 
 // Parameter Mapping
-const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble', 'mod_rate', 'mod_depth', 'octave_feedback', 'melody_volume', 'melody_density', 'melody_decay'];
+const sliderParams = [
+    'time',
+    'feedback',
+    'mix',
+    'shimmer',
+    'diffusion',
+    'chaos',
+    'tone',
+    'ducking',
+    'wobble',
+    'mod_rate',
+    'mod_depth',
+    'octave_feedback_amount',
+    'melody_volume',
+    'melody_density',
+    'melody_decay'
+];
 
-params.forEach(param => {
+const toggleParams = ['freeze', 'octave_feedback_enabled', 'melody_enabled', 'melody_only'];
+
+function sendParam(param, value) {
+    if (effectNode && effectNode.port) {
+        effectNode.port.postMessage({ param, value });
+    }
+}
+
+sliderParams.forEach((param) => {
     const slider = document.getElementById(param);
-    const valDisplay = document.getElementById(param + 'Val');
+    const valDisplay = document.getElementById(`${param}Val`);
+    if (!slider || !valDisplay) {
+        console.warn(`[main] Missing slider binding for "${param}"`);
+        return;
+    }
 
+    const updateDisplay = (value) => {
+        valDisplay.textContent = value.toFixed(2);
+    };
+
+    updateDisplay(parseFloat(slider.value));
     slider.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
-        valDisplay.textContent = val.toFixed(2);
-        if (effectNode && effectNode.port) {
-            effectNode.port.postMessage({ param: param, value: val });
-        }
+        updateDisplay(val);
+        sendParam(param, val);
     });
 });
 
-document.getElementById('freeze').addEventListener('change', (e) => {
-    if (effectNode && effectNode.port) {
-        effectNode.port.postMessage({ param: 'freeze', value: e.target.checked });
+toggleParams.forEach((param) => {
+    const toggle = document.getElementById(param);
+    if (!toggle) {
+        console.warn(`[main] Missing toggle binding for "${param}"`);
+        return;
     }
-});
-
-document.getElementById('octave_feedback_enabled').addEventListener('change', (e) => {
-    if (effectNode && effectNode.port) {
-        effectNode.port.postMessage({ param: 'octave_feedback_enabled', value: e.target.checked });
-    }
-});
-
-document.getElementById('melody_enabled').addEventListener('change', (e) => {
-    if (effectNode && effectNode.port) {
-        effectNode.port.postMessage({ param: 'melody_enabled', value: e.target.checked });
-    }
-});
-
-document.getElementById('melody_only').addEventListener('change', (e) => {
-    if (effectNode && effectNode.port) {
-        effectNode.port.postMessage({ param: 'melody_only', value: e.target.checked });
-    }
+    toggle.addEventListener('change', (e) => {
+        sendParam(param, e.target.checked);
+    });
 });
 
 bypassMode.addEventListener('change', (e) => {
     console.log("Bypass mode:", e.target.checked);
-    if (effectNode && effectNode.port) {
-        effectNode.port.postMessage({ param: 'bypass', value: e.target.checked });
-    }
+    sendParam('bypass', e.target.checked);
 });
 
 function syncAllParams() {
     if (!effectNode || !effectNode.port) return;
-    params.forEach(param => {
+    sliderParams.forEach((param) => {
         const slider = document.getElementById(param);
-        effectNode.port.postMessage({ param: param, value: parseFloat(slider.value) });
+        if (!slider) return;
+        sendParam(param, parseFloat(slider.value));
     });
-    const freeze = document.getElementById('freeze').checked;
-    effectNode.port.postMessage({ param: 'freeze', value: freeze });
-    const octaveFb = document.getElementById('octave_feedback_enabled').checked;
-    effectNode.port.postMessage({ param: 'octave_feedback_enabled', value: octaveFb });
-    const melody = document.getElementById('melody_enabled').checked;
-    effectNode.port.postMessage({ param: 'melody_enabled', value: melody });
-    const melodyOnly = document.getElementById('melody_only').checked;
-    effectNode.port.postMessage({ param: 'melody_only', value: melodyOnly });
+    toggleParams.forEach((param) => {
+        const toggle = document.getElementById(param);
+        if (!toggle) return;
+        sendParam(param, toggle.checked);
+    });
 }
