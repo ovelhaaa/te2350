@@ -197,15 +197,20 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
     }
 
     _reportCapabilities() {
-        const capabilityMap = {
-            octave_feedback_enabled: this._hasWasmFn('_wasm_te2350_set_octave_feedback_enabled'),
-            octave_feedback: this._hasWasmFn('_wasm_te2350_set_octave_feedback_amount'),
-            melody_enabled: this._hasWasmFn('_wasm_te2350_set_melody'),
-            melody_only: this._hasWasmFn('_wasm_te2350_set_melody_only'),
-            melody_volume: this._hasWasmFn('_wasm_te2350_set_melody_volume'),
-            melody_density: this._hasWasmFn('_wasm_te2350_set_melody_density'),
-            melody_decay: this._hasWasmFn('_wasm_te2350_set_melody_decay')
+        const OPTIONAL_CAPABILITIES = {
+            octave_feedback_enabled: '_wasm_te2350_set_octave_feedback_enabled',
+            octave_feedback: '_wasm_te2350_set_octave_feedback_amount',
+            melody_enabled: '_wasm_te2350_set_melody',
+            melody_only: '_wasm_te2350_set_melody_only',
+            melody_volume: '_wasm_te2350_set_melody_volume',
+            melody_density: '_wasm_te2350_set_melody_density',
+            melody_decay: '_wasm_te2350_set_melody_decay'
         };
+
+        const capabilityMap = {};
+        for (const param in OPTIONAL_CAPABILITIES) {
+            capabilityMap[param] = this._hasWasmFn(OPTIONAL_CAPABILITIES[param]);
+        }
 
         this.port.postMessage({
             type: 'capabilities',
