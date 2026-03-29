@@ -317,7 +317,7 @@ playFileBtn.addEventListener('click', startFile);
 stopBtn.addEventListener('click', stopCurrentSource);
 
 // Parameter Mapping
-const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble', 'mod_rate', 'mod_depth', 'octave_feedback'];
+const params = ['time', 'feedback', 'mix', 'shimmer', 'diffusion', 'chaos', 'tone', 'ducking', 'wobble', 'mod_rate', 'mod_depth', 'octave_feedback', 'melody_volume', 'melody_density', 'melody_decay'];
 
 params.forEach(param => {
     const slider = document.getElementById(param);
@@ -350,6 +350,12 @@ document.getElementById('melody_enabled').addEventListener('change', (e) => {
     }
 });
 
+document.getElementById('melody_only').addEventListener('change', (e) => {
+    if (effectNode && effectNode.port) {
+        effectNode.port.postMessage({ param: 'melody_only', value: e.target.checked });
+    }
+});
+
 bypassMode.addEventListener('change', (e) => {
     console.log("Bypass mode:", e.target.checked);
     if (effectNode && effectNode.port) {
@@ -369,4 +375,6 @@ function syncAllParams() {
     effectNode.port.postMessage({ param: 'octave_feedback_enabled', value: octaveFb });
     const melody = document.getElementById('melody_enabled').checked;
     effectNode.port.postMessage({ param: 'melody_enabled', value: melody });
+    const melodyOnly = document.getElementById('melody_only').checked;
+    effectNode.port.postMessage({ param: 'melody_only', value: melodyOnly });
 }

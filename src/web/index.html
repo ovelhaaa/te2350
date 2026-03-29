@@ -648,6 +648,42 @@
           <input type="range" id="octave_feedback" min="0" max="1" step="0.01" value="0.00" oninput="document.getElementById('arc-octave_feedback').style.width = (this.value * 100) + '%'">
         </div>
 
+        <!-- Melody Volume -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Melody Vol</span>
+            <span class="knob-value" id="melody_volumeVal">0.18</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-melody_volume" style="width:18%"></div>
+          </div>
+          <input type="range" id="melody_volume" min="0" max="1" step="0.01" value="0.18" oninput="document.getElementById('arc-melody_volume').style.width = (this.value * 100) + '%'">
+        </div>
+
+        <!-- Melody Density -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Melody Density</span>
+            <span class="knob-value" id="melody_densityVal">0.45</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-melody_density" style="width:45%"></div>
+          </div>
+          <input type="range" id="melody_density" min="0" max="1" step="0.01" value="0.45" oninput="document.getElementById('arc-melody_density').style.width = (this.value * 100) + '%'">
+        </div>
+
+        <!-- Melody Decay -->
+        <div class="knob-cell">
+          <div class="knob-header">
+            <span class="knob-name">Melody Decay</span>
+            <span class="knob-value" id="melody_decayVal">0.55</span>
+          </div>
+          <div class="knob-arc">
+            <div class="knob-arc-fill" id="arc-melody_decay" style="width:55%"></div>
+          </div>
+          <input type="range" id="melody_decay" min="0" max="1" step="0.01" value="0.55" oninput="document.getElementById('arc-melody_decay').style.width = (this.value * 100) + '%'">
+        </div>
+
       </div>
       <div style="margin-top: 14px; display: flex; gap: 20px;">
         <label class="toggle-row">
@@ -663,6 +699,11 @@
         <label class="toggle-row">
           <span class="toggle-label">Melody Gen</span>
           <input type="checkbox" id="melody_enabled">
+          <div class="toggle-pip"></div>
+        </label>
+        <label class="toggle-row">
+          <span class="toggle-label">Melody Only</span>
+          <input type="checkbox" id="melody_only">
           <div class="toggle-pip"></div>
         </label>
       </div>

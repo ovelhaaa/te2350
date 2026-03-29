@@ -110,7 +110,7 @@ int main() {
         while(1) { gpio_put(25,1); sleep_ms(50); gpio_put(25,0); sleep_ms(50); }
     }
 
-    printf("Sys Running. Cmds: q/w(Time), a/s(Fbk), z/x(Mix), e/r(Shim), t/y(Ton), d/f(Diff), c(Freeze), m(Melody), o(Octave Toggle), i/u(Octave Amt)\n");
+    printf("Sys Running. Cmds: q/w(Time), a/s(Fbk), z/x(Mix), e/r(Shim), t/y(Ton), d/f(Diff), c(Freeze), m(Melody), k(MelodyOnly), n/b(MelVol), o(Octave Toggle), i/u(Octave Amt)\n");
 
     // Main loop: Serial Processing
     while (true) {
@@ -194,6 +194,23 @@ int main() {
                 te2350_set_melody_enabled(&pedal, !pedal.p_melody_enabled);
                 printf("Melody Generator: %s\n", pedal.p_melody_enabled ? "ON" : "OFF");
             }
+
+            if (c == 'k') {
+                te2350_set_melody_only(&pedal, !pedal.p_melody_only);
+                printf("Melody Only: %s\n", pedal.p_melody_only ? "ON" : "OFF");
+            }
+
+            if (c == 'n') {
+                q31_t v = pedal.melody.volume - FLOAT_TO_Q31(0.03f);
+                if (v < 0) v = 0;
+                te2350_set_melody_volume(&pedal, v);
+                changed = true;
+            }
+            if (c == 'b') {
+                q31_t v = q31_add_sat(pedal.melody.volume, FLOAT_TO_Q31(0.03f));
+                te2350_set_melody_volume(&pedal, v);
+                changed = true;
+            }
             
             // Octave Feedback Toggle
             if (c == 'o') {
@@ -216,14 +233,17 @@ int main() {
 
             if (changed || c == 'p') {
                 // Approximate float conversion for display
-                printf("T:%.2f F:%.2f M:%.2f S:%.2f D:%.2f Ton:%.2f OctFb:%.2f\n",
+                printf("T:%.2f F:%.2f M:%.2f S:%.2f D:%.2f Ton:%.2f OctFb:%.2f MelVol:%.2f Mel:%d MelOnly:%d\n",
                     (double)pedal.p_time / 2147483648.0,
                     (double)pedal.p_feedback / 2147483648.0,
                     (double)pedal.p_mix / 2147483648.0,
                     (double)pedal.p_shimmer / 2147483648.0,
                     (double)pedal.p_diffusion / 2147483648.0,
                     (double)pedal.p_tone / 2147483648.0,
-                    (double)pedal.octave_feedback_amount / 2147483648.0
+                    (double)pedal.octave_feedback_amount / 2147483648.0,
+                    (double)pedal.melody.volume / 2147483648.0,
+                    pedal.p_melody_enabled ? 1 : 0,
+                    pedal.p_melody_only ? 1 : 0
                 );
             }
         }
