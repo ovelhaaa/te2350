@@ -14,6 +14,15 @@ const btnFile = document.getElementById('btn-file'); // The visible Play File bu
 const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
+const capabilityBindings = {
+    octave_feedback: { id: 'octave_feedback', type: 'slider', label: 'Octave Feedback Amount' },
+    octave_feedback_enabled: { id: 'octave_feedback_enabled', type: 'toggle', label: 'Octave Feedback Toggle' },
+    melody_enabled: { id: 'melody_enabled', type: 'toggle', label: 'Melody Generator Toggle' },
+    melody_only: { id: 'melody_only', type: 'toggle', label: 'Melody Only Toggle' },
+    melody_volume: { id: 'melody_volume', type: 'slider', label: 'Melody Volume' },
+    melody_density: { id: 'melody_density', type: 'slider', label: 'Melody Density' },
+    melody_decay: { id: 'melody_decay', type: 'slider', label: 'Melody Decay' }
+};
 
 // VU Meter mapping
 const vuBars = document.querySelectorAll('.vu-bar');
@@ -73,6 +82,39 @@ function updateDebugUI() {
     debugActiveSource.textContent = activeSource ? activeSource : 'none';
 }
 setInterval(updateDebugUI, 500); // Poll context state occasionally
+
+function showCapabilityWarning(missingLabels) {
+    if (!warningDiv) return;
+    if (!missingLabels.length) return;
+    warningDiv.style.display = 'block';
+    warningDiv.textContent = `Some controls are unavailable in the loaded WASM build and were disabled: ${missingLabels.join(', ')}.`;
+}
+
+function applyCapabilityMap(capabilities = {}) {
+    const missingLabels = [];
+
+    Object.entries(capabilityBindings).forEach(([param, binding]) => {
+        const el = document.getElementById(binding.id);
+        if (!el) return;
+        const available = capabilities[param] !== false;
+
+        if (!available) {
+            missingLabels.push(binding.label);
+        }
+
+        el.disabled = !available;
+        el.dataset.available = available ? '1' : '0';
+
+        if (binding.type === 'slider') {
+            const arc = document.getElementById(`arc-${binding.id}`);
+            if (arc) {
+                arc.style.opacity = available ? '1' : '0.35';
+            }
+        }
+    });
+
+    showCapabilityWarning(missingLabels);
+}
 
 let decodedAudioBuffer = null;
 
@@ -193,6 +235,10 @@ async function initAudioContext() {
                 console.log("[Worklet Status]", data.message);
                 if (data.stage === 'fetch' && typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = data.message;
                 else if (data.stage === 'init') debugWasmInit.textContent = data.message;
+            } else if (data.type === 'capabilities') {
+                applyCapabilityMap(data.capabilities || {});
+            } else if (data.type === 'parameter_unavailable') {
+                console.warn(`Parameter unavailable in current WASM build: ${data.param} (${data.functionName})`);
             }
         };
 

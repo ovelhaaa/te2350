@@ -16,6 +16,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         this.blockSize = 128;
         this.modRate = 0.5;
         this.modDepth = 0.4;
+        this.reportedUnavailableParams = new Set();
 
         this.port.onmessage = this.handleMessage.bind(this);
 
@@ -78,6 +79,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             this.wasmMemory = this.wasmInstance.exports.memory || Object.values(this.wasmInstance.exports).find(x => x instanceof WebAssembly.Memory);
 
             this.wasmLoaded = true;
+            this._reportCapabilities();
             this.port.postMessage({ type: 'ready' });
             this.port.postMessage({ type: 'worklet_debug', stage: 'ready_sent' });
             this.port.postMessage({ type: 'status', stage: 'init', message: 'success' });
@@ -111,27 +113,109 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
                 this.bypassMode = value;
                 this.port.postMessage({ type: 'debug', message: `Bypass mode set to ${this.bypassMode}` });
                 break;
-            case 'octave_feedback_enabled': this.octaveFeedbackEnabled = value; this.wasmModule._wasm_te2350_set_octave_feedback_enabled(this.octaveFeedbackEnabled ? 1 : 0); break;
-            case 'octave_feedback': this.octaveFeedbackAmount = value; this.wasmModule._wasm_te2350_set_octave_feedback_amount(this.octaveFeedbackAmount || 0); break;
-            case 'melody_enabled': this.wasmModule._wasm_te2350_set_melody(value ? 1 : 0); break;
-            case 'melody_only': this.wasmModule._wasm_te2350_set_melody_only(value ? 1 : 0); break;
-            case 'melody_volume': this.wasmModule._wasm_te2350_set_melody_volume(value); break;
-            case 'melody_density': this.wasmModule._wasm_te2350_set_melody_density(value); break;
-            case 'melody_decay': this.wasmModule._wasm_te2350_set_melody_decay(value); break;
-            case 'time': this.wasmModule._wasm_te2350_set_time(value); break;
-            case 'feedback': this.wasmModule._wasm_te2350_set_feedback(value); break;
-            case 'mix': this.wasmModule._wasm_te2350_set_mix(value); break;
-            case 'shimmer': this.wasmModule._wasm_te2350_set_shimmer(value); break;
-            case 'diffusion': this.wasmModule._wasm_te2350_set_diffusion(value); break;
-            case 'chaos': this.wasmModule._wasm_te2350_set_chaos(value); break;
-            case 'tone': this.wasmModule._wasm_te2350_set_tone(value); break;
-            case 'ducking': this.wasmModule._wasm_te2350_set_ducking(value); break;
-            case 'wobble': this.wasmModule._wasm_te2350_set_wobble(value); break;
-
-            case 'mod_rate': this.modRate = value; this.wasmModule._wasm_te2350_set_mod(this.modRate, this.modDepth); break;
-            case 'mod_depth': this.modDepth = value; this.wasmModule._wasm_te2350_set_mod(this.modRate, this.modDepth); break;
-            case 'freeze': this.wasmModule._wasm_te2350_set_freeze(value ? 1 : 0); break;
+            case 'octave_feedback_enabled':
+                this.octaveFeedbackEnabled = value;
+                this._invokeWasm('_wasm_te2350_set_octave_feedback_enabled', [this.octaveFeedbackEnabled ? 1 : 0], param);
+                break;
+            case 'octave_feedback':
+                this.octaveFeedbackAmount = value;
+                this._invokeWasm('_wasm_te2350_set_octave_feedback_amount', [this.octaveFeedbackAmount || 0], param);
+                break;
+            case 'melody_enabled':
+                this._invokeWasm('_wasm_te2350_set_melody', [value ? 1 : 0], param);
+                break;
+            case 'melody_only':
+                this._invokeWasm('_wasm_te2350_set_melody_only', [value ? 1 : 0], param);
+                break;
+            case 'melody_volume':
+                this._invokeWasm('_wasm_te2350_set_melody_volume', [value], param);
+                break;
+            case 'melody_density':
+                this._invokeWasm('_wasm_te2350_set_melody_density', [value], param);
+                break;
+            case 'melody_decay':
+                this._invokeWasm('_wasm_te2350_set_melody_decay', [value], param);
+                break;
+            case 'time':
+                this._invokeWasm('_wasm_te2350_set_time', [value], param);
+                break;
+            case 'feedback':
+                this._invokeWasm('_wasm_te2350_set_feedback', [value], param);
+                break;
+            case 'mix':
+                this._invokeWasm('_wasm_te2350_set_mix', [value], param);
+                break;
+            case 'shimmer':
+                this._invokeWasm('_wasm_te2350_set_shimmer', [value], param);
+                break;
+            case 'diffusion':
+                this._invokeWasm('_wasm_te2350_set_diffusion', [value], param);
+                break;
+            case 'chaos':
+                this._invokeWasm('_wasm_te2350_set_chaos', [value], param);
+                break;
+            case 'tone':
+                this._invokeWasm('_wasm_te2350_set_tone', [value], param);
+                break;
+            case 'ducking':
+                this._invokeWasm('_wasm_te2350_set_ducking', [value], param);
+                break;
+            case 'wobble':
+                this._invokeWasm('_wasm_te2350_set_wobble', [value], param);
+                break;
+            case 'mod_rate':
+                this.modRate = value;
+                this._invokeWasm('_wasm_te2350_set_mod', [this.modRate, this.modDepth], param);
+                break;
+            case 'mod_depth':
+                this.modDepth = value;
+                this._invokeWasm('_wasm_te2350_set_mod', [this.modRate, this.modDepth], param);
+                break;
+            case 'freeze':
+                this._invokeWasm('_wasm_te2350_set_freeze', [value ? 1 : 0], param);
+                break;
         }
+    }
+
+    _hasWasmFn(fnName) {
+        return !!(this.wasmModule && typeof this.wasmModule[fnName] === 'function');
+    }
+
+    _invokeWasm(fnName, args, paramName) {
+        if (!this._hasWasmFn(fnName)) {
+            if (!this.reportedUnavailableParams.has(paramName)) {
+                this.reportedUnavailableParams.add(paramName);
+                this.port.postMessage({
+                    type: 'parameter_unavailable',
+                    param: paramName,
+                    functionName: fnName
+                });
+            }
+            return;
+        }
+        this.wasmModule[fnName](...args);
+    }
+
+    _reportCapabilities() {
+        const OPTIONAL_CAPABILITIES = {
+            octave_feedback_enabled: '_wasm_te2350_set_octave_feedback_enabled',
+            octave_feedback: '_wasm_te2350_set_octave_feedback_amount',
+            melody_enabled: '_wasm_te2350_set_melody',
+            melody_only: '_wasm_te2350_set_melody_only',
+            melody_volume: '_wasm_te2350_set_melody_volume',
+            melody_density: '_wasm_te2350_set_melody_density',
+            melody_decay: '_wasm_te2350_set_melody_decay'
+        };
+
+        const capabilityMap = {};
+        for (const param in OPTIONAL_CAPABILITIES) {
+            capabilityMap[param] = this._hasWasmFn(OPTIONAL_CAPABILITIES[param]);
+        }
+
+        this.port.postMessage({
+            type: 'capabilities',
+            capabilities: capabilityMap
+        });
     }
 
     _hasSignal(channelData, numSamples) {
