@@ -134,12 +134,12 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->tap_delays[3] = (size_t)(14947 * sr_ratio);  // ~311ms
   if (ctx->tap_delays[3] >= TE_MAIN_DELAY_SIZE) ctx->tap_delays[3] = TE_MAIN_DELAY_SIZE - 1; // Sanity check
   
-  // Gains: Tapered volume, descending to mimic a fading echo effect.
-  // The first tap is strongest, the last tap is weakest but widest.
-  ctx->tap_gains[0] = FLOAT_TO_Q31(0.50f);
-  ctx->tap_gains[1] = FLOAT_TO_Q31(0.40f);
-  ctx->tap_gains[2] = FLOAT_TO_Q31(0.30f);
-  ctx->tap_gains[3] = FLOAT_TO_Q31(0.20f);
+  // Gains: keep an audible multi-echo backbone before diffusion bloom.
+  // Slightly hotter taps improve repeat intelligibility at high feedback.
+  ctx->tap_gains[0] = FLOAT_TO_Q31(0.66f);
+  ctx->tap_gains[1] = FLOAT_TO_Q31(0.54f);
+  ctx->tap_gains[2] = FLOAT_TO_Q31(0.42f);
+  ctx->tap_gains[3] = FLOAT_TO_Q31(0.30f);
   
   return true;
 }
@@ -232,17 +232,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t multi_tap = 0;
   for (int i = 0; i < TE_NUM_TAPS; i++) {
     q31_t tap = dsp_delay_read(&ctx->main_delay, ctx->tap_delays[i]);
-    q31_t tap_scaled = q31_mul(tap, ctx->tap_gains[i] >> 3); 
+    q31_t tap_scaled = q31_mul(tap, ctx->tap_gains[i] >> 2);
     multi_tap = q31_add_sat(multi_tap, tap_scaled);
   }
 
-  // The 'wet_core' is the clean delay taps
-  q31_t wet_core = multi_tap;
+  // The 'wet_core' is the clean delay taps.
+  q31_t wet_core = q31_mul(multi_tap, FLOAT_TO_Q31(0.86f));
 
   // 6. Feedback Loop Injection
   q31_t fb_signal = ctx->feedback_state;
   q31_t loop_in = q31_add_sat(loop_feed_dry, fb_signal); // Use loop_feed_dry here
-  loop_in = q31_add_sat(loop_in, multi_tap); // Inject taps into diffusion chain
+  loop_in = q31_add_sat(loop_in, q31_mul(multi_tap, FLOAT_TO_Q31(0.62f))); // Keep cloud feed but avoid over-smear
 
   // 6. Diffusion (Modulated Allpasses) - BOSS STYLE
   // Diffusion parameter dynamically scales allpass gains and modulation depths
@@ -250,10 +250,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // High diffusion = dense ambient cloud
   
   // Base fixed gains (scaled by p_diffusion_smoothed)
-  q31_t diff_gain_ap1 = q31_mul(FLOAT_TO_Q31(0.55f), ctx->p_diffusion_smoothed);
-  q31_t diff_gain_ap2 = q31_mul(FLOAT_TO_Q31(0.50f), ctx->p_diffusion_smoothed);
-  q31_t diff_gain_ap3 = q31_mul(FLOAT_TO_Q31(0.40f), ctx->p_diffusion_smoothed);
-  q31_t diff_gain_ap4 = q31_mul(FLOAT_TO_Q31(0.40f), ctx->p_diffusion_smoothed);
+  q31_t diff_gain_ap1 = q31_mul(FLOAT_TO_Q31(0.50f), ctx->p_diffusion_smoothed);
+  q31_t diff_gain_ap2 = q31_mul(FLOAT_TO_Q31(0.45f), ctx->p_diffusion_smoothed);
+  q31_t diff_gain_ap3 = q31_mul(FLOAT_TO_Q31(0.34f), ctx->p_diffusion_smoothed);
+  q31_t diff_gain_ap4 = q31_mul(FLOAT_TO_Q31(0.34f), ctx->p_diffusion_smoothed);
 
   ctx->ap1.gain = diff_gain_ap1;
   ctx->ap2.gain = diff_gain_ap2;
@@ -344,15 +344,15 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
       // Apply loop voicing: LP body + gentle HP cleanup to avoid mud build-up
       q31_t lp = dsp_onepole_lp(&ctx->fb_lp, delay_out);
       q31_t hp = q31_sub_sat(delay_out, lp);
-      q31_t loop_hp_cleanup = q31_mul(hp, FLOAT_TO_Q31(0.28f));
+      q31_t loop_hp_cleanup = q31_mul(hp, FLOAT_TO_Q31(0.22f));
       if (ctx->p_tone_smoothed > FLOAT_TO_Q31(0.55f)) {
-          filter_out = q31_add_sat(hp, q31_mul(loop_hp_cleanup, FLOAT_TO_Q31(0.6f)));
+          filter_out = q31_add_sat(hp, q31_mul(loop_hp_cleanup, FLOAT_TO_Q31(0.75f)));
       } else {
           filter_out = q31_add_sat(lp, loop_hp_cleanup);
       }
       
       // Apply Saturation (Gentle)
-      q31_t fb_sat = dsp_soft_saturate_gentle(filter_out);
+      q31_t fb_sat = dsp_soft_saturate_gentle(q31_mul(filter_out, FLOAT_TO_Q31(0.92f)));
       
       // Apply Pitch Smear (Continuous control via p_shimmer)
       q31_t fb_with_smear = fb_sat;
@@ -386,7 +386,12 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
       
       // Clamp - INCREASED MAX FEEDBACK to allow near-oscillation
       // 0.99f or slightly higher gives beautiful infinite wash, but keep under 1.0 to stay somewhat sane
-      if (mod_fb > FLOAT_TO_Q31(0.999f)) mod_fb = FLOAT_TO_Q31(0.999f);
+      // Feedback taper: improve high-knob useful range without abrupt runaway.
+      q31_t fb_shaped = q31_add_sat(mod_fb, q31_mul(mod_fb, q31_mul(mod_fb, FLOAT_TO_Q31(0.20f))));
+      if (fb_shaped > FLOAT_TO_Q31(0.9992f)) fb_shaped = FLOAT_TO_Q31(0.9992f);
+      if (fb_shaped < 0) fb_shaped = 0;
+      mod_fb = fb_shaped;
+      if (mod_fb > FLOAT_TO_Q31(0.9992f)) mod_fb = FLOAT_TO_Q31(0.9992f);
       if (mod_fb < 0) mod_fb = 0;
       
       feedback_gain_final = mod_fb;
@@ -398,10 +403,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // wet_core = recognizable taps/echoes
   // wet_diff = diffuse field from delay/allpass chain
   // wet_air  = high airy halo
-  q31_t wet_diff = q31_add_sat(q31_mul(delay_out, FLOAT_TO_Q31(0.72f)),
-                               q31_mul(stage3, FLOAT_TO_Q31(0.28f)));
+  q31_t wet_diff = q31_add_sat(q31_mul(delay_out, FLOAT_TO_Q31(0.66f)),
+                               q31_mul(stage3, FLOAT_TO_Q31(0.34f)));
   q31_t wet_air = q31_mul(q31_sub_sat(wet_diff, dsp_onepole_lp(&ctx->fb_lp, wet_diff)),
-                          FLOAT_TO_Q31(0.35f));
+                          FLOAT_TO_Q31(0.27f));
   
   // NOTE: Pitch shifter agora está APENAS no feedback loop (pitch smear sutil)
   // Isso dá movimento sem "chorus audível" no caminho direto
@@ -435,10 +440,16 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   // Bloom: focused attack, opening cloud after transient
   q31_t bloom = ctx->bloom_state;
-  q31_t core_weight = q31_sub_sat(FLOAT_TO_Q31(0.85f), q31_mul(bloom, FLOAT_TO_Q31(0.45f)));
-  if (core_weight < FLOAT_TO_Q31(0.35f)) core_weight = FLOAT_TO_Q31(0.35f);
-  q31_t diff_weight = q31_add_sat(FLOAT_TO_Q31(0.35f), q31_mul(bloom, FLOAT_TO_Q31(0.50f)));
-  q31_t air_weight  = q31_add_sat(FLOAT_TO_Q31(0.08f), q31_mul(bloom, FLOAT_TO_Q31(0.42f)));
+  q31_t core_weight = q31_sub_sat(FLOAT_TO_Q31(0.95f), q31_mul(bloom, FLOAT_TO_Q31(0.32f)));
+  if (core_weight < FLOAT_TO_Q31(0.52f)) core_weight = FLOAT_TO_Q31(0.52f);
+
+  q31_t diffusion_isolation = q31_mul(ctx->p_diffusion_smoothed, FLOAT_TO_Q31(0.28f));
+  q31_t clarity_lift = q31_mul(effective_feedback, q31_sub_sat(Q31_MAX, ctx->p_diffusion_smoothed));
+  clarity_lift = q31_mul(clarity_lift, FLOAT_TO_Q31(0.22f));
+  core_weight = q31_add_sat(core_weight, q31_add_sat(diffusion_isolation, clarity_lift));
+
+  q31_t diff_weight = q31_add_sat(FLOAT_TO_Q31(0.25f), q31_mul(bloom, FLOAT_TO_Q31(0.42f)));
+  q31_t air_weight  = q31_add_sat(FLOAT_TO_Q31(0.05f), q31_mul(bloom, FLOAT_TO_Q31(0.30f)));
 
   q31_t layered_wet_l = q31_add_sat(q31_mul(wet_core, core_weight), q31_mul(wet_diff, diff_weight));
   layered_wet_l = q31_add_sat(layered_wet_l, q31_mul(wet_air, air_weight));
@@ -457,14 +468,14 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // Right channel uses asymmetric early reflections and polarity shift
   q31_t er1 = dsp_delay_read(&ctx->main_delay, ctx->tap_delays[0] >> 1);
   q31_t er2 = dsp_delay_read(&ctx->main_delay, (ctx->tap_delays[1] * 3) >> 2);
-  q31_t wet_core_r = q31_add_sat(q31_mul(wet_core, FLOAT_TO_Q31(0.85f)),
+  q31_t wet_core_r = q31_add_sat(q31_mul(wet_core, FLOAT_TO_Q31(0.90f)),
                                  q31_add_sat(q31_mul(er1, FLOAT_TO_Q31(0.18f)),
                                              q31_mul(-er2, FLOAT_TO_Q31(0.14f))));
 
-  q31_t wet_diff_r = q31_add_sat(q31_mul(delay_out_r, FLOAT_TO_Q31(0.68f)),
-                                 q31_mul(stage2, FLOAT_TO_Q31(0.22f)));
+  q31_t wet_diff_r = q31_add_sat(q31_mul(delay_out_r, FLOAT_TO_Q31(0.64f)),
+                                 q31_mul(stage2, FLOAT_TO_Q31(0.24f)));
   q31_t wet_air_r = q31_mul(q31_sub_sat(wet_diff_r, dsp_onepole_lp(&ctx->fb_lp, wet_diff_r)),
-                            FLOAT_TO_Q31(0.35f));
+                            FLOAT_TO_Q31(0.27f));
 
   q31_t layered_wet_r = q31_add_sat(q31_mul(wet_core_r, core_weight), q31_mul(wet_diff_r, diff_weight));
   layered_wet_r = q31_add_sat(layered_wet_r, q31_mul(wet_air_r, air_weight));
