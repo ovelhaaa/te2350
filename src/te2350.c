@@ -136,10 +136,10 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   
   // Gains: keep an audible multi-echo backbone before diffusion bloom.
   // Slightly hotter taps improve repeat intelligibility at high feedback.
-  ctx->tap_gains[0] = FLOAT_TO_Q31(0.66f);
-  ctx->tap_gains[1] = FLOAT_TO_Q31(0.54f);
-  ctx->tap_gains[2] = FLOAT_TO_Q31(0.42f);
-  ctx->tap_gains[3] = FLOAT_TO_Q31(0.30f);
+  ctx->tap_gains[0] = FLOAT_TO_Q31(1.00f);
+  ctx->tap_gains[1] = FLOAT_TO_Q31(0.85f);
+  ctx->tap_gains[2] = FLOAT_TO_Q31(0.70f);
+  ctx->tap_gains[3] = FLOAT_TO_Q31(0.55f);
   
   return true;
 }
@@ -232,17 +232,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t multi_tap = 0;
   for (int i = 0; i < TE_NUM_TAPS; i++) {
     q31_t tap = dsp_delay_read(&ctx->main_delay, ctx->tap_delays[i]);
-    q31_t tap_scaled = q31_mul(tap, ctx->tap_gains[i] >> 2);
+    q31_t tap_scaled = q31_mul(tap, ctx->tap_gains[i] >> 2); // Prevent clipping when summing
     multi_tap = q31_add_sat(multi_tap, tap_scaled);
   }
 
   // The 'wet_core' is the clean delay taps.
-  q31_t wet_core = q31_mul(multi_tap, FLOAT_TO_Q31(0.86f));
+  q31_t wet_core = q31_mul(multi_tap, FLOAT_TO_Q31(0.95f)); // Boosted from 0.86f
 
   // 6. Feedback Loop Injection
   q31_t fb_signal = ctx->feedback_state;
   q31_t loop_in = q31_add_sat(loop_feed_dry, fb_signal); // Use loop_feed_dry here
-  loop_in = q31_add_sat(loop_in, q31_mul(multi_tap, FLOAT_TO_Q31(0.62f))); // Keep cloud feed but avoid over-smear
+  loop_in = q31_add_sat(loop_in, q31_mul(multi_tap, FLOAT_TO_Q31(0.30f))); // Keep cloud feed but avoid over-smear
 
   // 6. Diffusion (Modulated Allpasses) - BOSS STYLE
   // Diffusion parameter dynamically scales allpass gains and modulation depths
@@ -352,7 +352,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
       }
       
       // Apply Saturation (Gentle)
-      q31_t fb_sat = dsp_soft_saturate_gentle(q31_mul(filter_out, FLOAT_TO_Q31(0.92f)));
+      // Removed 0.92f attenuation before saturation to reduce feedback loop losses.
+      q31_t fb_sat = dsp_soft_saturate_gentle(filter_out);
       
       // Apply Pitch Smear (Continuous control via p_shimmer)
       q31_t fb_with_smear = fb_sat;
@@ -441,11 +442,11 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // Bloom: focused attack, opening cloud after transient
   q31_t bloom = ctx->bloom_state;
   q31_t core_weight = q31_sub_sat(FLOAT_TO_Q31(0.95f), q31_mul(bloom, FLOAT_TO_Q31(0.32f)));
-  if (core_weight < FLOAT_TO_Q31(0.52f)) core_weight = FLOAT_TO_Q31(0.52f);
+  if (core_weight < FLOAT_TO_Q31(0.70f)) core_weight = FLOAT_TO_Q31(0.70f);
 
   q31_t diffusion_isolation = q31_mul(ctx->p_diffusion_smoothed, FLOAT_TO_Q31(0.28f));
   q31_t clarity_lift = q31_mul(effective_feedback, q31_sub_sat(Q31_MAX, ctx->p_diffusion_smoothed));
-  clarity_lift = q31_mul(clarity_lift, FLOAT_TO_Q31(0.22f));
+  clarity_lift = q31_mul(clarity_lift, FLOAT_TO_Q31(0.35f));
   core_weight = q31_add_sat(core_weight, q31_add_sat(diffusion_isolation, clarity_lift));
 
   q31_t diff_weight = q31_add_sat(FLOAT_TO_Q31(0.25f), q31_mul(bloom, FLOAT_TO_Q31(0.42f)));
