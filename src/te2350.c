@@ -258,8 +258,13 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t shimmer_parallel = 0;
   if (ctx->p_shimmer > 0) {
-    q31_t shimmer_amt = q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.015f));
-    q31_t shimmer_pitch = q31_add_sat(shimmer_amt, q31_mul(space_rnd, FLOAT_TO_Q31(0.002f)));
+    // dsp_pitch_process expects 0..Q31_MAX -> 0.5x..2.0x.
+    // Map shimmer control to a musically useful 1.0x..2.0x range:
+    // q31 = 1/3 + (2/3 * p_shimmer). This keeps shimmer as an octave-up halo
+    // instead of collapsing near the 0.5x floor.
+    q31_t shimmer_pitch = q31_add_sat(FLOAT_TO_Q31(0.33333334f),
+                                      q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.6666667f)));
+    shimmer_pitch = q31_add_sat(shimmer_pitch, q31_mul(space_rnd, FLOAT_TO_Q31(0.002f)));
     q31_t shifted = dsp_pitch_process(&ctx->pitch_shifter, post2, shimmer_pitch);
     q31_t halo = q31_lerp(shifted, post2, FLOAT_TO_Q31(0.65f));
     shimmer_parallel = q31_mul(halo, q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.23f)));
@@ -273,9 +278,9 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   ctx->feedback_state = feedback_condition(ctx, post2, shimmer_parallel, env_level, effective_feedback);
 
-  q31_t wet_mid = q31_add_sat(q31_mul(post2, FLOAT_TO_Q31(0.70f)), q31_mul(early_cloud, FLOAT_TO_Q31(0.30f)));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(late_accents, FLOAT_TO_Q31(0.30f)));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.50f)));
+lo  q31_t wet_mid = q31_add_sat(q31_mul(post2, FLOAT_TO_Q31(0.40f)), q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(late_accents, FLOAT_TO_Q31(0.20f)));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.20f)));
 
   q31_t side_from_taps = 0;
   side_from_taps = q31_add_sat(side_from_taps,
@@ -283,7 +288,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   side_from_taps = q31_sub_sat(side_from_taps,
                                q31_mul(dsp_delay_read(&ctx->main_delay, ctx->early_tap_delays[4]), FLOAT_TO_Q31(0.12f)));
 
-  q31_t side_diff = q31_sub_sat(post1, post2);
+  q31_t side_diff = q31_sub_sat(post1 >> 1, post2 >> 1);
   q31_t wet_side = q31_add_sat(q31_mul(side_diff, FLOAT_TO_Q31(0.55f)), q31_mul(side_from_taps, FLOAT_TO_Q31(0.45f)));
 
   q31_t width = q31_add_sat(FLOAT_TO_Q31(0.34f), q31_mul(diff_eff, FLOAT_TO_Q31(0.30f)));
@@ -297,8 +302,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t duck_reduction = q31_mul(q31_sub_sat(Q31_MAX, q31_sub_sat(Q31_MAX, amp_env)), ctx->p_ducking);
   q31_t final_duck_gain = q31_sub_sat(Q31_MAX, duck_reduction);
 
-  q31_t wet_l = q31_add_sat(wet_mid, q31_mul(wet_side, width));
-  q31_t wet_r = q31_sub_sat(wet_mid, q31_mul(wet_side, width));
+  q31_t wet_l = q31_add_sat(wet_mid >> 1, q31_mul(wet_side, width) >> 1);
+  q31_t wet_r = q31_sub_sat(wet_mid >> 1, q31_mul(wet_side, width) >> 1);
   wet_l = q31_mul(wet_l, final_duck_gain);
   wet_r = q31_mul(wet_r, final_duck_gain);
 
