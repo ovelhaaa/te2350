@@ -278,7 +278,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   ctx->feedback_state = feedback_condition(ctx, post2, shimmer_parallel, env_level, effective_feedback);
 
-lo  q31_t wet_mid = q31_add_sat(q31_mul(post2, FLOAT_TO_Q31(0.40f)), q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)));
+  q31_t wet_mid = q31_add_sat(q31_mul(post2, FLOAT_TO_Q31(0.40f)), q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)));
   wet_mid = q31_add_sat(wet_mid, q31_mul(late_accents, FLOAT_TO_Q31(0.20f)));
   wet_mid = q31_add_sat(wet_mid, q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.20f)));
 
