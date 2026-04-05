@@ -39,11 +39,14 @@ typedef struct {
   dsp_svf_t damping_filter;
 
   // Modulation
-  dsp_random_walk_t modulator; // Slow drift
+  dsp_random_walk_t space_mod; // Spatial diffusion drift
+  dsp_random_walk_t time_mod;  // Main delay drift (subtle)
   dsp_env_follower_t envelope; // Dynamics
   
   // Feedback filtering
   dsp_onepole_t fb_lp;  // 1-pole LP for feedback (~1.2kHz)
+  dsp_onepole_t fb_hp;  // 1-pole HP helper for low-end cleanup
+  dsp_dc_blocker_t fb_dc; // DC control in loop
   
   // Pitch shifter
   dsp_pitch_shifter_t pitch_shifter;
@@ -96,10 +99,17 @@ typedef struct {
   int32_t wobble_mod_base; // Base modulation samples for wobble
   int32_t wobble_mod_scale; // Scale modulation samples for wobble
 
-  // Multi-tap delay parameters
-  #define TE_NUM_TAPS 4
-  size_t tap_delays[TE_NUM_TAPS];
-  q31_t tap_gains[TE_NUM_TAPS];
+  // Time mapping LUT for perceptual control response
+  #define TE_TIME_LUT_SIZE 128
+  uint16_t time_lut[TE_TIME_LUT_SIZE];
+
+  // Multi-tap cloud parameters
+  #define TE_NUM_EARLY_TAPS 6
+  #define TE_NUM_LATE_TAPS 2
+  size_t early_tap_delays[TE_NUM_EARLY_TAPS];
+  q31_t early_tap_gains[TE_NUM_EARLY_TAPS];
+  size_t late_tap_delays[TE_NUM_LATE_TAPS];
+  q31_t late_tap_gains[TE_NUM_LATE_TAPS];
 
 } te2350_t;
 
