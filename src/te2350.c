@@ -206,8 +206,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   ctx->ap4.gain = q31_mul(FLOAT_TO_Q31(0.28f), diff_eff);
 
   q31_t pre_mod = q31_mul(space_mod, diff_eff);
-  int32_t ap1_d_i = ((int32_t)(TE_AP1_SIZE / 2) << 16) + (pre_mod >> 2);
-  int32_t ap2_d_i = ((int32_t)(TE_AP2_SIZE / 2) << 16) - (pre_mod >> 2);
+  int32_t ap1_d_i = ((int32_t)(TE_AP1_SIZE / 2) << 16) + (pre_mod >> 5);
+  int32_t ap2_d_i = ((int32_t)(TE_AP2_SIZE / 2) << 16) - (pre_mod >> 5);
   if (ap1_d_i < 0x10000) ap1_d_i = 0x10000;
   if (ap1_d_i > ((TE_AP1_SIZE - 2) << 16)) ap1_d_i = ((TE_AP1_SIZE - 2) << 16);
   if (ap2_d_i < 0x10000) ap2_d_i = 0x10000;
@@ -246,8 +246,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   }
 
   q31_t post_in = q31_add_sat(delay_out, q31_mul(early_cloud, FLOAT_TO_Q31(0.55f)));
-  int32_t ap4_d_i = ((int32_t)(TE_AP4_SIZE / 2) << 16) + (pre_mod >> 3);
-  int32_t ap3_d_i = ((int32_t)(TE_AP3_SIZE / 2) << 16) - (pre_mod >> 4);
+  int32_t ap4_d_i = ((int32_t)(TE_AP4_SIZE / 2) << 16) + (pre_mod >> 6);
+  int32_t ap3_d_i = ((int32_t)(TE_AP3_SIZE / 2) << 16) - (pre_mod >> 6);
   if (ap4_d_i < 0x10000) ap4_d_i = 0x10000;
   if (ap4_d_i > ((TE_AP4_SIZE - 2) << 16)) ap4_d_i = ((TE_AP4_SIZE - 2) << 16);
   if (ap3_d_i < 0x10000) ap3_d_i = 0x10000;
