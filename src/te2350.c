@@ -56,6 +56,9 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ALLOC_BUF(TE_AP4_SIZE);
   dsp_allpass_init(&ctx->ap4, buf_TE_AP4_SIZE, TE_AP4_SIZE, FLOAT_TO_Q31(0.29f));
 
+  ALLOC_BUF(TE_SIDE_AP_SIZE);
+  dsp_allpass_init(&ctx->side_ap, buf_TE_SIDE_AP_SIZE, TE_SIDE_AP_SIZE, FLOAT_TO_Q31(0.18f));
+
   ALLOC_BUF(TE_PITCH_SIZE);
   dsp_pitch_init(&ctx->pitch_shifter, buf_TE_PITCH_SIZE, TE_PITCH_SIZE);
 
@@ -307,6 +310,13 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t side_diff = q31_sub_sat(post1 >> 1, post2 >> 1);
   q31_t wet_side = q31_add_sat(q31_mul(side_diff, FLOAT_TO_Q31(0.55f)), q31_mul(side_from_taps, FLOAT_TO_Q31(0.45f)));
+  // Side-only decorrelation stage: subtle depth without feeding the loop/mid path.
+  int32_t side_ap_d_i = ((int32_t)(TE_SIDE_AP_SIZE / 2) << 16) + (space_mod >> 8);
+  if (side_ap_d_i < 0x10000) side_ap_d_i = 0x10000;
+  if (side_ap_d_i > ((TE_SIDE_AP_SIZE - 2) << 16)) side_ap_d_i = ((TE_SIDE_AP_SIZE - 2) << 16);
+  q31_t wet_side_decor = dsp_allpass_process(&ctx->side_ap, wet_side, (q16_16_t)side_ap_d_i);
+  wet_side = q31_add_sat(q31_mul(wet_side, FLOAT_TO_Q31(0.82f)),
+                         q31_mul(wet_side_decor, FLOAT_TO_Q31(0.18f)));
 
   q31_t wet_energy = q31_abs(wet_mid);
   q31_t bloom_target = q31_add_sat(q31_mul(env_level, FLOAT_TO_Q31(0.68f)),
