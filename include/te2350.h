@@ -54,6 +54,10 @@ typedef struct {
   dsp_onepole_t presence_hp;    // HP helper via src - LP(src)
   dsp_onepole_t presence_lp;    // final LP for harshness control
   q31_t presence_gain_smooth;   // optional smoothing for rail gain
+
+  // Shimmer voicing (parallel branch only)
+  dsp_onepole_t shimmer_hp;     // HP helper via src - LP(src)
+  dsp_onepole_t shimmer_lp;     // soft LP to keep halo airy without harsh top
   
   // Pitch shifter
   dsp_pitch_shifter_t pitch_shifter;

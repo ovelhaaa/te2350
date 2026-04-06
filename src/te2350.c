@@ -79,6 +79,8 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   dsp_onepole_init(&ctx->presence_hp, FLOAT_TO_Q31(0.030f)); // gentle low-mud removal
   dsp_onepole_init(&ctx->presence_lp, FLOAT_TO_Q31(0.210f)); // gentle harshness control
   ctx->presence_gain_smooth = FLOAT_TO_Q31(0.12f);
+  dsp_onepole_init(&ctx->shimmer_hp, FLOAT_TO_Q31(0.050f));  // trim low body in shimmer lane
+  dsp_onepole_init(&ctx->shimmer_lp, FLOAT_TO_Q31(0.160f));  // tame synthetic top
 
   dsp_melody_init(&ctx->melody);
   dsp_melody_set_volume(&ctx->melody, FLOAT_TO_Q31(0.18f));
@@ -220,7 +222,11 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   int32_t d_base = map_time_samples(ctx, ctx->p_time_smoothed);
   int32_t wobble_depth = ctx->wobble_mod_base + (int32_t)(((int64_t)ctx->p_wobble * ctx->wobble_mod_scale) >> 31);
-  int32_t d_mod = (int32_t)(((int64_t)time_mod * wobble_depth) >> 31);
+  // Keep movement, but reduce wow dominance in the direct delay line to avoid masking.
+  q31_t main_wow_scale = q31_sub_sat(FLOAT_TO_Q31(0.70f), q31_mul(bloom, FLOAT_TO_Q31(0.25f)));
+  if (main_wow_scale < FLOAT_TO_Q31(0.45f)) main_wow_scale = FLOAT_TO_Q31(0.45f);
+  q31_t main_time_mod = q31_mul(time_mod, main_wow_scale);
+  int32_t d_mod = (int32_t)(((int64_t)main_time_mod * wobble_depth) >> 31);
   int32_t d_samp_mod = d_base + d_mod;
   if (d_samp_mod < ctx->min_delay_samples) d_samp_mod = ctx->min_delay_samples;
   if (d_samp_mod > ctx->max_delay_samples) d_samp_mod = ctx->max_delay_samples;
@@ -234,7 +240,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     if (tap_d < 1) tap_d = 1;
     if (tap_d >= TE_MAIN_DELAY_SIZE) tap_d = TE_MAIN_DELAY_SIZE - 1;
     q31_t tap = dsp_delay_read(&ctx->main_delay, (size_t)tap_d);
-    early_cloud = q31_add_sat(early_cloud, q31_mul(tap, ctx->early_tap_gains[i]));
+    q31_t tap_gain = ctx->early_tap_gains[i];
+    // Optional transient nudge: tiny attack-based lift on first taps only.
+    if (i < 2) {
+      q31_t dry_abs = q31_abs(dry);
+      q31_t attack_rise = q31_sub_sat(dry_abs, env_level);
+      if (attack_rise < 0) attack_rise = 0;
+      q31_t attack_boost = q31_mul(attack_rise, FLOAT_TO_Q31(0.12f));
+      if (attack_boost > FLOAT_TO_Q31(0.040f)) attack_boost = FLOAT_TO_Q31(0.040f);
+      tap_gain = q31_add_sat(tap_gain, attack_boost);
+    }
+    early_cloud = q31_add_sat(early_cloud, q31_mul(tap, tap_gain));
   }
 
   q31_t late_accents = 0;
@@ -267,7 +283,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     shimmer_pitch = q31_add_sat(shimmer_pitch, q31_mul(space_rnd, FLOAT_TO_Q31(0.002f)));
     q31_t shifted = dsp_pitch_process(&ctx->pitch_shifter, post2, shimmer_pitch);
     q31_t halo = q31_lerp(shifted, post2, FLOAT_TO_Q31(0.65f));
-    shimmer_parallel = q31_mul(halo, q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.23f)));
+    q31_t shimmer_lp_ref = dsp_onepole_lp(&ctx->shimmer_hp, halo);
+    q31_t shimmer_hp = q31_sub_sat(halo, shimmer_lp_ref);
+    q31_t shimmer_voiced = dsp_onepole_lp(&ctx->shimmer_lp, shimmer_hp);
+    shimmer_parallel = q31_mul(shimmer_voiced, q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.22f)));
   }
 
   q31_t effective_feedback = ctx->p_feedback_smoothed;
@@ -283,10 +302,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   if (bloom_tone_trim_mid < FLOAT_TO_Q31(0.72f)) bloom_tone_trim_mid = FLOAT_TO_Q31(0.72f);
   if (bloom_tone_trim_diffuse < FLOAT_TO_Q31(0.60f)) bloom_tone_trim_diffuse = FLOAT_TO_Q31(0.60f);
 
-  q31_t wet_mid = q31_add_sat(q31_mul(q31_mul(post2, FLOAT_TO_Q31(0.40f)), bloom_tone_trim_diffuse),
-                              q31_mul(q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_mid));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(late_accents, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_diffuse));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_diffuse));
+  q31_t wet_mid = q31_add_sat(q31_mul(q31_mul(post2, FLOAT_TO_Q31(0.34f)), bloom_tone_trim_diffuse),
+                              q31_mul(q31_mul(early_cloud, FLOAT_TO_Q31(0.24f)), bloom_tone_trim_mid));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(late_accents, FLOAT_TO_Q31(0.18f)), bloom_tone_trim_diffuse));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.11f)), bloom_tone_trim_diffuse));
 
   // Dedicated presence rail: derived from short/clear content only (no loop writeback).
   q31_t presence_src = q31_add_sat(q31_mul(delay_out, FLOAT_TO_Q31(0.60f)),
@@ -296,7 +315,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t presence_band = dsp_onepole_lp(&ctx->presence_lp, presence_hp);
   q31_t presence_sat = dsp_soft_saturate_gentle(presence_band);
 
-  q31_t presence_target_gain = FLOAT_TO_Q31(0.16f); // subtle but audible
+  q31_t presence_target_gain = FLOAT_TO_Q31(0.20f); // subtle but clearer first response
   q31_t presence_gain_delta = q31_sub_sat(presence_target_gain, ctx->presence_gain_smooth);
   ctx->presence_gain_smooth = q31_add_sat(ctx->presence_gain_smooth,
                                           q31_mul(presence_gain_delta, FLOAT_TO_Q31(0.03f)));
