@@ -73,6 +73,9 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
 
   dsp_onepole_init(&ctx->fb_lp, FLOAT_TO_Q31(0.10f));
   dsp_onepole_init(&ctx->fb_hp, FLOAT_TO_Q31(0.015f));
+  dsp_onepole_init(&ctx->presence_hp, FLOAT_TO_Q31(0.030f)); // gentle low-mud removal
+  dsp_onepole_init(&ctx->presence_lp, FLOAT_TO_Q31(0.210f)); // gentle harshness control
+  ctx->presence_gain_smooth = FLOAT_TO_Q31(0.12f);
 
   dsp_melody_init(&ctx->melody);
   dsp_melody_set_volume(&ctx->melody, FLOAT_TO_Q31(0.18f));
@@ -281,6 +284,20 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t wet_mid = q31_add_sat(q31_mul(post2, FLOAT_TO_Q31(0.40f)), q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)));
   wet_mid = q31_add_sat(wet_mid, q31_mul(late_accents, FLOAT_TO_Q31(0.20f)));
   wet_mid = q31_add_sat(wet_mid, q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.20f)));
+
+  // Dedicated presence rail: derived from short/clear content only (no loop writeback).
+  q31_t presence_src = q31_add_sat(q31_mul(delay_out, FLOAT_TO_Q31(0.60f)),
+                                   q31_mul(early_cloud, FLOAT_TO_Q31(0.40f)));
+  q31_t presence_low_ref = dsp_onepole_lp(&ctx->presence_hp, presence_src);
+  q31_t presence_hp = q31_sub_sat(presence_src, presence_low_ref);
+  q31_t presence_band = dsp_onepole_lp(&ctx->presence_lp, presence_hp);
+  q31_t presence_sat = dsp_soft_saturate_gentle(presence_band);
+
+  q31_t presence_target_gain = FLOAT_TO_Q31(0.16f); // subtle but audible
+  q31_t presence_gain_delta = q31_sub_sat(presence_target_gain, ctx->presence_gain_smooth);
+  ctx->presence_gain_smooth = q31_add_sat(ctx->presence_gain_smooth,
+                                          q31_mul(presence_gain_delta, FLOAT_TO_Q31(0.03f)));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(presence_sat, ctx->presence_gain_smooth));
 
   q31_t side_from_taps = 0;
   side_from_taps = q31_add_sat(side_from_taps,

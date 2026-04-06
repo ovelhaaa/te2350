@@ -47,6 +47,11 @@ typedef struct {
   dsp_onepole_t fb_lp;  // 1-pole LP for feedback (~1.2kHz)
   dsp_onepole_t fb_hp;  // 1-pole HP helper for low-end cleanup
   dsp_dc_blocker_t fb_dc; // DC control in loop
+
+  // Presence rail (post-loop only)
+  dsp_onepole_t presence_hp;    // HP helper via src - LP(src)
+  dsp_onepole_t presence_lp;    // final LP for harshness control
+  q31_t presence_gain_smooth;   // optional smoothing for rail gain
   
   // Pitch shifter
   dsp_pitch_shifter_t pitch_shifter;
