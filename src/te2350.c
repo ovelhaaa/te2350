@@ -163,12 +163,6 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t env_level = dsp_env_process(&ctx->envelope, q31_abs(dry));
 
-  if (env_level > ctx->bloom_state) {
-    ctx->bloom_state = q31_add_sat(ctx->bloom_state, q31_mul(q31_sub_sat(env_level, ctx->bloom_state), FLOAT_TO_Q31(0.04f)));
-  } else {
-    ctx->bloom_state = q31_sub_sat(ctx->bloom_state, FLOAT_TO_Q31(0.00006f));
-  }
-
   q31_t base_space_step = ctx->p_rate >> 7;
   if (base_space_step < FLOAT_TO_Q31(0.00004f)) base_space_step = FLOAT_TO_Q31(0.00004f);
 
@@ -281,9 +275,15 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   ctx->feedback_state = feedback_condition(ctx, post2, shimmer_parallel, env_level, effective_feedback);
 
-  q31_t wet_mid = q31_add_sat(q31_mul(post2, FLOAT_TO_Q31(0.40f)), q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(late_accents, FLOAT_TO_Q31(0.20f)));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.20f)));
+  q31_t bloom_tone_trim_mid = q31_sub_sat(Q31_MAX, q31_mul(bloom, FLOAT_TO_Q31(0.10f)));
+  q31_t bloom_tone_trim_diffuse = q31_sub_sat(Q31_MAX, q31_mul(bloom, FLOAT_TO_Q31(0.22f)));
+  if (bloom_tone_trim_mid < FLOAT_TO_Q31(0.72f)) bloom_tone_trim_mid = FLOAT_TO_Q31(0.72f);
+  if (bloom_tone_trim_diffuse < FLOAT_TO_Q31(0.60f)) bloom_tone_trim_diffuse = FLOAT_TO_Q31(0.60f);
+
+  q31_t wet_mid = q31_add_sat(q31_mul(q31_mul(post2, FLOAT_TO_Q31(0.40f)), bloom_tone_trim_diffuse),
+                              q31_mul(q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_mid));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(late_accents, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_diffuse));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_diffuse));
 
   // Dedicated presence rail: derived from short/clear content only (no loop writeback).
   q31_t presence_src = q31_add_sat(q31_mul(delay_out, FLOAT_TO_Q31(0.60f)),
@@ -297,7 +297,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t presence_gain_delta = q31_sub_sat(presence_target_gain, ctx->presence_gain_smooth);
   ctx->presence_gain_smooth = q31_add_sat(ctx->presence_gain_smooth,
                                           q31_mul(presence_gain_delta, FLOAT_TO_Q31(0.03f)));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(presence_sat, ctx->presence_gain_smooth));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(presence_sat, ctx->presence_gain_smooth), bloom_tone_trim_mid));
 
   q31_t side_from_taps = 0;
   side_from_taps = q31_add_sat(side_from_taps,
@@ -308,12 +308,26 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t side_diff = q31_sub_sat(post1 >> 1, post2 >> 1);
   q31_t wet_side = q31_add_sat(q31_mul(side_diff, FLOAT_TO_Q31(0.55f)), q31_mul(side_from_taps, FLOAT_TO_Q31(0.45f)));
 
+  q31_t wet_energy = q31_abs(wet_mid);
+  q31_t bloom_target = q31_add_sat(q31_mul(env_level, FLOAT_TO_Q31(0.68f)),
+                                   q31_mul(wet_energy, FLOAT_TO_Q31(0.32f)));
+  q31_t bloom_target_max = ctx->freeze_mode ? FLOAT_TO_Q31(0.74f) : FLOAT_TO_Q31(0.92f);
+  if (bloom_target > bloom_target_max) bloom_target = bloom_target_max;
+  if (bloom_target < 0) bloom_target = 0;
+
+  q31_t bloom_delta = q31_sub_sat(bloom_target, ctx->bloom_state);
+  q31_t bloom_coeff = (bloom_delta > 0) ? FLOAT_TO_Q31(0.0060f) : FLOAT_TO_Q31(0.0009f);
+  q31_t bloom_step = q31_mul(bloom_delta, bloom_coeff);
+  if (bloom_delta > 0 && bloom_step == 0) bloom_step = 1;
+  if (bloom_delta < 0 && bloom_step == 0) bloom_step = -1;
+  ctx->bloom_state = q31_add_sat(ctx->bloom_state, bloom_step);
+  if (ctx->bloom_state < 0) ctx->bloom_state = 0;
+  if (ctx->bloom_state > bloom_target_max) ctx->bloom_state = bloom_target_max;
+  bloom = ctx->bloom_state;
+
   q31_t width = q31_add_sat(FLOAT_TO_Q31(0.34f), q31_mul(diff_eff, FLOAT_TO_Q31(0.30f)));
   width = q31_add_sat(width, q31_mul(bloom, FLOAT_TO_Q31(0.28f)));
   if (width > FLOAT_TO_Q31(0.90f)) width = FLOAT_TO_Q31(0.90f);
-
-  q31_t bloom_tone_trim = q31_sub_sat(Q31_MAX, q31_mul(bloom, FLOAT_TO_Q31(0.18f)));
-  wet_mid = q31_mul(wet_mid, bloom_tone_trim);
 
   q31_t amp_env = env_level > (Q31_MAX >> 2) ? Q31_MAX : env_level << 2;
   q31_t duck_reduction = q31_mul(q31_sub_sat(Q31_MAX, q31_sub_sat(Q31_MAX, amp_env)), ctx->p_ducking);
