@@ -8,9 +8,16 @@ static q31_t feedback_condition(te2350_t *ctx,
                                 q31_t shimmer_return,
                                 q31_t env_level,
                                 q31_t effective_feedback);
+static inline q31_t clamp_q31_unit(q31_t v);
 
 static inline q31_t q31_lerp(q31_t a, q31_t b, q31_t t) {
   return q31_add_sat(q31_mul(a, q31_sub_sat(Q31_MAX, t)), q31_mul(b, t));
+}
+
+static inline q31_t clamp_q31_unit(q31_t v) {
+  if (v < 0) return 0;
+  if (v > Q31_MAX) return Q31_MAX;
+  return v;
 }
 
 bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sample_rate) {
@@ -387,20 +394,20 @@ q31_t te2350_get_modulator(te2350_t *ctx) {
 }
 
 void te2350_set_feedback(te2350_t *ctx, q31_t feedback) {
-  ctx->p_feedback = feedback;
+  ctx->p_feedback = clamp_q31_unit(feedback);
 }
 
 void te2350_set_time(te2350_t *ctx, q31_t time) {
-  ctx->p_time = time;
+  ctx->p_time = clamp_q31_unit(time);
 }
 
 void te2350_set_mod(te2350_t *ctx, q31_t rate, q31_t depth) {
-  ctx->p_rate = rate;
-  ctx->p_depth = depth;
+  ctx->p_rate = clamp_q31_unit(rate);
+  ctx->p_depth = clamp_q31_unit(depth);
 }
 
 void te2350_set_tone(te2350_t *ctx, q31_t tone) {
-  ctx->p_tone = tone;
+  ctx->p_tone = clamp_q31_unit(tone);
 }
 
 static void update_tone_filter(te2350_t *ctx) {
@@ -417,7 +424,7 @@ static void update_tone_filter(te2350_t *ctx) {
 }
 
 void te2350_set_mix(te2350_t *ctx, q31_t mix) {
-  ctx->p_mix = mix;
+  ctx->p_mix = clamp_q31_unit(mix);
 }
 
 void te2350_set_freeze(te2350_t *ctx, bool freeze) {
@@ -450,33 +457,31 @@ void te2350_set_octave_feedback_enabled(te2350_t *ctx, bool enabled) {
 }
 
 void te2350_set_octave_feedback_amount(te2350_t *ctx, q31_t amount) {
-  if (amount < 0) amount = 0;
-  if (amount > Q31_MAX) amount = Q31_MAX;
-  ctx->octave_feedback_amount = amount;
+  ctx->octave_feedback_amount = clamp_q31_unit(amount);
 }
 
 void te2350_set_shimmer(te2350_t *ctx, q31_t shimmer) {
-  ctx->p_shimmer = shimmer;
+  ctx->p_shimmer = clamp_q31_unit(shimmer);
 }
 
 void te2350_set_diffusion(te2350_t *ctx, q31_t diffusion) {
-  ctx->p_diffusion = diffusion;
+  ctx->p_diffusion = clamp_q31_unit(diffusion);
 }
 
 void te2350_set_chaos(te2350_t *ctx, q31_t chaos) {
-  ctx->p_chaos = chaos;
+  ctx->p_chaos = clamp_q31_unit(chaos);
 }
 
 void te2350_set_ducking(te2350_t *ctx, q31_t ducking) {
-  ctx->p_ducking = ducking;
+  ctx->p_ducking = clamp_q31_unit(ducking);
 }
 
 void te2350_set_wobble(te2350_t *ctx, q31_t wobble) {
-  ctx->p_wobble = wobble;
+  ctx->p_wobble = clamp_q31_unit(wobble);
 }
 
 void te2350_set_presence(te2350_t *ctx, q31_t presence) {
-  ctx->p_presence = presence;
+  ctx->p_presence = clamp_q31_unit(presence);
 }
 
 static void build_time_lut(te2350_t *ctx) {

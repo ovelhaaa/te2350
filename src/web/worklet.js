@@ -206,6 +206,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
     _reportCapabilities() {
         const OPTIONAL_CAPABILITIES = {
+            presence: '_wasm_te2350_set_presence',
             octave_feedback_enabled: '_wasm_te2350_set_octave_feedback_enabled',
             octave_feedback_amount: '_wasm_te2350_set_octave_feedback_amount',
             melody_enabled: '_wasm_te2350_set_melody',
