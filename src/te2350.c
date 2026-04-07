@@ -179,8 +179,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   SMOOTH_PARAM(ctx->p_presence, ctx->p_presence_smoothed, fast_smooth);
 
   q31_t env_level = dsp_env_process(&ctx->envelope, q31_abs(dry));
-  q31_t sustain_hint = q31_mul(env_level, FLOAT_TO_Q31(1.25f));
-  if (sustain_hint > Q31_MAX) sustain_hint = Q31_MAX;
+  // Q31 can't represent values >= 1.0 directly; use saturating 1.25x boost.
+  q31_t sustain_hint = q31_add_sat(env_level, env_level >> 2);
   q31_t transient_hint = q31_sub_sat(q31_abs(dry), env_level);
   if (transient_hint < 0) transient_hint = 0;
 
@@ -237,8 +237,11 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t bloom = ctx->bloom_state;
   q31_t bloom_diff_boost = q31_mul(bloom, FLOAT_TO_Q31(0.34f));
   bloom_diff_boost = q31_add_sat(bloom_diff_boost, q31_mul(gravity, FLOAT_TO_Q31(0.16f)));
+  q31_t smear_boost = q31_mul(q31_add_sat(bloom, sustain_hint), FLOAT_TO_Q31(0.06f));
   q31_t diff_eff = q31_add_sat(diff, bloom_diff_boost);
+  diff_eff = q31_add_sat(diff_eff, smear_boost);
   diff_eff = q31_sub_sat(diff_eff, q31_mul(transient_hint, FLOAT_TO_Q31(0.10f)));
+  if (diff_eff > FLOAT_TO_Q31(0.98f)) diff_eff = FLOAT_TO_Q31(0.98f);
 
   ctx->ap1.gain = q31_mul(FLOAT_TO_Q31(0.45f), diff_eff);
   ctx->ap2.gain = q31_mul(FLOAT_TO_Q31(0.34f), diff_eff);
@@ -294,8 +297,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t late_accents = 0;
   q31_t late_freeze_scale = q31_sub_sat(Q31_MAX, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.9f)));
-  q31_t late_damp = q31_sub_sat(FLOAT_TO_Q31(0.93f), q31_mul(gravity, FLOAT_TO_Q31(0.20f)));
-  if (late_damp < FLOAT_TO_Q31(0.66f)) late_damp = FLOAT_TO_Q31(0.66f);
+  q31_t late_damp = q31_sub_sat(FLOAT_TO_Q31(0.95f), q31_mul(gravity, FLOAT_TO_Q31(0.12f)));
+  late_damp = q31_add_sat(late_damp, q31_mul(sustain_hint, FLOAT_TO_Q31(0.03f)));
+  if (late_damp > FLOAT_TO_Q31(0.98f)) late_damp = FLOAT_TO_Q31(0.98f);
+  if (late_damp < FLOAT_TO_Q31(0.80f)) late_damp = FLOAT_TO_Q31(0.80f);
   for (int i = 0; i < TE_NUM_LATE_TAPS; ++i) {
     int32_t late_jitter = (int32_t)(((int64_t)space_mod * (13 + i * 11)) >> 31);
     int32_t tap_d = (int32_t)ctx->late_tap_delays[i] + late_jitter;
@@ -306,7 +311,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
       tap = q31_mul(tap, late_damp);
     }
     q31_t g = q31_mul(ctx->late_tap_gains[i], late_freeze_scale);
-    g = q31_mul(g, q31_add_sat(FLOAT_TO_Q31(0.88f), q31_mul(gravity, FLOAT_TO_Q31(0.20f))));
+    g = q31_mul(g, q31_add_sat(FLOAT_TO_Q31(0.90f), q31_mul(gravity, FLOAT_TO_Q31(0.18f))));
+    g = q31_mul(g, q31_add_sat(FLOAT_TO_Q31(0.96f), q31_mul(sustain_hint, FLOAT_TO_Q31(0.06f))));
     late_accents = q31_add_sat(late_accents, q31_mul(tap, g));
   }
 
@@ -347,6 +353,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   }
 
   q31_t effective_feedback = ctx->p_feedback_smoothed;
+  // Extend tail by steering feedback toward a safe ceiling with controlled mix.
+  q31_t tail_feedback_mix = q31_mul(q31_add_sat(bloom, sustain_hint), FLOAT_TO_Q31(0.10f));
+  if (tail_feedback_mix > FLOAT_TO_Q31(0.35f)) tail_feedback_mix = FLOAT_TO_Q31(0.35f);
+  effective_feedback = q31_lerp(effective_feedback, FLOAT_TO_Q31(0.995f), tail_feedback_mix);
   if (ctx->freeze_crossfade > 0) {
     q31_t freeze_fb = FLOAT_TO_Q31(0.995f);
     effective_feedback = q31_lerp(effective_feedback, freeze_fb, ctx->freeze_crossfade);
