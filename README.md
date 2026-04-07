@@ -31,6 +31,18 @@ The result sits somewhere between:
 - pitch-washed shimmer,
 - unstable “antigravity” space textures.
 
+### New voicing direction (ambient texture identity)
+
+The current DSP tuning pushes TE-2350 further away from “plain delay + extras” and toward a **space-texture instrument**:
+
+- longer perceived tails via denser/less-regular late taps,
+- slower bloom relaxation,
+- progressive recirculation darkening,
+- envelope-aware modulation (transients tighten, sustains expand),
+- shimmer/octave feedback behavior that follows internal bloom/freeze state.
+
+Internally this is coordinated by a macro behavior called **space gravity** (derived from existing parameters for backward compatibility). It couples perceived time, diffusion/smear, stereo width, late cloud density, and slow instability without adding mandatory new UI/API parameters.
+
 ---
 
 ## Current feature set
@@ -48,6 +60,7 @@ The result sits somewhere between:
 - Freeze mode
 - Shimmer / pitch component
 - Mix, tone, diffusion, chaos, ducking, wobble, modulation rate and depth controls
+- Perceptual UI response curves so the first 20–30% of travel is already audible
 
 ### RP2350 firmware
 
@@ -169,6 +182,21 @@ The RP2350 version currently uses a **custom PIO audio backend** rather than a h
 - currently processes the incoming signal as **mono in → stereo out** inside the core.
 
 This makes the project lightweight and portable, but it also means hardware pin mapping and codec/interface expectations should be treated as part of the source-level configuration, not as a polished end-user hardware abstraction yet.
+
+### Main delay memory / timing reference
+
+At 48 kHz:
+
+- `TE_MAIN_DELAY_SIZE = 16384` → about **0.34 s**
+- `TE_MAIN_DELAY_SIZE = 32768` (default) → about **0.68 s**
+- `TE_MAIN_DELAY_SIZE = 49152` (experimental) → about **1.02 s**
+
+`TE_MAIN_DELAY_SIZE` is compile-time configurable:
+
+- firmware (`CMake`): `-DTE_MAIN_DELAY_SIZE_SAMPLES=<value>`
+- web (`src/web/Makefile`): `make TE_MAIN_DELAY_SIZE=<value>`
+
+> RP2350 safety note: increasing this buffer raises SRAM pressure and can reduce headroom for stack, DMA buffers, and runtime safety margins. Validate underrun behavior and overall stability before adopting values above 32768 in production.
 
 ---
 

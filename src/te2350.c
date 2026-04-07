@@ -111,6 +111,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->p_ducking = FLOAT_TO_Q31(0.15f);
   ctx->p_wobble = FLOAT_TO_Q31(0.3f);
   ctx->p_presence = FLOAT_TO_Q31(0.20f);
+  ctx->p_space_gravity = FLOAT_TO_Q31(0.55f);
 
   ctx->p_time_smoothed = ctx->p_time;
   ctx->p_feedback_smoothed = ctx->p_feedback;
@@ -118,6 +119,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->p_tone_smoothed = ctx->p_tone;
   ctx->p_diffusion_smoothed = ctx->p_diffusion;
   ctx->p_presence_smoothed = ctx->p_presence;
+  ctx->p_space_gravity_smoothed = ctx->p_space_gravity;
 
   ctx->feedback_state = 0;
   ctx->bloom_state = 0;
@@ -127,8 +129,8 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
 
   const int early_ms[TE_NUM_EARLY_TAPS] = {8, 13, 21, 33, 47, 65};
   const float early_gain_f[TE_NUM_EARLY_TAPS] = {0.32f, 0.28f, 0.24f, 0.20f, 0.16f, 0.12f};
-  const int late_ms[TE_NUM_LATE_TAPS] = {148, 236};
-  const float late_gain_f[TE_NUM_LATE_TAPS] = {0.12f, 0.08f};
+  const int late_ms[TE_NUM_LATE_TAPS] = {171, 289, 417, 563};
+  const float late_gain_f[TE_NUM_LATE_TAPS] = {0.17f, 0.13f, 0.10f, 0.07f};
 
   for (int i = 0; i < TE_NUM_EARLY_TAPS; ++i) {
     size_t d = (size_t)((early_ms[i] * 0.001f) * sample_rate);
@@ -177,6 +179,23 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   SMOOTH_PARAM(ctx->p_presence, ctx->p_presence_smoothed, fast_smooth);
 
   q31_t env_level = dsp_env_process(&ctx->envelope, q31_abs(dry));
+  q31_t sustain_hint = q31_mul(env_level, FLOAT_TO_Q31(1.25f));
+  if (sustain_hint > Q31_MAX) sustain_hint = Q31_MAX;
+  q31_t transient_hint = q31_sub_sat(q31_abs(dry), env_level);
+  if (transient_hint < 0) transient_hint = 0;
+
+  // "Space gravity": macro behavior derived from existing controls to tie time,
+  // smear, spread and drift together without breaking API compatibility.
+  q31_t gravity_target = q31_add_sat(q31_mul(ctx->p_time_smoothed, FLOAT_TO_Q31(0.40f)),
+                                     q31_mul(ctx->p_diffusion_smoothed, FLOAT_TO_Q31(0.34f)));
+  gravity_target = q31_add_sat(gravity_target, q31_mul(ctx->p_feedback_smoothed, FLOAT_TO_Q31(0.20f)));
+  gravity_target = q31_add_sat(gravity_target, q31_mul(ctx->p_chaos, FLOAT_TO_Q31(0.12f)));
+  gravity_target = q31_add_sat(gravity_target, q31_mul(sustain_hint, FLOAT_TO_Q31(0.14f)));
+  gravity_target = q31_sub_sat(gravity_target, q31_mul(transient_hint, FLOAT_TO_Q31(0.12f)));
+  if (ctx->freeze_mode) gravity_target = q31_add_sat(gravity_target, FLOAT_TO_Q31(0.06f));
+  ctx->p_space_gravity = clamp_q31_unit(gravity_target);
+  SMOOTH_PARAM(ctx->p_space_gravity, ctx->p_space_gravity_smoothed, FLOAT_TO_Q31(0.010f));
+  q31_t gravity = ctx->p_space_gravity_smoothed;
 
   q31_t base_space_step = ctx->p_rate >> 7;
   if (base_space_step < FLOAT_TO_Q31(0.00004f)) base_space_step = FLOAT_TO_Q31(0.00004f);
@@ -186,7 +205,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   ctx->chaos_seed = ctx->chaos_seed * 1664525u + 1013904223u;
   q31_t chaos_rand = (q31_t)(ctx->chaos_seed >> 1);
-  q31_t chaos_amt = q31_mul(ctx->p_chaos, FLOAT_TO_Q31(0.45f));
+  q31_t chaos_amt = q31_mul(ctx->p_chaos, FLOAT_TO_Q31(0.28f));
+  chaos_amt = q31_add_sat(chaos_amt, q31_mul(gravity, FLOAT_TO_Q31(0.20f)));
+  chaos_amt = q31_sub_sat(chaos_amt, q31_mul(transient_hint, FLOAT_TO_Q31(0.12f)));
+  if (chaos_amt < FLOAT_TO_Q31(0.02f)) chaos_amt = FLOAT_TO_Q31(0.02f);
   q31_t chaos_scale = q31_add_sat(FLOAT_TO_Q31(0.8f), q31_mul(chaos_rand, chaos_amt));
 
   dsp_rand_walk_set_step(&ctx->space_mod, q31_mul(base_space_step, chaos_scale));
@@ -195,8 +217,12 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t space_rnd = dsp_rand_walk_process(&ctx->space_mod);
   q31_t time_rnd = ctx->freeze_mode ? 0 : dsp_rand_walk_process(&ctx->time_mod);
 
-  q31_t space_mod = q31_mul(space_rnd, q31_mul(ctx->p_depth, FLOAT_TO_Q31(0.22f)));
-  q31_t time_mod = q31_mul(time_rnd, q31_mul(ctx->p_depth, FLOAT_TO_Q31(0.08f)));
+  q31_t depth_eff = q31_add_sat(q31_mul(ctx->p_depth, FLOAT_TO_Q31(0.78f)),
+                                q31_mul(gravity, FLOAT_TO_Q31(0.28f)));
+  depth_eff = q31_sub_sat(depth_eff, q31_mul(transient_hint, FLOAT_TO_Q31(0.16f)));
+  if (depth_eff < FLOAT_TO_Q31(0.02f)) depth_eff = FLOAT_TO_Q31(0.02f);
+  q31_t space_mod = q31_mul(space_rnd, q31_mul(depth_eff, FLOAT_TO_Q31(0.24f)));
+  q31_t time_mod = q31_mul(time_rnd, q31_mul(depth_eff, FLOAT_TO_Q31(0.09f)));
 
   if (ctx->freeze_mode) {
     ctx->freeze_crossfade = q31_add_sat(ctx->freeze_crossfade, FLOAT_TO_Q31(0.0012f));
@@ -209,8 +235,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t diff = ctx->p_diffusion_smoothed;
   q31_t bloom = ctx->bloom_state;
-  q31_t bloom_diff_boost = q31_mul(bloom, FLOAT_TO_Q31(0.30f));
+  q31_t bloom_diff_boost = q31_mul(bloom, FLOAT_TO_Q31(0.34f));
+  bloom_diff_boost = q31_add_sat(bloom_diff_boost, q31_mul(gravity, FLOAT_TO_Q31(0.16f)));
   q31_t diff_eff = q31_add_sat(diff, bloom_diff_boost);
+  diff_eff = q31_sub_sat(diff_eff, q31_mul(transient_hint, FLOAT_TO_Q31(0.10f)));
 
   ctx->ap1.gain = q31_mul(FLOAT_TO_Q31(0.45f), diff_eff);
   ctx->ap2.gain = q31_mul(FLOAT_TO_Q31(0.34f), diff_eff);
@@ -230,7 +258,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   dsp_delay_write(&ctx->main_delay, pre2);
 
-  int32_t d_base = map_time_samples(ctx, ctx->p_time_smoothed);
+  q31_t perceived_time = q31_add_sat(ctx->p_time_smoothed, q31_mul(gravity, FLOAT_TO_Q31(0.12f)));
+  int32_t d_base = map_time_samples(ctx, perceived_time);
   int32_t wobble_depth = ctx->wobble_mod_base + (int32_t)(((int64_t)ctx->p_wobble * ctx->wobble_mod_scale) >> 31);
   // Keep movement, but reduce wow dominance in the direct delay line to avoid masking.
   q31_t main_wow_scale = q31_sub_sat(FLOAT_TO_Q31(0.70f), q31_mul(bloom, FLOAT_TO_Q31(0.25f)));
@@ -265,9 +294,19 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t late_accents = 0;
   q31_t late_freeze_scale = q31_sub_sat(Q31_MAX, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.9f)));
+  q31_t late_damp = q31_sub_sat(FLOAT_TO_Q31(0.93f), q31_mul(gravity, FLOAT_TO_Q31(0.20f)));
+  if (late_damp < FLOAT_TO_Q31(0.66f)) late_damp = FLOAT_TO_Q31(0.66f);
   for (int i = 0; i < TE_NUM_LATE_TAPS; ++i) {
-    q31_t tap = dsp_delay_read(&ctx->main_delay, ctx->late_tap_delays[i]);
+    int32_t late_jitter = (int32_t)(((int64_t)space_mod * (13 + i * 11)) >> 31);
+    int32_t tap_d = (int32_t)ctx->late_tap_delays[i] + late_jitter;
+    if (tap_d < 1) tap_d = 1;
+    if (tap_d >= TE_MAIN_DELAY_SIZE) tap_d = TE_MAIN_DELAY_SIZE - 1;
+    q31_t tap = dsp_delay_read(&ctx->main_delay, (size_t)tap_d);
+    for (int d = 0; d <= i; ++d) {
+      tap = q31_mul(tap, late_damp);
+    }
     q31_t g = q31_mul(ctx->late_tap_gains[i], late_freeze_scale);
+    g = q31_mul(g, q31_add_sat(FLOAT_TO_Q31(0.88f), q31_mul(gravity, FLOAT_TO_Q31(0.20f))));
     late_accents = q31_add_sat(late_accents, q31_mul(tap, g));
   }
 
@@ -292,11 +331,19 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
                                       q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.6666667f)));
     shimmer_pitch = q31_add_sat(shimmer_pitch, q31_mul(space_rnd, FLOAT_TO_Q31(0.002f)));
     q31_t shifted = dsp_pitch_process(&ctx->pitch_shifter, post2, shimmer_pitch);
-    q31_t halo = q31_lerp(shifted, post2, FLOAT_TO_Q31(0.65f));
+    q31_t bloom_wash = q31_mul(bloom, FLOAT_TO_Q31(0.55f));
+    q31_t freeze_lock = q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.50f));
+    q31_t shimmer_clean = q31_sub_sat(FLOAT_TO_Q31(0.72f), q31_mul(bloom_wash, FLOAT_TO_Q31(0.45f)));
+    if (shimmer_clean < FLOAT_TO_Q31(0.38f)) shimmer_clean = FLOAT_TO_Q31(0.38f);
+    q31_t halo_mix = q31_add_sat(shimmer_clean, freeze_lock);
+    if (halo_mix > FLOAT_TO_Q31(0.92f)) halo_mix = FLOAT_TO_Q31(0.92f);
+    q31_t halo = q31_lerp(shifted, post2, halo_mix);
     q31_t shimmer_lp_ref = dsp_onepole_lp(&ctx->shimmer_hp, halo);
     q31_t shimmer_hp = q31_sub_sat(halo, shimmer_lp_ref);
     q31_t shimmer_voiced = dsp_onepole_lp(&ctx->shimmer_lp, shimmer_hp);
-    shimmer_parallel = q31_mul(shimmer_voiced, q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.22f)));
+    q31_t shimmer_gain = q31_add_sat(FLOAT_TO_Q31(0.16f), q31_mul(bloom_wash, FLOAT_TO_Q31(0.22f)));
+    shimmer_gain = q31_sub_sat(shimmer_gain, q31_mul(freeze_lock, FLOAT_TO_Q31(0.10f)));
+    shimmer_parallel = q31_mul(shimmer_voiced, q31_mul(ctx->p_shimmer, shimmer_gain));
   }
 
   q31_t effective_feedback = ctx->p_feedback_smoothed;
@@ -349,14 +396,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
                          q31_mul(wet_side_decor, FLOAT_TO_Q31(0.18f)));
 
   q31_t wet_energy = q31_abs(wet_mid);
-  q31_t bloom_target = q31_add_sat(q31_mul(env_level, FLOAT_TO_Q31(0.68f)),
-                                   q31_mul(wet_energy, FLOAT_TO_Q31(0.32f)));
+  q31_t bloom_target = q31_add_sat(q31_mul(env_level, FLOAT_TO_Q31(0.54f)),
+                                   q31_mul(wet_energy, FLOAT_TO_Q31(0.46f)));
+  bloom_target = q31_add_sat(bloom_target, q31_mul(gravity, FLOAT_TO_Q31(0.10f)));
+  bloom_target = q31_add_sat(bloom_target, q31_mul(sustain_hint, FLOAT_TO_Q31(0.10f)));
+  bloom_target = q31_sub_sat(bloom_target, q31_mul(transient_hint, FLOAT_TO_Q31(0.08f)));
   q31_t bloom_target_max = ctx->freeze_mode ? FLOAT_TO_Q31(0.74f) : FLOAT_TO_Q31(0.92f);
   if (bloom_target > bloom_target_max) bloom_target = bloom_target_max;
   if (bloom_target < 0) bloom_target = 0;
 
   q31_t bloom_delta = q31_sub_sat(bloom_target, ctx->bloom_state);
-  q31_t bloom_coeff = (bloom_delta > 0) ? FLOAT_TO_Q31(0.0060f) : FLOAT_TO_Q31(0.0009f);
+  q31_t bloom_coeff = (bloom_delta > 0) ? FLOAT_TO_Q31(0.0045f) : FLOAT_TO_Q31(0.00045f);
   q31_t bloom_step = q31_mul(bloom_delta, bloom_coeff);
   if (bloom_delta > 0 && bloom_step == 0) bloom_step = 1;
   if (bloom_delta < 0 && bloom_step == 0) bloom_step = -1;
@@ -367,6 +417,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t width = q31_add_sat(FLOAT_TO_Q31(0.34f), q31_mul(diff_eff, FLOAT_TO_Q31(0.30f)));
   width = q31_add_sat(width, q31_mul(bloom, FLOAT_TO_Q31(0.28f)));
+  width = q31_add_sat(width, q31_mul(gravity, FLOAT_TO_Q31(0.12f)));
+  width = q31_sub_sat(width, q31_mul(transient_hint, FLOAT_TO_Q31(0.08f)));
   if (width > FLOAT_TO_Q31(0.90f)) width = FLOAT_TO_Q31(0.90f);
 
   q31_t amp_env = env_level > (Q31_MAX >> 2) ? Q31_MAX : env_level << 2;
@@ -487,17 +539,7 @@ void te2350_set_presence(te2350_t *ctx, q31_t presence) {
 static void build_time_lut(te2350_t *ctx) {
   for (int i = 0; i < TE_TIME_LUT_SIZE; ++i) {
     float x = (float)i / (float)(TE_TIME_LUT_SIZE - 1);
-    float shaped;
-    if (x < 0.38f) {
-      float t = x / 0.38f;
-      shaped = 0.22f * t * t;
-    } else if (x < 0.78f) {
-      float t = (x - 0.38f) / 0.40f;
-      shaped = 0.22f + 0.40f * (t * (0.7f + 0.3f * t));
-    } else {
-      float t = (x - 0.78f) / 0.22f;
-      shaped = 0.62f + 0.38f * t;
-    }
+    float shaped = (0.70f * (x * x)) + (0.30f * x);
 
     int32_t samples = ctx->min_delay_samples + (int32_t)((ctx->max_delay_samples - ctx->min_delay_samples) * shaped);
     if (samples < 1) samples = 1;
@@ -536,12 +578,18 @@ static q31_t feedback_condition(te2350_t *ctx,
 
   q31_t shaped = q31_add_sat(q31_mul(lp, FLOAT_TO_Q31(0.72f)), q31_mul(hp, FLOAT_TO_Q31(0.20f)));
   shaped = q31_add_sat(shaped, q31_mul(shimmer_return, FLOAT_TO_Q31(0.12f)));
+  q31_t loop_darkening = q31_sub_sat(Q31_MAX, q31_mul(ctx->bloom_state, FLOAT_TO_Q31(0.24f)));
+  if (loop_darkening < FLOAT_TO_Q31(0.62f)) loop_darkening = FLOAT_TO_Q31(0.62f);
+  shaped = q31_mul(shaped, loop_darkening);
   shaped = dsp_dc_blockProcess(&ctx->fb_dc, shaped);
   shaped = dsp_soft_saturate_gentle(shaped);
 
   if (ctx->octave_feedback_enabled && ctx->octave_feedback_amount > 0) {
     q31_t octave = dsp_pitch_process(&ctx->octave_shifter, shaped, Q31_MAX);
-    shaped = q31_lerp(shaped, octave, q31_mul(ctx->octave_feedback_amount, FLOAT_TO_Q31(0.35f)));
+    q31_t octave_blend = q31_mul(ctx->octave_feedback_amount, FLOAT_TO_Q31(0.20f));
+    octave_blend = q31_add_sat(octave_blend, q31_mul(ctx->bloom_state, FLOAT_TO_Q31(0.10f)));
+    octave_blend = q31_sub_sat(octave_blend, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.08f)));
+    shaped = q31_lerp(shaped, octave, octave_blend);
   }
 
   q31_t trans_duck = q31_mul(q31_mul(env_level, ctx->p_ducking), FLOAT_TO_Q31(0.22f));

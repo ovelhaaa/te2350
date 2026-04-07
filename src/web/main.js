@@ -385,9 +385,28 @@ const sliderParams = [
 
 const toggleParams = ['freeze', 'octave_feedback_enabled', 'melody_enabled', 'melody_only'];
 
+const parameterTransforms = {
+    time: (v) => Math.pow(v, 0.62),
+    feedback: (v) => Math.min(0.985, 0.08 + Math.pow(v, 0.72) * 0.905),
+    mix: (v) => Math.pow(v, 0.78),
+    diffusion: (v) => Math.min(1, 0.06 + Math.pow(v, 0.60) * 0.94),
+    chaos: (v) => Math.min(1, 0.02 + Math.pow(v, 0.82) * 0.98),
+    wobble: (v) => Math.min(1, Math.pow(v, 0.68)),
+    mod_rate: (v) => Math.min(1, 0.04 + Math.pow(v, 0.75) * 0.96),
+    mod_depth: (v) => Math.min(1, Math.pow(v, 0.70)),
+    presence: (v) => Math.min(1, Math.pow(v, 0.66)),
+    ducking: (v) => Math.min(1, 0.02 + Math.pow(v, 0.62) * 0.98),
+    shimmer: (v) => Math.min(1, 0.01 + Math.pow(v, 0.70) * 0.99),
+    melody_volume: (v) => Math.min(1, Math.pow(v, 0.72)),
+    melody_density: (v) => Math.min(1, 0.06 + Math.pow(v, 0.58) * 0.94),
+    melody_decay: (v) => Math.min(1, 0.08 + Math.pow(v, 0.84) * 0.92),
+    octave_feedback_amount: (v) => Math.min(1, 0.03 + Math.pow(v, 0.70) * 0.97)
+};
+
 function sendParam(param, value) {
     if (effectNode && effectNode.port) {
-        effectNode.port.postMessage({ param, value });
+        const mapped = parameterTransforms[param] ? parameterTransforms[param](value) : value;
+        effectNode.port.postMessage({ param, value: mapped });
     }
 }
 

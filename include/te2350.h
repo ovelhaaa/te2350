@@ -11,12 +11,19 @@
 // --- Tuning Constants ---
 // Just defaults or limits.
 // 48kHz -> 100ms = 4800 samples.
-// We need ~64KB total memory.
-// Main Delay: 64KB (16384 words * 4 bytes). ~340ms at 48k.
+// Main delay size is configurable at compile time:
+//   16384 @ 48kHz ≈ 0.34s
+//   32768 @ 48kHz ≈ 0.68s (default)
+//   49152 @ 48kHz ≈ 1.02s (experimental: test SRAM/stack/DMA safety first)
+// WARNING (RP2350): larger delay buffers increase SRAM pressure and can reduce
+// headroom for stack, DMA buffers, and other runtime structures. If pushed too
+// far this can increase underrun risk.
 // Allpasses: 2-3 short ones.
 // Total ~76KB + Pitch. Safe in 128KB.
 
-#define TE_MAIN_DELAY_SIZE 16384 // Doubled for "bleeps" and texture
+#ifndef TE_MAIN_DELAY_SIZE
+#define TE_MAIN_DELAY_SIZE 32768
+#endif
 #define TE_AP1_SIZE 1103  // Prime number to avoid ringing
 #define TE_AP2_SIZE 1327  // Prime number
 #define TE_AP3_SIZE 673   // Prime number
@@ -92,6 +99,7 @@ typedef struct {
   q31_t p_ducking;    // Envelope ducking amount (0 = off, Q31_MAX = full duck)
   q31_t p_wobble;     // Feedback wobble amount (0 = stable, Q31_MAX = wobbly)
   q31_t p_presence;   // Presence rail gain (0 = soft, Q31_MAX = articulate)
+  q31_t p_space_gravity; // Internal macro behavior (derived from existing params)
 
   // Smoothed runtime values
   q31_t p_time_smoothed;
@@ -100,6 +108,7 @@ typedef struct {
   q31_t p_tone_smoothed;
   q31_t p_diffusion_smoothed;
   q31_t p_presence_smoothed;
+  q31_t p_space_gravity_smoothed;
   
   // Internal State
   uint32_t chaos_seed;
@@ -118,7 +127,7 @@ typedef struct {
 
   // Multi-tap cloud parameters
   #define TE_NUM_EARLY_TAPS 6
-  #define TE_NUM_LATE_TAPS 2
+  #define TE_NUM_LATE_TAPS 4
   size_t early_tap_delays[TE_NUM_EARLY_TAPS];
   q31_t early_tap_gains[TE_NUM_EARLY_TAPS];
   size_t late_tap_delays[TE_NUM_LATE_TAPS];
