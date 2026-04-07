@@ -91,6 +91,7 @@ typedef struct {
   q31_t p_chaos;      // Chaos/instability amount (0 = stable, Q31_MAX = chaotic)
   q31_t p_ducking;    // Envelope ducking amount (0 = off, Q31_MAX = full duck)
   q31_t p_wobble;     // Feedback wobble amount (0 = stable, Q31_MAX = wobbly)
+  q31_t p_presence;   // Presence rail gain (0 = soft, Q31_MAX = articulate)
 
   // Smoothed runtime values
   q31_t p_time_smoothed;
@@ -98,6 +99,7 @@ typedef struct {
   q31_t p_mix_smoothed;
   q31_t p_tone_smoothed;
   q31_t p_diffusion_smoothed;
+  q31_t p_presence_smoothed;
   
   // Internal State
   uint32_t chaos_seed;
@@ -171,5 +173,6 @@ void te2350_set_diffusion(te2350_t *ctx, q31_t diffusion); // 0..1 (allpass diff
 void te2350_set_chaos(te2350_t *ctx, q31_t chaos);       // 0..1 (modulation chaos)
 void te2350_set_ducking(te2350_t *ctx, q31_t ducking);   // 0..1 (envelope ducking)
 void te2350_set_wobble(te2350_t *ctx, q31_t wobble);     // 0..1 (feedback wobble)
+void te2350_set_presence(te2350_t *ctx, q31_t presence); // 0..1 (presence rail blend)
 
 #endif // TE_2350_H

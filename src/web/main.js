@@ -15,6 +15,7 @@ const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
 const capabilityBindings = {
+    presence: { id: 'presence', type: 'slider', label: 'Presence' },
     octave_feedback_amount: { id: 'octave_feedback_amount', type: 'slider', label: 'Octave Feedback Amount' },
     octave_feedback_enabled: { id: 'octave_feedback_enabled', type: 'toggle', label: 'Octave Feedback Toggle' },
     melody_enabled: { id: 'melody_enabled', type: 'toggle', label: 'Melody Generator Toggle' },
@@ -373,6 +374,7 @@ const sliderParams = [
     'tone',
     'ducking',
     'wobble',
+    'presence',
     'mod_rate',
     'mod_depth',
     'octave_feedback_amount',

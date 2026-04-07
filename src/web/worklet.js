@@ -168,6 +168,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             case 'wobble':
                 this._invokeWasm('_wasm_te2350_set_wobble', [value], param);
                 break;
+            case 'presence':
+                this._invokeWasm('_wasm_te2350_set_presence', [value], param);
+                break;
             case 'mod_rate':
                 this.modRate = value;
                 this._invokeWasm('_wasm_te2350_set_mod', [this.modRate, this.modDepth], param);
@@ -203,6 +206,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
 
     _reportCapabilities() {
         const OPTIONAL_CAPABILITIES = {
+            presence: '_wasm_te2350_set_presence',
             octave_feedback_enabled: '_wasm_te2350_set_octave_feedback_enabled',
             octave_feedback_amount: '_wasm_te2350_set_octave_feedback_amount',
             melody_enabled: '_wasm_te2350_set_melody',

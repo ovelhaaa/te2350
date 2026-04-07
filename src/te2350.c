@@ -8,9 +8,16 @@ static q31_t feedback_condition(te2350_t *ctx,
                                 q31_t shimmer_return,
                                 q31_t env_level,
                                 q31_t effective_feedback);
+static inline q31_t clamp_q31_unit(q31_t v);
 
 static inline q31_t q31_lerp(q31_t a, q31_t b, q31_t t) {
   return q31_add_sat(q31_mul(a, q31_sub_sat(Q31_MAX, t)), q31_mul(b, t));
+}
+
+static inline q31_t clamp_q31_unit(q31_t v) {
+  if (v < 0) return 0;
+  if (v > Q31_MAX) return Q31_MAX;
+  return v;
 }
 
 bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sample_rate) {
@@ -103,12 +110,14 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->p_chaos = FLOAT_TO_Q31(0.2f);
   ctx->p_ducking = FLOAT_TO_Q31(0.15f);
   ctx->p_wobble = FLOAT_TO_Q31(0.3f);
+  ctx->p_presence = FLOAT_TO_Q31(0.20f);
 
   ctx->p_time_smoothed = ctx->p_time;
   ctx->p_feedback_smoothed = ctx->p_feedback;
   ctx->p_mix_smoothed = ctx->p_mix;
   ctx->p_tone_smoothed = ctx->p_tone;
   ctx->p_diffusion_smoothed = ctx->p_diffusion;
+  ctx->p_presence_smoothed = ctx->p_presence;
 
   ctx->feedback_state = 0;
   ctx->bloom_state = 0;
@@ -165,6 +174,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   SMOOTH_PARAM(ctx->p_mix, ctx->p_mix_smoothed, fast_smooth);
   SMOOTH_PARAM(ctx->p_tone, ctx->p_tone_smoothed, fast_smooth);
   SMOOTH_PARAM(ctx->p_diffusion, ctx->p_diffusion_smoothed, fast_smooth);
+  SMOOTH_PARAM(ctx->p_presence, ctx->p_presence_smoothed, fast_smooth);
 
   q31_t env_level = dsp_env_process(&ctx->envelope, q31_abs(dry));
 
@@ -315,7 +325,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t presence_band = dsp_onepole_lp(&ctx->presence_lp, presence_hp);
   q31_t presence_sat = dsp_soft_saturate_gentle(presence_band);
 
-  q31_t presence_target_gain = FLOAT_TO_Q31(0.20f); // subtle but clearer first response
+  q31_t presence_target_gain = q31_add_sat(FLOAT_TO_Q31(0.06f),
+                                           q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.30f)));
   q31_t presence_gain_delta = q31_sub_sat(presence_target_gain, ctx->presence_gain_smooth);
   ctx->presence_gain_smooth = q31_add_sat(ctx->presence_gain_smooth,
                                           q31_mul(presence_gain_delta, FLOAT_TO_Q31(0.03f)));
@@ -383,20 +394,20 @@ q31_t te2350_get_modulator(te2350_t *ctx) {
 }
 
 void te2350_set_feedback(te2350_t *ctx, q31_t feedback) {
-  ctx->p_feedback = feedback;
+  ctx->p_feedback = clamp_q31_unit(feedback);
 }
 
 void te2350_set_time(te2350_t *ctx, q31_t time) {
-  ctx->p_time = time;
+  ctx->p_time = clamp_q31_unit(time);
 }
 
 void te2350_set_mod(te2350_t *ctx, q31_t rate, q31_t depth) {
-  ctx->p_rate = rate;
-  ctx->p_depth = depth;
+  ctx->p_rate = clamp_q31_unit(rate);
+  ctx->p_depth = clamp_q31_unit(depth);
 }
 
 void te2350_set_tone(te2350_t *ctx, q31_t tone) {
-  ctx->p_tone = tone;
+  ctx->p_tone = clamp_q31_unit(tone);
 }
 
 static void update_tone_filter(te2350_t *ctx) {
@@ -413,7 +424,7 @@ static void update_tone_filter(te2350_t *ctx) {
 }
 
 void te2350_set_mix(te2350_t *ctx, q31_t mix) {
-  ctx->p_mix = mix;
+  ctx->p_mix = clamp_q31_unit(mix);
 }
 
 void te2350_set_freeze(te2350_t *ctx, bool freeze) {
@@ -446,29 +457,31 @@ void te2350_set_octave_feedback_enabled(te2350_t *ctx, bool enabled) {
 }
 
 void te2350_set_octave_feedback_amount(te2350_t *ctx, q31_t amount) {
-  if (amount < 0) amount = 0;
-  if (amount > Q31_MAX) amount = Q31_MAX;
-  ctx->octave_feedback_amount = amount;
+  ctx->octave_feedback_amount = clamp_q31_unit(amount);
 }
 
 void te2350_set_shimmer(te2350_t *ctx, q31_t shimmer) {
-  ctx->p_shimmer = shimmer;
+  ctx->p_shimmer = clamp_q31_unit(shimmer);
 }
 
 void te2350_set_diffusion(te2350_t *ctx, q31_t diffusion) {
-  ctx->p_diffusion = diffusion;
+  ctx->p_diffusion = clamp_q31_unit(diffusion);
 }
 
 void te2350_set_chaos(te2350_t *ctx, q31_t chaos) {
-  ctx->p_chaos = chaos;
+  ctx->p_chaos = clamp_q31_unit(chaos);
 }
 
 void te2350_set_ducking(te2350_t *ctx, q31_t ducking) {
-  ctx->p_ducking = ducking;
+  ctx->p_ducking = clamp_q31_unit(ducking);
 }
 
 void te2350_set_wobble(te2350_t *ctx, q31_t wobble) {
-  ctx->p_wobble = wobble;
+  ctx->p_wobble = clamp_q31_unit(wobble);
+}
+
+void te2350_set_presence(te2350_t *ctx, q31_t presence) {
+  ctx->p_presence = clamp_q31_unit(presence);
 }
 
 static void build_time_lut(te2350_t *ctx) {

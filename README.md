@@ -184,8 +184,20 @@ The firmware exposes a serial-control interface for interactive tweaking.
 - `e / r` → shimmer down / up
 - `t / y` → tone down / up
 - `d / f` → diffusion down / up
+- `g / h` → chaos down / up
+- `j / l` → ducking down / up
+- `v / V` → wobble down / up
+- `[ / ]` → presence down / up
+- `1 / 2` → mod rate down / up
+- `3 / 4` → mod depth down / up
 - `c` → toggle freeze
 - `m` → toggle internal melody generator
+- `k` → toggle melody-only mode
+- `n / b` → melody volume down / up
+- `5 / 6` → melody density down / up
+- `7 / 8` → melody decay down / up
+- `o` → toggle octave-feedback mode
+- `i / u` → octave-feedback amount down / up
 - `p` → print current values
 
 This is extremely useful for quick bring-up before a physical control surface exists.
@@ -391,4 +403,3 @@ Built around:
 
 - GitHub repository: <https://github.com/ovelhaaa/te2350>
 - Browser demo: <https://ovelhaaa.github.io/te2350/>
-
