@@ -507,79 +507,79 @@
         <!-- Time -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Time</span>
-            <span class="knob-value" id="timeVal">0.80</span>
+            <span class="knob-name">Orbit (Time)</span>
+            <span class="knob-value" id="timeVal">0.58</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-time" style="width:80%"></div>
+            <div class="knob-arc-fill" id="arc-time" style="width:58%"></div>
           </div>
-          <input type="range" id="time" min="0" max="1" step="0.01" value="0.80" oninput="document.getElementById('arc-time').style.width = (this.value * 100) + '%'">
+          <input type="range" id="time" min="0" max="1" step="0.005" value="0.58" oninput="document.getElementById('arc-time').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Feedback -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Feedback</span>
-            <span class="knob-value" id="feedbackVal">0.90</span>
+            <span class="knob-name">Mass (Feedback)</span>
+            <span class="knob-value" id="feedbackVal">0.62</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-feedback" style="width:90%"></div>
+            <div class="knob-arc-fill" id="arc-feedback" style="width:62%"></div>
           </div>
-          <input type="range" id="feedback" min="0" max="0.99" step="0.01" value="0.90" oninput="document.getElementById('arc-feedback').style.width = (this.value * 100) + '%'">
+          <input type="range" id="feedback" min="0" max="1" step="0.005" value="0.62" oninput="document.getElementById('arc-feedback').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Mix -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Mix</span>
-            <span class="knob-value" id="mixVal">0.50</span>
+            <span class="knob-name">Blend (Mix)</span>
+            <span class="knob-value" id="mixVal">0.42</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-mix" style="width:50%"></div>
+            <div class="knob-arc-fill" id="arc-mix" style="width:42%"></div>
           </div>
-          <input type="range" id="mix" min="0" max="1" step="0.01" value="0.50" oninput="document.getElementById('arc-mix').style.width = (this.value * 100) + '%'">
+          <input type="range" id="mix" min="0" max="1" step="0.005" value="0.42" oninput="document.getElementById('arc-mix').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Tone -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Tone</span>
-            <span class="knob-value" id="toneVal">0.50</span>
+            <span class="knob-name">Color (Tone)</span>
+            <span class="knob-value" id="toneVal">0.44</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-tone" style="width:50%"></div>
+            <div class="knob-arc-fill" id="arc-tone" style="width:44%"></div>
           </div>
-          <input type="range" id="tone" min="0" max="1" step="0.01" value="0.50" oninput="document.getElementById('arc-tone').style.width = (this.value * 100) + '%'">
+          <input type="range" id="tone" min="0" max="1" step="0.005" value="0.44" oninput="document.getElementById('arc-tone').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Shimmer -->
         <div class="knob-cell">
           <div class="knob-header">
             <span class="knob-name">Shimmer</span>
-            <span class="knob-value" id="shimmerVal">0.00</span>
+            <span class="knob-value" id="shimmerVal">0.18</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-shimmer" style="width:0%"></div>
+            <div class="knob-arc-fill" id="arc-shimmer" style="width:18%"></div>
           </div>
-          <input type="range" id="shimmer" min="0" max="1" step="0.01" value="0.00" oninput="document.getElementById('arc-shimmer').style.width = (this.value * 100) + '%'">
+          <input type="range" id="shimmer" min="0" max="1" step="0.005" value="0.18" oninput="document.getElementById('arc-shimmer').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Diffusion -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Diffusion</span>
-            <span class="knob-value" id="diffusionVal">1.00</span>
+            <span class="knob-name">Smear (Diffusion)</span>
+            <span class="knob-value" id="diffusionVal">0.42</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-diffusion" style="width:100%"></div>
+            <div class="knob-arc-fill" id="arc-diffusion" style="width:42%"></div>
           </div>
-          <input type="range" id="diffusion" min="0" max="1" step="0.01" value="1.00" oninput="document.getElementById('arc-diffusion').style.width = (this.value * 100) + '%'">
+          <input type="range" id="diffusion" min="0" max="1" step="0.005" value="0.42" oninput="document.getElementById('arc-diffusion').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Chaos -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Chaos</span>
+            <span class="knob-name">Drift (Chaos)</span>
             <span class="knob-value" id="chaosVal">0.20</span>
           </div>
           <div class="knob-arc">
@@ -591,73 +591,73 @@
         <!-- Ducking -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Ducking</span>
-            <span class="knob-value" id="duckingVal">0.00</span>
+            <span class="knob-name">Auto-Duck</span>
+            <span class="knob-value" id="duckingVal">0.26</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-ducking" style="width:0%"></div>
+            <div class="knob-arc-fill" id="arc-ducking" style="width:26%"></div>
           </div>
-          <input type="range" id="ducking" min="0" max="1" step="0.01" value="0.00" oninput="document.getElementById('arc-ducking').style.width = (this.value * 100) + '%'">
+          <input type="range" id="ducking" min="0" max="1" step="0.005" value="0.26" oninput="document.getElementById('arc-ducking').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Wobble -->
         <div class="knob-cell">
           <div class="knob-header">
             <span class="knob-name">Wobble</span>
-            <span class="knob-value" id="wobbleVal">0.50</span>
+            <span class="knob-value" id="wobbleVal">0.36</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-wobble" style="width:50%"></div>
+            <div class="knob-arc-fill" id="arc-wobble" style="width:36%"></div>
           </div>
-          <input type="range" id="wobble" min="0" max="1" step="0.01" value="0.50" oninput="document.getElementById('arc-wobble').style.width = (this.value * 100) + '%'">
+          <input type="range" id="wobble" min="0" max="1" step="0.005" value="0.36" oninput="document.getElementById('arc-wobble').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Presence -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Presence</span>
-            <span class="knob-value" id="presenceVal">0.20</span>
+            <span class="knob-name">Edge (Presence)</span>
+            <span class="knob-value" id="presenceVal">0.30</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-presence" style="width:20%"></div>
+            <div class="knob-arc-fill" id="arc-presence" style="width:30%"></div>
           </div>
-          <input type="range" id="presence" min="0" max="1" step="0.01" value="0.20" oninput="document.getElementById('arc-presence').style.width = (this.value * 100) + '%'">
+          <input type="range" id="presence" min="0" max="1" step="0.005" value="0.30" oninput="document.getElementById('arc-presence').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Mod Rate -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Mod Rate</span>
-            <span class="knob-value" id="mod_rateVal">0.50</span>
+            <span class="knob-name">Motion Rate</span>
+            <span class="knob-value" id="mod_rateVal">0.34</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-mod_rate" style="width:50%"></div>
+            <div class="knob-arc-fill" id="arc-mod_rate" style="width:34%"></div>
           </div>
-          <input type="range" id="mod_rate" min="0" max="1" step="0.01" value="0.50" oninput="document.getElementById('arc-mod_rate').style.width = (this.value * 100) + '%'">
+          <input type="range" id="mod_rate" min="0" max="1" step="0.005" value="0.34" oninput="document.getElementById('arc-mod_rate').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Mod Depth -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Mod Depth</span>
-            <span class="knob-value" id="mod_depthVal">0.40</span>
+            <span class="knob-name">Motion Depth</span>
+            <span class="knob-value" id="mod_depthVal">0.37</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-mod_depth" style="width:40%"></div>
+            <div class="knob-arc-fill" id="arc-mod_depth" style="width:37%"></div>
           </div>
-          <input type="range" id="mod_depth" min="0" max="1" step="0.01" value="0.40" oninput="document.getElementById('arc-mod_depth').style.width = (this.value * 100) + '%'">
+          <input type="range" id="mod_depth" min="0" max="1" step="0.005" value="0.37" oninput="document.getElementById('arc-mod_depth').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Octave Feedback -->
         <div class="knob-cell">
           <div class="knob-header">
-            <span class="knob-name">Octave Fb</span>
-            <span class="knob-value" id="octave_feedback_amountVal">0.00</span>
+            <span class="knob-name">Octave Trail</span>
+            <span class="knob-value" id="octave_feedback_amountVal">0.14</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-octave_feedback_amount" style="width:0%"></div>
+            <div class="knob-arc-fill" id="arc-octave_feedback_amount" style="width:14%"></div>
           </div>
-          <input type="range" id="octave_feedback_amount" min="0" max="1" step="0.01" value="0.00" oninput="document.getElementById('arc-octave_feedback_amount').style.width = (this.value * 100) + '%'">
+          <input type="range" id="octave_feedback_amount" min="0" max="1" step="0.005" value="0.14" oninput="document.getElementById('arc-octave_feedback_amount').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Melody Volume -->
@@ -676,12 +676,12 @@
         <div class="knob-cell">
           <div class="knob-header">
             <span class="knob-name">Melody Density</span>
-            <span class="knob-value" id="melody_densityVal">0.45</span>
+            <span class="knob-value" id="melody_densityVal">0.32</span>
           </div>
           <div class="knob-arc">
-            <div class="knob-arc-fill" id="arc-melody_density" style="width:45%"></div>
+            <div class="knob-arc-fill" id="arc-melody_density" style="width:32%"></div>
           </div>
-          <input type="range" id="melody_density" min="0" max="1" step="0.01" value="0.45" oninput="document.getElementById('arc-melody_density').style.width = (this.value * 100) + '%'">
+          <input type="range" id="melody_density" min="0" max="1" step="0.005" value="0.32" oninput="document.getElementById('arc-melody_density').style.width = (this.value * 100) + '%'">
         </div>
 
         <!-- Melody Decay -->
@@ -699,7 +699,7 @@
       </div>
       <div style="margin-top: 14px; display: flex; gap: 20px;">
         <label class="toggle-row">
-          <span class="toggle-label">Freeze</span>
+          <span class="toggle-label">Hold Field</span>
           <input type="checkbox" id="freeze">
           <div class="toggle-pip"></div>
         </label>

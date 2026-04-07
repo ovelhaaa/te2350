@@ -22,6 +22,7 @@ include(pico_sdk_import.cmake)
 project(te2350_effect C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
+set(TE_MAIN_DELAY_SIZE_SAMPLES 32768 CACHE STRING "Main delay line size in samples (16384, 32768 default, 49152 experimental)")
 
 # Initialize the SDK
 pico_sdk_init()
@@ -45,6 +46,7 @@ pico_generate_pio_header(te2350 ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio)
 
 # Include directories
 target_include_directories(te2350 PRIVATE include)
+target_compile_definitions(te2350 PRIVATE TE_MAIN_DELAY_SIZE=${TE_MAIN_DELAY_SIZE_SAMPLES})
 
 # Link libraries
 target_link_libraries(te2350 
