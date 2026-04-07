@@ -168,6 +168,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             case 'wobble':
                 this._invokeWasm('_wasm_te2350_set_wobble', [value], param);
                 break;
+            case 'presence':
+                this._invokeWasm('_wasm_te2350_set_presence', [value], param);
+                break;
             case 'mod_rate':
                 this.modRate = value;
                 this._invokeWasm('_wasm_te2350_set_mod', [this.modRate, this.modDepth], param);

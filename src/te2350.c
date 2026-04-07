@@ -103,12 +103,14 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->p_chaos = FLOAT_TO_Q31(0.2f);
   ctx->p_ducking = FLOAT_TO_Q31(0.15f);
   ctx->p_wobble = FLOAT_TO_Q31(0.3f);
+  ctx->p_presence = FLOAT_TO_Q31(0.20f);
 
   ctx->p_time_smoothed = ctx->p_time;
   ctx->p_feedback_smoothed = ctx->p_feedback;
   ctx->p_mix_smoothed = ctx->p_mix;
   ctx->p_tone_smoothed = ctx->p_tone;
   ctx->p_diffusion_smoothed = ctx->p_diffusion;
+  ctx->p_presence_smoothed = ctx->p_presence;
 
   ctx->feedback_state = 0;
   ctx->bloom_state = 0;
@@ -165,6 +167,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   SMOOTH_PARAM(ctx->p_mix, ctx->p_mix_smoothed, fast_smooth);
   SMOOTH_PARAM(ctx->p_tone, ctx->p_tone_smoothed, fast_smooth);
   SMOOTH_PARAM(ctx->p_diffusion, ctx->p_diffusion_smoothed, fast_smooth);
+  SMOOTH_PARAM(ctx->p_presence, ctx->p_presence_smoothed, fast_smooth);
 
   q31_t env_level = dsp_env_process(&ctx->envelope, q31_abs(dry));
 
@@ -315,7 +318,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t presence_band = dsp_onepole_lp(&ctx->presence_lp, presence_hp);
   q31_t presence_sat = dsp_soft_saturate_gentle(presence_band);
 
-  q31_t presence_target_gain = FLOAT_TO_Q31(0.20f); // subtle but clearer first response
+  q31_t presence_target_gain = q31_add_sat(FLOAT_TO_Q31(0.06f),
+                                           q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.30f)));
   q31_t presence_gain_delta = q31_sub_sat(presence_target_gain, ctx->presence_gain_smooth);
   ctx->presence_gain_smooth = q31_add_sat(ctx->presence_gain_smooth,
                                           q31_mul(presence_gain_delta, FLOAT_TO_Q31(0.03f)));
@@ -469,6 +473,10 @@ void te2350_set_ducking(te2350_t *ctx, q31_t ducking) {
 
 void te2350_set_wobble(te2350_t *ctx, q31_t wobble) {
   ctx->p_wobble = wobble;
+}
+
+void te2350_set_presence(te2350_t *ctx, q31_t presence) {
+  ctx->p_presence = presence;
 }
 
 static void build_time_lut(te2350_t *ctx) {

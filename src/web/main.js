@@ -373,6 +373,7 @@ const sliderParams = [
     'tone',
     'ducking',
     'wobble',
+    'presence',
     'mod_rate',
     'mod_depth',
     'octave_feedback_amount',

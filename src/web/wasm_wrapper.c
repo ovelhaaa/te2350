@@ -121,6 +121,11 @@ void wasm_te2350_set_wobble(float wobble) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_presence(float presence) {
+    te2350_set_presence(&pedal, float_to_q31_safe(presence));
+}
+
+EMSCRIPTEN_KEEPALIVE
 void wasm_te2350_set_freeze(bool freeze) {
     te2350_set_freeze(&pedal, freeze);
 }
