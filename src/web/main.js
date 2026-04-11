@@ -11,6 +11,7 @@ let activeSource = null;
 const startBtn = document.getElementById('startBtn');
 const playFileBtn = document.getElementById('playFileBtn');
 const btnFile = document.getElementById('btn-file'); // The visible Play File button
+const exportMp3Btn = document.getElementById('exportMp3Btn');
 const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
@@ -118,11 +119,14 @@ function applyCapabilityMap(capabilities = {}) {
 }
 
 let decodedAudioBuffer = null;
+let uploadedFileName = 'processed-audio';
+let wasmBinaryCache = null;
 
 fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) {
         playFileBtn.disabled = true;
+        exportMp3Btn.disabled = true;
         decodedAudioBuffer = null;
         return;
     }
@@ -135,6 +139,8 @@ fileInput.addEventListener('change', async (e) => {
         const arrayBuffer = await file.arrayBuffer();
         decodedAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
         playFileBtn.disabled = false;
+        exportMp3Btn.disabled = false;
+        uploadedFileName = file.name.replace(/\.[^.]+$/, '') || 'processed-audio';
         console.log(`Successfully decoded ${file.name}`);
 
         // Auto-play when a file is selected
@@ -143,6 +149,7 @@ fileInput.addEventListener('change', async (e) => {
         console.error('Error decoding audio file:', err);
         alert('Failed to decode the selected audio file.');
         playFileBtn.disabled = true;
+        exportMp3Btn.disabled = true;
         decodedAudioBuffer = null;
     }
 });
@@ -154,6 +161,16 @@ btnFile.addEventListener('click', () => {
 // Since btnFile is now just used to open fileInput, we should enable it from the start
 btnFile.disabled = false;
 playFileBtn.disabled = true;
+exportMp3Btn.disabled = true;
+
+async function fetchWasmBytes() {
+    if (wasmBinaryCache) return wasmBinaryCache;
+    const wasmUrl = new URL('te2350.wasm', window.location.href).href;
+    const response = await fetch(wasmUrl);
+    if (!response.ok) throw new Error(`Failed to fetch wasm: ${response.status}`);
+    wasmBinaryCache = await response.arrayBuffer();
+    return wasmBinaryCache;
+}
 
 async function initAudioContext() {
     if (audioCtx) return;
@@ -181,6 +198,7 @@ async function initAudioContext() {
         if (!response.ok) throw new Error(`Failed to fetch wasm: ${response.status}`);
 
         const wasmBytes = await response.arrayBuffer();
+        wasmBinaryCache = wasmBytes;
         logBootstrapStage('after_arrayBuffer', `byteLength: ${wasmBytes.byteLength}`);
 
         if (typeof debugWasmFetch !== 'undefined') debugWasmFetch.textContent = 'success';
@@ -459,3 +477,145 @@ function syncAllParams() {
         sendParam(param, toggle.checked);
     });
 }
+
+function getCurrentParamSnapshot() {
+    const params = {};
+    sliderParams.forEach((param) => {
+        const slider = document.getElementById(param);
+        if (!slider) return;
+        params[param] = parseFloat(slider.value);
+    });
+    toggleParams.forEach((param) => {
+        const toggle = document.getElementById(param);
+        if (!toggle) return;
+        params[param] = toggle.checked;
+    });
+    params.bypass = bypassMode.checked;
+    return params;
+}
+
+function applyParamsToNode(node, params) {
+    Object.entries(params).forEach(([param, rawValue]) => {
+        const mapped = parameterTransforms[param] ? parameterTransforms[param](rawValue) : rawValue;
+        node.port.postMessage({ param, value: mapped });
+    });
+}
+
+function toInt16(float32Array) {
+    const pcm = new Int16Array(float32Array.length);
+    for (let i = 0; i < float32Array.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32Array[i]));
+        pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return pcm;
+}
+
+function encodeMp3FromAudioBuffer(audioBuffer, kbps = 192) {
+    if (typeof lamejs === 'undefined') {
+        throw new Error('lamejs is unavailable.');
+    }
+
+    const numChannels = Math.min(2, audioBuffer.numberOfChannels);
+    const left = toInt16(audioBuffer.getChannelData(0));
+    const right = numChannels > 1 ? toInt16(audioBuffer.getChannelData(1)) : left;
+
+    const encoder = new lamejs.Mp3Encoder(numChannels, audioBuffer.sampleRate, kbps);
+    const chunkSize = 1152;
+    const mp3Data = [];
+
+    for (let i = 0; i < left.length; i += chunkSize) {
+        const leftChunk = left.subarray(i, i + chunkSize);
+        const mp3buf = numChannels > 1
+            ? encoder.encodeBuffer(leftChunk, right.subarray(i, i + chunkSize))
+            : encoder.encodeBuffer(leftChunk);
+        if (mp3buf.length > 0) {
+            mp3Data.push(mp3buf);
+        }
+    }
+
+    const flushData = encoder.flush();
+    if (flushData.length > 0) {
+        mp3Data.push(flushData);
+    }
+
+    return new Blob(mp3Data, { type: 'audio/mpeg' });
+}
+
+async function exportProcessedMp3() {
+    if (!decodedAudioBuffer) {
+        alert('Selecione um arquivo de áudio antes de exportar.');
+        return;
+    }
+
+    if (!window.OfflineAudioContext) {
+        alert('Seu navegador não suporta OfflineAudioContext para exportação.');
+        return;
+    }
+
+    exportMp3Btn.disabled = true;
+    exportMp3Btn.textContent = 'Exporting...';
+
+    try {
+        const wasmBytes = await fetchWasmBytes();
+        const renderLength = decodedAudioBuffer.length;
+        const sampleRate = decodedAudioBuffer.sampleRate;
+        const offlineCtx = new OfflineAudioContext(2, renderLength, sampleRate);
+        const workletUrl = new URL('./te2350-worklet.bundle.js', window.location.href);
+        await offlineCtx.audioWorklet.addModule(workletUrl.href);
+
+        const offlineNode = new AudioWorkletNode(offlineCtx, 'te2350-worklet', {
+            numberOfInputs: 1,
+            numberOfOutputs: 1,
+            outputChannelCount: [2]
+        });
+
+        await new Promise((resolve, reject) => {
+            let ready = false;
+            const timeout = setTimeout(() => {
+                if (!ready) reject(new Error('Timeout while initializing offline WASM worklet.'));
+            }, 10000);
+
+            offlineNode.port.onmessage = (event) => {
+                const data = event.data;
+                if (data.type === 'ready') {
+                    ready = true;
+                    clearTimeout(timeout);
+                    resolve();
+                } else if (data.type === 'wasm_error') {
+                    clearTimeout(timeout);
+                    reject(new Error(data.message || 'Unknown WASM error while exporting.'));
+                }
+            };
+
+            offlineNode.port.postMessage({ type: 'init_wasm', wasmBytes });
+        });
+
+        applyParamsToNode(offlineNode, getCurrentParamSnapshot());
+
+        const source = offlineCtx.createBufferSource();
+        source.buffer = decodedAudioBuffer;
+        source.connect(offlineNode);
+        offlineNode.connect(offlineCtx.destination);
+        source.start(0);
+
+        const renderedBuffer = await offlineCtx.startRendering();
+        const mp3Blob = encodeMp3FromAudioBuffer(renderedBuffer, 192);
+        const downloadUrl = URL.createObjectURL(mp3Blob);
+
+        const anchor = document.createElement('a');
+        anchor.href = downloadUrl;
+        anchor.download = `${uploadedFileName}-processed.mp3`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+        console.error('Failed to export MP3:', err);
+        alert('Falha ao exportar MP3. Veja o console para detalhes.');
+    } finally {
+        exportMp3Btn.textContent = '⇩ Export MP3';
+        exportMp3Btn.disabled = !decodedAudioBuffer;
+    }
+}
+
+exportMp3Btn.addEventListener('click', exportProcessedMp3);
