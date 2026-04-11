@@ -482,6 +482,7 @@
       <div class="transport-buttons">
         <button class="btn primary" id="startBtn">▶ Start Audio (Mic)</button>
         <button class="btn"         id="btn-file">⊕ Play File</button>
+        <button class="btn"         id="exportMp3Btn" disabled>⇩ Export MP3</button>
         <button class="btn danger"  id="stopBtn" disabled>■ Stop Source</button>
         <input type="file" id="fileInput" accept="audio/*" style="display: none;">
         <!-- Play File original real button mapped in main.js will be kept functional via JS mapping, but here's the hidden original one just in case we need it to be in DOM for some reason, though we update JS to hook btn-file -->
@@ -767,6 +768,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
