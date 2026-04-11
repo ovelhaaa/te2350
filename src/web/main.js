@@ -122,6 +122,7 @@ let decodedAudioBuffer = null;
 let uploadedFileName = 'processed-audio';
 let wasmBinaryCache = null;
 let wasmFetchPromise = null;
+const PROCESSING_SAMPLE_RATE = 48000;
 
 fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -191,13 +192,13 @@ async function initAudioContext() {
     console.log("Initializing AudioContext...");
     // Request 48kHz for highest fidelity to the original DSP code
     audioCtx = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 48000
+        sampleRate: PROCESSING_SAMPLE_RATE
     });
 
     // Fidelity check
-    if (audioCtx.sampleRate !== 48000) {
+    if (audioCtx.sampleRate !== PROCESSING_SAMPLE_RATE) {
         warningDiv.style.display = 'block';
-        warningDiv.textContent = `Warning: AudioContext running at ${audioCtx.sampleRate}Hz instead of 48000Hz. This may affect delay times, filter frequencies, and overall fidelity compared to the original hardware.`;
+        warningDiv.textContent = `Warning: AudioContext running at ${audioCtx.sampleRate}Hz instead of ${PROCESSING_SAMPLE_RATE}Hz. This may affect delay times, filter frequencies, and overall fidelity compared to the original hardware.`;
     }
     updateDebugUI();
 
@@ -554,6 +555,22 @@ function encodeMp3FromAudioBuffer(audioBuffer, kbps = 192) {
     return new Blob(mp3Data, { type: 'audio/mpeg' });
 }
 
+function estimateExportTailSeconds(params) {
+    if (params.bypass) return 0;
+    if (params.freeze) return 12;
+
+    const mappedTime = parameterTransforms.time ? parameterTransforms.time(params.time || 0) : (params.time || 0);
+    const mappedFeedback = parameterTransforms.feedback ? parameterTransforms.feedback(params.feedback || 0) : (params.feedback || 0);
+    const mappedMix = parameterTransforms.mix ? parameterTransforms.mix(params.mix || 0) : (params.mix || 0);
+    const mappedDiffusion = parameterTransforms.diffusion ? parameterTransforms.diffusion(params.diffusion || 0) : (params.diffusion || 0);
+
+    const tailFromDelay = 1.5 + mappedTime * 4.0 + mappedFeedback * 6.0;
+    const tailFromSpace = mappedDiffusion * 1.5;
+    const wetScale = 0.25 + mappedMix * 0.75;
+
+    return Math.min(20, Math.max(0.75, (tailFromDelay + tailFromSpace) * wetScale));
+}
+
 async function exportProcessedMp3() {
     if (!decodedAudioBuffer) {
         alert('Please select an audio file before exporting.');
@@ -570,9 +587,11 @@ async function exportProcessedMp3() {
 
     try {
         const wasmBytes = await fetchWasmBytes();
-        const renderLength = decodedAudioBuffer.length;
-        const sampleRate = decodedAudioBuffer.sampleRate;
-        const offlineCtx = new OfflineAudioContext(2, renderLength, sampleRate);
+        const params = getCurrentParamSnapshot();
+        const tailSeconds = estimateExportTailSeconds(params);
+        const sourceDuration = decodedAudioBuffer.duration;
+        const renderLength = Math.ceil((sourceDuration + tailSeconds) * PROCESSING_SAMPLE_RATE);
+        const offlineCtx = new OfflineAudioContext(2, renderLength, PROCESSING_SAMPLE_RATE);
         const workletUrl = new URL('./te2350-worklet.bundle.js', window.location.href);
         await offlineCtx.audioWorklet.addModule(workletUrl.href);
 
@@ -603,7 +622,7 @@ async function exportProcessedMp3() {
             offlineNode.port.postMessage({ type: 'init_wasm', wasmBytes });
         });
 
-        applyParamsToNode(offlineNode, getCurrentParamSnapshot());
+        applyParamsToNode(offlineNode, params);
 
         const source = offlineCtx.createBufferSource();
         source.buffer = decodedAudioBuffer;
