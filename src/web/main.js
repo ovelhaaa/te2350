@@ -121,6 +121,7 @@ function applyCapabilityMap(capabilities = {}) {
 let decodedAudioBuffer = null;
 let uploadedFileName = 'processed-audio';
 let wasmBinaryCache = null;
+let wasmFetchPromise = null;
 
 fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -165,11 +166,23 @@ exportMp3Btn.disabled = true;
 
 async function fetchWasmBytes() {
     if (wasmBinaryCache) return wasmBinaryCache;
-    const wasmUrl = new URL('te2350.wasm', window.location.href).href;
-    const response = await fetch(wasmUrl);
-    if (!response.ok) throw new Error(`Failed to fetch wasm: ${response.status}`);
-    wasmBinaryCache = await response.arrayBuffer();
-    return wasmBinaryCache;
+    if (!wasmFetchPromise) {
+        wasmFetchPromise = (async () => {
+            const wasmUrl = new URL('te2350.wasm', window.location.href).href;
+            const response = await fetch(wasmUrl);
+            if (!response.ok) {
+                const msg = `Failed to fetch wasm: ${response.status}`;
+                alert(msg);
+                throw new Error(msg);
+            }
+            wasmBinaryCache = await response.arrayBuffer();
+            return wasmBinaryCache;
+        })().catch((err) => {
+            wasmFetchPromise = null;
+            throw err;
+        });
+    }
+    return wasmFetchPromise;
 }
 
 async function initAudioContext() {
@@ -543,12 +556,12 @@ function encodeMp3FromAudioBuffer(audioBuffer, kbps = 192) {
 
 async function exportProcessedMp3() {
     if (!decodedAudioBuffer) {
-        alert('Selecione um arquivo de áudio antes de exportar.');
+        alert('Please select an audio file before exporting.');
         return;
     }
 
     if (!window.OfflineAudioContext) {
-        alert('Seu navegador não suporta OfflineAudioContext para exportação.');
+        alert('Your browser does not support OfflineAudioContext for export.');
         return;
     }
 
@@ -611,7 +624,7 @@ async function exportProcessedMp3() {
         URL.revokeObjectURL(downloadUrl);
     } catch (err) {
         console.error('Failed to export MP3:', err);
-        alert('Falha ao exportar MP3. Veja o console para detalhes.');
+        alert('Failed to export MP3. See console for details.');
     } finally {
         exportMp3Btn.textContent = '⇩ Export MP3';
         exportMp3Btn.disabled = !decodedAudioBuffer;
