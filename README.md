@@ -219,6 +219,7 @@ The firmware exposes a serial-control interface for interactive tweaking.
 - `1 / 2` → mod rate down / up
 - `3 / 4` → mod depth down / up
 - `c` → toggle freeze
+- `F` → toggle atmospheric FDN mode
 - `m` → toggle internal melody generator
 - `k` → toggle melody-only mode
 - `n / b` → melody volume down / up
@@ -431,3 +432,36 @@ Built around:
 
 - GitHub repository: <https://github.com/ovelhaaa/te2350>
 - Browser demo: <https://ovelhaaa.github.io/te2350/>
+
+## FDN atmospheric core notes
+
+When **Atmos FDN** mode is enabled, the late-field wash uses a portable
+four-line Feedback Delay Network (FDN) implemented in `dsp_fdn`. The design
+goal is a dense, spatial tail that remains safe on RP2350 and matches the WASM build:
+
+- **Unitary diffusion matrix:** the feedback mixer is a normalized 4x4 Hadamard
+  matrix (`H4 / 2`). This is computationally cheap (adds/subtracts plus shifts)
+  and energy-preserving before the scalar feedback, absorption filters, and
+  soft clipping are applied.
+- **Delay-line sizing:** each FDN arm has an 8192-sample power-of-two buffer for
+  fast mask wrapping. The active read taps are prime-spaced at 48 kHz (`1499`,
+  `2111`, `2887`, `4051` samples) and scaled by sample rate, avoiding common
+  divisors and metallic resonances while leaving guard room for modulation.
+- **Absorption inside the loop:** every Hadamard output passes through a one-pole
+  high-pass helper and a one-pole low-pass before re-entering its delay line.
+  The high-pass removes low-frequency build-up and DC-like room pressure; the
+  low-pass models air/surface absorption and is driven from the existing tone
+  control.
+- **Asynchronous phase modulation:** each arm uses a different triangle-LFO phase
+  and increment. The depth is controlled by the existing modulation depth, giving
+  a slow chorus/spatial drift without sharing phase between arms.
+- **Non-linear loop warmth:** a gentle cubic soft clip is placed after absorption
+  and before feedback gain. This adds harmonic warmth as the tail blooms while
+  the feedback scalar is clamped below unity.
+
+The existing all-pass input/post-diffusion stages remain in front of and around
+the FDN, so transients are softened before they hit the late-field network. The
+FDN output is mixed as mid/side energy into the existing wet path rather than
+replacing the main delay, preserving the pedal controls while adding a denser
+atmospheric bed. The mode is exposed on hardware serial control (`F`) and in
+the web UI as **Atmos FDN**.
