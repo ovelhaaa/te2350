@@ -31,8 +31,10 @@
 #define TE_AP4_SIZE 977   // Prime number (New stage)
 #define TE_SIDE_AP_SIZE 191 // Short prime for side-only decorrelation
 #define TE_FDN_LINE_SIZE 8192 // Four power-of-two FDN arms with prime read taps
-#define TE_PITCH_SIZE 2048  // Pitch shifter buffer
-#define TE_OCTAVE_PITCH_SIZE 2048 // Pitch shifter for octave feedback
+#define TE_SHIMMER_PITCH_SIZE 2048  // Pitch shifter buffer for shimmer halo
+#define TE_FEEDBACK_PITCH_SIZE 2048 // Independent pitch shifter buffer for octave feedback
+#define TE_PITCH_SIZE TE_SHIMMER_PITCH_SIZE  // Backward-compatible shimmer buffer alias
+#define TE_OCTAVE_PITCH_SIZE TE_FEEDBACK_PITCH_SIZE // Backward-compatible feedback buffer alias
 
 typedef struct {
   // --- Components ---
@@ -72,9 +74,9 @@ typedef struct {
   dsp_onepole_t shimmer_hp;     // HP helper via src - LP(src)
   dsp_onepole_t shimmer_lp;     // soft LP to keep halo airy without harsh top
   
-  // Pitch shifter
-  dsp_pitch_shifter_t pitch_shifter;
-  dsp_pitch_shifter_t octave_shifter;
+  // Independent pitch shifters: shimmer is a parallel halo, feedback octave is loop coloration.
+  dsp_pitch_shifter_t shimmer_pitch_shifter;
+  dsp_pitch_shifter_t feedback_pitch_shifter;
 
   // --- State ---
   q31_t feedback_state;
