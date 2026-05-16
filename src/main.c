@@ -48,7 +48,7 @@ void hue_to_rgb(uint8_t hue, uint8_t *r, uint8_t *g, uint8_t *b) {
 
 // System state
 te2350_t pedal;
-#define MEM_POOL_SIZE (128 * 1024) // Increased to 128KB for longer delay
+#define MEM_POOL_SIZE (320 * 1024) // Delay, pitch, and FDN late-field buffers
 static q31_t memory_pool[MEM_POOL_SIZE / 4];
 
 // --- Audio Callback ---

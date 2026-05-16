@@ -15,8 +15,8 @@
 // Global effect instance
 static te2350_t pedal;
 
-// Memory pool for delay lines (128KB, same as main.c)
-#define MEM_POOL_SIZE (128 * 1024)
+// Memory pool for delay lines and FDN late field (matches main.c)
+#define MEM_POOL_SIZE (320 * 1024)
 static q31_t memory_pool[MEM_POOL_SIZE / 4];
 
 // Interleaved audio buffers for processing

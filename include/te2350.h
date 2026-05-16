@@ -3,6 +3,7 @@
 
 #include "dsp_delay.h"
 #include "dsp_filters.h"
+#include "dsp_fdn.h"
 #include "dsp_math.h"
 #include "dsp_modulation.h"
 #include "dsp_pitch.h"
@@ -29,6 +30,7 @@
 #define TE_AP3_SIZE 673   // Prime number
 #define TE_AP4_SIZE 977   // Prime number (New stage)
 #define TE_SIDE_AP_SIZE 191 // Short prime for side-only decorrelation
+#define TE_FDN_LINE_SIZE 8192 // Four power-of-two FDN arms with prime read taps
 #define TE_PITCH_SIZE 2048  // Pitch shifter buffer
 #define TE_OCTAVE_PITCH_SIZE 2048 // Pitch shifter for octave feedback
 
@@ -42,6 +44,9 @@ typedef struct {
   dsp_allpass_t ap3;
   dsp_allpass_t ap4; // New stage // Decorrelator?
   dsp_allpass_t side_ap; // Dedicated side-only decorrelator
+
+  // Atmospheric FDN late field
+  dsp_fdn4_t fdn;
 
   // Main Echo Loop
   dsp_delay_t main_delay;
