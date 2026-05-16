@@ -33,6 +33,7 @@ add_executable(te2350
     src/te2350.c
     src/dsp_delay.c
     src/dsp_filters.c
+    src/dsp_fdn.c
     src/dsp_modulation.c
     src/dsp_pitch.c
     src/dsp_melody.c

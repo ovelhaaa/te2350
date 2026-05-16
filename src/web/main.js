@@ -23,7 +23,8 @@ const capabilityBindings = {
     melody_only: { id: 'melody_only', type: 'toggle', label: 'Melody Only Toggle' },
     melody_volume: { id: 'melody_volume', type: 'slider', label: 'Melody Volume' },
     melody_density: { id: 'melody_density', type: 'slider', label: 'Melody Density' },
-    melody_decay: { id: 'melody_decay', type: 'slider', label: 'Melody Decay' }
+    melody_decay: { id: 'melody_decay', type: 'slider', label: 'Melody Decay' },
+    fdn_enabled: { id: 'fdn_enabled', type: 'toggle', label: 'Atmospheric FDN Mode' }
 };
 
 // VU Meter mapping
@@ -415,7 +416,7 @@ const sliderParams = [
     'melody_decay'
 ];
 
-const toggleParams = ['freeze', 'octave_feedback_enabled', 'melody_enabled', 'melody_only'];
+const toggleParams = ['freeze', 'fdn_enabled', 'octave_feedback_enabled', 'melody_enabled', 'melody_only'];
 
 const parameterTransforms = {
     time: (v) => Math.pow(v, 0.62),
@@ -565,7 +566,7 @@ function estimateExportTailSeconds(params) {
     const mappedDiffusion = parameterTransforms.diffusion ? parameterTransforms.diffusion(params.diffusion || 0) : (params.diffusion || 0);
 
     const tailFromDelay = 1.5 + mappedTime * 4.0 + mappedFeedback * 6.0;
-    const tailFromSpace = mappedDiffusion * 1.5;
+    const tailFromSpace = mappedDiffusion * (params.fdn_enabled === false ? 1.5 : 3.0);
     const wetScale = 0.25 + mappedMix * 0.75;
 
     return Math.min(20, Math.max(0.75, (tailFromDelay + tailFromSpace) * wetScale));

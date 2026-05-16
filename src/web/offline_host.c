@@ -4,7 +4,7 @@
 #include "../../include/te2350.h"
 #include "../../include/dsp_math.h"
 
-#define MEM_POOL_SIZE (128 * 1024)
+#define MEM_POOL_SIZE (320 * 1024)
 static q31_t memory_pool[MEM_POOL_SIZE / 4];
 static te2350_t pedal;
 
@@ -15,7 +15,7 @@ static te2350_t pedal;
 int main() {
     printf("Starting offline validation host...\n");
 
-    if (!te2350_init(&pedal, memory_pool, MEM_POOL_SIZE)) {
+    if (!te2350_init(&pedal, memory_pool, MEM_POOL_SIZE, 48000.0f)) {
         printf("Failed to init te2350\n");
         return 1;
     }
