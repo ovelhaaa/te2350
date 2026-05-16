@@ -15,8 +15,9 @@ typedef struct {
   q16_16_t read_pos_a;  // First read head delay position (Q16.16 samples)
   q16_16_t read_pos_b;  // Second read head delay position (Q16.16 samples)
   q31_t crossfade;      // Last crossfade phase (0..Q31_MAX)
-  q16_16_t pitch_inc;   // Pitch increment (Q16.16 ratio)
-  size_t window_size;   // Read-head wrap/crossfade window size in samples
+  q16_16_t pitch_inc;       // Pitch increment (Q16.16 ratio)
+  size_t window_size;       // Read-head wrap/crossfade window size in samples
+  uint32_t window_phase_inc; // Precomputed Q31 phase increment per window sample
 } dsp_pitch_shifter_t;
 
 /**
@@ -33,7 +34,7 @@ void dsp_pitch_init(dsp_pitch_shifter_t *ps, q31_t *buffer, size_t size);
  *
  * Shorter windows reduce pitch-shifter latency and can preserve transients, at
  * the cost of more frequent crossfades. The value is clamped to the shifter's
- * delay-buffer size.
+ * delay-buffer size and to the largest Q16.16-safe window (65535 samples).
  *
  * @param ps Pitch shifter structure
  * @param window_size Window size in samples
