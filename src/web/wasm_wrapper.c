@@ -131,6 +131,11 @@ void wasm_te2350_set_freeze(bool freeze) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_fdn_enabled(bool enabled) {
+    te2350_set_fdn_enabled(&pedal, enabled);
+}
+
+EMSCRIPTEN_KEEPALIVE
 void wasm_te2350_set_mod(float rate, float depth) {
     te2350_set_mod(&pedal, float_to_q31_safe(rate), float_to_q31_safe(depth));
 }

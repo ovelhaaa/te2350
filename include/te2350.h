@@ -47,6 +47,7 @@ typedef struct {
 
   // Atmospheric FDN late field
   dsp_fdn4_t fdn;
+  bool fdn_enabled; // Atmospheric FDN mode on/off
 
   // Main Echo Loop
   dsp_delay_t main_delay;
@@ -173,6 +174,7 @@ void te2350_set_mod(te2350_t *ctx, q31_t rate, q31_t depth);
 void te2350_set_tone(te2350_t *ctx, q31_t tone);
 void te2350_set_mix(te2350_t *ctx, q31_t mix);           // 0..1 (dry..wet)
 void te2350_set_freeze(te2350_t *ctx, bool freeze);      // Enable/disable freeze
+void te2350_set_fdn_enabled(te2350_t *ctx, bool enabled); // Enable/disable atmospheric FDN mode
 
 // New parameter setters
 void te2350_set_melody_enabled(te2350_t *ctx, bool enabled);

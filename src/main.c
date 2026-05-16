@@ -110,7 +110,7 @@ int main() {
         while(1) { gpio_put(25,1); sleep_ms(50); gpio_put(25,0); sleep_ms(50); }
     }
 
-    printf("Sys Running. Cmds: q/w(Time), a/s(Fbk), z/x(Mix), e/r(Shim), t/y(Ton), d/f(Diff), g/h(Chaos), j/l(Duck), v/V(Wob), [ / ](Presence), 1/2(ModRate), 3/4(ModDepth), c(Freeze), m(Melody), k(MelOnly), n/b(MelVol), 5/6(MelDen), 7/8(MelDec), o(OctFbT), i/u(OctFbAmt)\n");
+    printf("Sys Running. Cmds: q/w(Time), a/s(Fbk), z/x(Mix), e/r(Shim), t/y(Ton), d/f(Diff), g/h(Chaos), j/l(Duck), v/V(Wob), [ / ](Presence), 1/2(ModRate), 3/4(ModDepth), c(Freeze), F(Atmos FDN), m(Melody), k(MelOnly), n/b(MelVol), 5/6(MelDen), 7/8(MelDec), o(OctFbT), i/u(OctFbAmt)\n");
 
     // Main loop: Serial Processing
     while (true) {
@@ -253,6 +253,12 @@ int main() {
                 printf("Freeze: %d\n", pedal.freeze_mode);
             }
             
+            // Atmospheric FDN mode toggle
+            if (c == 'F') {
+                te2350_set_fdn_enabled(&pedal, !pedal.fdn_enabled);
+                printf("Atmospheric FDN: %s\n", pedal.fdn_enabled ? "ON" : "OFF");
+            }
+
             // Melody Generator Toggle
             if (c == 'm') {
                 te2350_set_melody_enabled(&pedal, !pedal.p_melody_enabled);
@@ -321,7 +327,7 @@ int main() {
 
             if (changed || c == 'p') {
                 // Approximate float conversion for display
-                printf("T:%.2f F:%.2f M:%.2f S:%.2f D:%.2f Ton:%.2f Ch:%.2f Dk:%.2f Wb:%.2f Pr:%.2f MR:%.2f MD:%.2f OctFb:%.2f MelVol:%.2f MelDen:%.2f MelDec:%.2f Mel:%d MelOnly:%d\n",
+                printf("T:%.2f F:%.2f M:%.2f S:%.2f D:%.2f Ton:%.2f Ch:%.2f Dk:%.2f Wb:%.2f Pr:%.2f MR:%.2f MD:%.2f OctFb:%.2f MelVol:%.2f MelDen:%.2f MelDec:%.2f FDN:%d Mel:%d MelOnly:%d\n",
                     (double)pedal.p_time / 2147483648.0,
                     (double)pedal.p_feedback / 2147483648.0,
                     (double)pedal.p_mix / 2147483648.0,
@@ -338,6 +344,7 @@ int main() {
                     (double)pedal.melody.volume / 2147483648.0,
                     (double)pedal.melody.density / 2147483648.0,
                     (double)pedal.melody.decay / 2147483648.0,
+                    pedal.fdn_enabled ? 1 : 0,
                     pedal.p_melody_enabled ? 1 : 0,
                     pedal.p_melody_only ? 1 : 0
                 );

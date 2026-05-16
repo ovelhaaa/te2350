@@ -182,6 +182,9 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             case 'freeze':
                 this._invokeWasm('_wasm_te2350_set_freeze', [value ? 1 : 0], param);
                 break;
+            case 'fdn_enabled':
+                this._invokeWasm('_wasm_te2350_set_fdn_enabled', [value ? 1 : 0], param);
+                break;
         }
     }
 
@@ -207,6 +210,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
     _reportCapabilities() {
         const OPTIONAL_CAPABILITIES = {
             presence: '_wasm_te2350_set_presence',
+            fdn_enabled: '_wasm_te2350_set_fdn_enabled',
             octave_feedback_enabled: '_wasm_te2350_set_octave_feedback_enabled',
             octave_feedback_amount: '_wasm_te2350_set_octave_feedback_amount',
             melody_enabled: '_wasm_te2350_set_melody',

@@ -219,6 +219,7 @@ The firmware exposes a serial-control interface for interactive tweaking.
 - `1 / 2` → mod rate down / up
 - `3 / 4` → mod depth down / up
 - `c` → toggle freeze
+- `F` → toggle atmospheric FDN mode
 - `m` → toggle internal melody generator
 - `k` → toggle melody-only mode
 - `n / b` → melody volume down / up
@@ -434,9 +435,9 @@ Built around:
 
 ## FDN atmospheric core notes
 
-The late-field wash now uses a portable four-line Feedback Delay Network (FDN)
-implemented in `dsp_fdn`. The design goal is a dense, spatial tail that remains
-safe on RP2350 and matches the WASM build:
+When **Atmos FDN** mode is enabled, the late-field wash uses a portable
+four-line Feedback Delay Network (FDN) implemented in `dsp_fdn`. The design
+goal is a dense, spatial tail that remains safe on RP2350 and matches the WASM build:
 
 - **Unitary diffusion matrix:** the feedback mixer is a normalized 4x4 Hadamard
   matrix (`H4 / 2`). This is computationally cheap (adds/subtracts plus shifts)
@@ -462,4 +463,5 @@ The existing all-pass input/post-diffusion stages remain in front of and around
 the FDN, so transients are softened before they hit the late-field network. The
 FDN output is mixed as mid/side energy into the existing wet path rather than
 replacing the main delay, preserving the pedal controls while adding a denser
-atmospheric bed.
+atmospheric bed. The mode is exposed on hardware serial control (`F`) and in
+the web UI as **Atmos FDN**.

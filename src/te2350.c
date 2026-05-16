@@ -110,6 +110,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->p_melody_only = false;
   ctx->octave_feedback_enabled = false;
   ctx->octave_feedback_amount = 0;
+  ctx->fdn_enabled = true;
 
   ctx->p_feedback = FLOAT_TO_Q31(0.88f);
   ctx->p_time = FLOAT_TO_Q31(0.74f);
@@ -376,8 +377,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t fdn_l = 0;
   q31_t fdn_r = 0;
-  dsp_fdn4_set_params(&ctx->fdn, effective_feedback, ctx->p_tone_smoothed, diff_eff, ctx->p_rate, depth_eff);
-  dsp_fdn4_process(&ctx->fdn, post2, &fdn_l, &fdn_r);
+  if (ctx->fdn_enabled) {
+    dsp_fdn4_set_params(&ctx->fdn, effective_feedback, ctx->p_tone_smoothed, diff_eff, ctx->p_rate, depth_eff);
+    dsp_fdn4_process(&ctx->fdn, post2, &fdn_l, &fdn_r);
+  }
 
   ctx->feedback_state = feedback_condition(ctx, post2, shimmer_parallel, env_level, effective_feedback);
 
@@ -513,6 +516,10 @@ void te2350_set_mix(te2350_t *ctx, q31_t mix) {
 
 void te2350_set_freeze(te2350_t *ctx, bool freeze) {
   ctx->freeze_mode = freeze;
+}
+
+void te2350_set_fdn_enabled(te2350_t *ctx, bool enabled) {
+  ctx->fdn_enabled = enabled;
 }
 
 void te2350_set_melody_enabled(te2350_t *ctx, bool enabled) {
