@@ -7,4 +7,4 @@ test: offline
 	./test_offline
 
 clean:
-	rm -f test_offline test_impulse.wav test_sine_burst.wav
+	rm -f test_offline test_*.wav

@@ -6,8 +6,10 @@ static int32_t map_time_samples(const te2350_t *ctx, q31_t time_q31);
 static q31_t feedback_condition(te2350_t *ctx,
                                 q31_t loop_src,
                                 q31_t shimmer_return,
+                                q31_t octave_voice,
                                 q31_t env_level,
                                 q31_t effective_feedback);
+static q31_t voice_octave_signal(q31_t octave, q31_t amount);
 static inline q31_t clamp_q31_unit(q31_t v);
 
 static inline q31_t q31_lerp(q31_t a, q31_t b, q31_t t) {
@@ -366,6 +368,22 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     shimmer_parallel = q31_mul(shimmer_voiced, q31_mul(ctx->p_shimmer, shimmer_gain));
   }
 
+  // Octave return is gated by octave_feedback_enabled so the toggle removes
+  // both the feedback coloration and the immediate wet-path contribution.
+  q31_t octave_voice = 0;
+  q31_t octave_return = 0;
+  if (ctx->octave_feedback_enabled && ctx->octave_feedback_amount > 0) {
+    q31_t octave_seed = dsp_soft_saturate_gentle(post2);
+    octave_voice = dsp_pitch_process(&ctx->octave_shifter, octave_seed, Q31_MAX);
+    octave_voice = voice_octave_signal(octave_voice, ctx->octave_feedback_amount);
+
+    q31_t octave_return_gain = q31_mul(ctx->octave_feedback_amount, FLOAT_TO_Q31(0.24f));
+    octave_return_gain = q31_sub_sat(octave_return_gain, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.06f)));
+    octave_return_gain = clamp_q31_unit(octave_return_gain);
+    if (octave_return_gain > FLOAT_TO_Q31(0.24f)) octave_return_gain = FLOAT_TO_Q31(0.24f);
+    octave_return = q31_mul(octave_voice, octave_return_gain);
+  }
+
   q31_t effective_feedback = ctx->p_feedback_smoothed;
   // Extend tail by steering feedback toward a safe ceiling with controlled mix.
   q31_t tail_feedback_mix = q31_mul(q31_add_sat(bloom, sustain_hint), FLOAT_TO_Q31(0.10f));
@@ -388,7 +406,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     ctx->fdn_param_counter = 0;
   }
 
-  ctx->feedback_state = feedback_condition(ctx, post2, shimmer_parallel, env_level, effective_feedback);
+  ctx->feedback_state = feedback_condition(ctx, post2, shimmer_parallel, octave_voice, env_level, effective_feedback);
 
   q31_t bloom_tone_trim_mid = q31_sub_sat(Q31_MAX, q31_mul(bloom, FLOAT_TO_Q31(0.10f)));
   q31_t bloom_tone_trim_diffuse = q31_sub_sat(Q31_MAX, q31_mul(bloom, FLOAT_TO_Q31(0.22f)));
@@ -406,6 +424,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(fdn_mid, FLOAT_TO_Q31(0.38f)), bloom_tone_trim_diffuse));
   }
   wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.11f)), bloom_tone_trim_diffuse));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(octave_return, bloom_tone_trim_diffuse));
 
   // Dedicated presence rail: derived from short/clear content only (no loop writeback).
   q31_t presence_src = q31_add_sat(q31_mul(delay_out, FLOAT_TO_Q31(0.60f)),
@@ -615,9 +634,20 @@ static int32_t map_time_samples(const te2350_t *ctx, q31_t time_q31) {
   return a + (int32_t)(((int64_t)diff * frac) >> 31);
 }
 
+static q31_t voice_octave_signal(q31_t octave, q31_t amount) {
+  q31_t lift = q31_mul(octave, q31_mul(amount, FLOAT_TO_Q31(0.12f)));
+  q31_t driven = q31_add_sat(octave, lift);
+  driven = dsp_soft_saturate_gentle(driven);
+
+  q31_t headroom = q31_sub_sat(FLOAT_TO_Q31(0.94f), q31_mul(amount, FLOAT_TO_Q31(0.04f)));
+  if (headroom < FLOAT_TO_Q31(0.88f)) headroom = FLOAT_TO_Q31(0.88f);
+  return q31_mul(driven, headroom);
+}
+
 static q31_t feedback_condition(te2350_t *ctx,
                                 q31_t loop_src,
                                 q31_t shimmer_return,
+                                q31_t octave_voice,
                                 q31_t env_level,
                                 q31_t effective_feedback) {
   update_tone_filter(ctx);
@@ -635,11 +665,12 @@ static q31_t feedback_condition(te2350_t *ctx,
   shaped = dsp_soft_saturate_gentle(shaped);
 
   if (ctx->octave_feedback_enabled && ctx->octave_feedback_amount > 0) {
-    q31_t octave = dsp_pitch_process(&ctx->octave_shifter, shaped, Q31_MAX);
-    q31_t octave_blend = q31_mul(ctx->octave_feedback_amount, FLOAT_TO_Q31(0.20f));
+    q31_t octave_blend = q31_mul(ctx->octave_feedback_amount, FLOAT_TO_Q31(0.44f));
     octave_blend = q31_add_sat(octave_blend, q31_mul(ctx->bloom_state, FLOAT_TO_Q31(0.10f)));
     octave_blend = q31_sub_sat(octave_blend, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.08f)));
-    shaped = q31_lerp(shaped, octave, octave_blend);
+    octave_blend = clamp_q31_unit(octave_blend);
+    if (octave_blend > FLOAT_TO_Q31(0.55f)) octave_blend = FLOAT_TO_Q31(0.55f);
+    shaped = q31_lerp(shaped, octave_voice, octave_blend);
   }
 
   q31_t trans_duck = q31_mul(q31_mul(env_level, ctx->p_ducking), FLOAT_TO_Q31(0.22f));
