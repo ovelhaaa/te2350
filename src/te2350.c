@@ -80,11 +80,12 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   offset += TE_FDN_LINE_SIZE;
   dsp_fdn4_init(&ctx->fdn, fdn0, fdn1, fdn2, fdn3, TE_FDN_LINE_SIZE, sample_rate);
 
-  ALLOC_BUF(TE_PITCH_SIZE);
-  dsp_pitch_init(&ctx->pitch_shifter, buf_TE_PITCH_SIZE, TE_PITCH_SIZE);
+  ALLOC_BUF(TE_SHIMMER_PITCH_SIZE);
+  dsp_pitch_init(&ctx->shimmer_pitch_shifter, buf_TE_SHIMMER_PITCH_SIZE, TE_SHIMMER_PITCH_SIZE);
 
-  ALLOC_BUF(TE_OCTAVE_PITCH_SIZE);
-  dsp_pitch_init(&ctx->octave_shifter, buf_TE_OCTAVE_PITCH_SIZE, TE_OCTAVE_PITCH_SIZE);
+  ALLOC_BUF(TE_FEEDBACK_PITCH_SIZE);
+  dsp_pitch_init(&ctx->feedback_pitch_shifter, buf_TE_FEEDBACK_PITCH_SIZE, TE_FEEDBACK_PITCH_SIZE);
+  dsp_pitch_set_window_size(&ctx->feedback_pitch_shifter, TE_FEEDBACK_PITCH_SIZE / 4u);
 
   dsp_dc_blocker_init(&ctx->dc_block);
   dsp_dc_blocker_init(&ctx->fb_dc);
@@ -345,14 +346,11 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t shimmer_parallel = 0;
   if (ctx->p_shimmer > 0) {
-    // dsp_pitch_process expects 0..Q31_MAX -> 0.5x..2.0x.
-    // Map shimmer control to a musically useful 1.0x..2.0x range:
-    // q31 = 1/3 + (2/3 * p_shimmer). This keeps shimmer as an octave-up halo
-    // instead of collapsing near the 0.5x floor.
-    q31_t shimmer_pitch = q31_add_sat(FLOAT_TO_Q31(0.33333334f),
-                                      q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.6666667f)));
+    // Convert musical shimmer amount (0 = unison, Q31_MAX = +1 octave)
+    // to the pitch shifter's internal 0.5x..2.0x control scale.
+    q31_t shimmer_pitch = dsp_pitch_ratio_from_octave_amount(ctx->p_shimmer);
     shimmer_pitch = q31_add_sat(shimmer_pitch, q31_mul(space_rnd, FLOAT_TO_Q31(0.002f)));
-    q31_t shifted = dsp_pitch_process(&ctx->pitch_shifter, post2, shimmer_pitch);
+    q31_t shifted = dsp_pitch_process(&ctx->shimmer_pitch_shifter, post2, shimmer_pitch);
     q31_t bloom_wash = q31_mul(bloom, FLOAT_TO_Q31(0.55f));
     q31_t freeze_lock = q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.50f));
     q31_t shimmer_clean = q31_sub_sat(FLOAT_TO_Q31(0.72f), q31_mul(bloom_wash, FLOAT_TO_Q31(0.45f)));
@@ -374,7 +372,9 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t octave_return = 0;
   if (ctx->octave_feedback_enabled && ctx->octave_feedback_amount > 0) {
     q31_t octave_seed = dsp_soft_saturate_gentle(post2);
-    octave_voice = dsp_pitch_process(&ctx->octave_shifter, octave_seed, Q31_MAX);
+    // Feedback-octave uses its own pitch state and a shorter window configured
+    // at init so attacks stay closer to the dry/loop identity than shimmer.
+    octave_voice = dsp_pitch_process(&ctx->feedback_pitch_shifter, octave_seed, Q31_MAX);
     octave_voice = voice_octave_signal(octave_voice, ctx->octave_feedback_amount);
 
     q31_t octave_return_gain = q31_mul(ctx->octave_feedback_amount, FLOAT_TO_Q31(0.24f));
