@@ -16,8 +16,8 @@
  * The network uses power-of-two delay buffers for fast wrapping, prime-spaced
  * read taps for modal decorrelation, and a normalized 4x4 Hadamard feedback
  * matrix (scale = 1/2) with 6 dB of fixed-point headroom before the
- * matrix multiply. Decay is controlled by feedback gain, absorption filters,
- * and optional soft saturation.
+ * matrix sum. The sum saturates only as a wrap-around safety net; decay is
+ * controlled by feedback gain, absorption filters, and optional soft saturation.
  */
 typedef struct {
   dsp_delay_t delay[DSP_FDN4_LINES];

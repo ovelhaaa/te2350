@@ -441,9 +441,9 @@ goal is a dense, spatial tail that remains safe on RP2350 and matches the WASM b
 
 - **Unitary diffusion matrix:** the feedback mixer is a normalized 4x4 Hadamard
   matrix (`H4 / 2`) with 6 dB of pre-matrix headroom. This is
-  computationally cheap (adds/subtracts plus shifts) and avoids hard clipping
-  on correlated arms before the scalar feedback, absorption filters, and soft
-  clipping are applied.
+  computationally cheap (adds/subtracts plus shifts), and the matrix sum
+  saturates only as a safety net to prevent fixed-point wrap-around before
+  feedback gain, absorption filters, and soft clipping are applied.
 - **Delay-line sizing:** each FDN arm has an 8192-sample power-of-two buffer for
   fast mask wrapping. The active read taps are prime-spaced at 48 kHz (`1499`,
   `2111`, `2887`, `4051` samples) and scaled by sample rate, avoiding common

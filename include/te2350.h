@@ -115,6 +115,7 @@ typedef struct {
   q31_t p_diffusion_smoothed;
   q31_t p_presence_smoothed;
   q31_t p_space_gravity_smoothed;
+  uint8_t fdn_param_counter; // Low-rate FDN parameter refresh divider
   
   // Internal State
   uint32_t chaos_seed;

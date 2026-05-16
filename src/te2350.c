@@ -133,6 +133,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->p_diffusion_smoothed = ctx->p_diffusion;
   ctx->p_presence_smoothed = ctx->p_presence;
   ctx->p_space_gravity_smoothed = ctx->p_space_gravity;
+  ctx->fdn_param_counter = 0;
 
   ctx->feedback_state = 0;
   ctx->bloom_state = 0;
@@ -378,8 +379,13 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t fdn_l = 0;
   q31_t fdn_r = 0;
   if (ctx->fdn_enabled) {
-    dsp_fdn4_set_params(&ctx->fdn, effective_feedback, ctx->p_tone_smoothed, diff_eff, ctx->p_rate, depth_eff);
+    if (ctx->fdn_param_counter == 0) {
+      dsp_fdn4_set_params(&ctx->fdn, effective_feedback, ctx->p_tone_smoothed, diff_eff, ctx->p_rate, depth_eff);
+    }
+    ctx->fdn_param_counter = (ctx->fdn_param_counter + 1u) & 0x0Fu;
     dsp_fdn4_process(&ctx->fdn, post2, &fdn_l, &fdn_r);
+  } else {
+    ctx->fdn_param_counter = 0;
   }
 
   ctx->feedback_state = feedback_condition(ctx, post2, shimmer_parallel, env_level, effective_feedback);
@@ -389,13 +395,16 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   if (bloom_tone_trim_mid < FLOAT_TO_Q31(0.72f)) bloom_tone_trim_mid = FLOAT_TO_Q31(0.72f);
   if (bloom_tone_trim_diffuse < FLOAT_TO_Q31(0.60f)) bloom_tone_trim_diffuse = FLOAT_TO_Q31(0.60f);
 
-  q31_t fdn_mid = q31_add_sat(fdn_l >> 1, fdn_r >> 1);
-  q31_t fdn_side = q31_sub_sat(fdn_l >> 1, fdn_r >> 1);
+  q31_t fdn_side = 0;
 
   q31_t wet_mid = q31_add_sat(q31_mul(q31_mul(post2, FLOAT_TO_Q31(0.24f)), bloom_tone_trim_diffuse),
                               q31_mul(q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_mid));
   wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(late_accents, FLOAT_TO_Q31(0.14f)), bloom_tone_trim_diffuse));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(fdn_mid, FLOAT_TO_Q31(0.38f)), bloom_tone_trim_diffuse));
+  if (ctx->fdn_enabled) {
+    q31_t fdn_mid = q31_add_sat(fdn_l >> 1, fdn_r >> 1);
+    fdn_side = q31_sub_sat(fdn_l >> 1, fdn_r >> 1);
+    wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(fdn_mid, FLOAT_TO_Q31(0.38f)), bloom_tone_trim_diffuse));
+  }
   wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.11f)), bloom_tone_trim_diffuse));
 
   // Dedicated presence rail: derived from short/clear content only (no loop writeback).
@@ -421,7 +430,9 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t side_diff = q31_sub_sat(post1 >> 1, post2 >> 1);
   q31_t wet_side = q31_add_sat(q31_mul(side_diff, FLOAT_TO_Q31(0.42f)), q31_mul(side_from_taps, FLOAT_TO_Q31(0.32f)));
-  wet_side = q31_add_sat(wet_side, q31_mul(fdn_side, FLOAT_TO_Q31(0.48f)));
+  if (ctx->fdn_enabled) {
+    wet_side = q31_add_sat(wet_side, q31_mul(fdn_side, FLOAT_TO_Q31(0.48f)));
+  }
   // Side-only decorrelation stage: subtle depth without feeding the loop/mid path.
   int32_t side_ap_d_i = ((int32_t)(TE_SIDE_AP_SIZE / 2) << 16) + (space_mod >> 8);
   if (side_ap_d_i < 0x10000) side_ap_d_i = 0x10000;

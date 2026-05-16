@@ -6,8 +6,11 @@ static inline q31_t clamp_unit(q31_t v) {
   return v;
 }
 
-static inline q31_t hadamard_half_sum(q31_t a, q31_t b, q31_t c, q31_t d) {
-  return (q31_t)(((int64_t)a + b + c + d) >> 1);
+static inline q31_t hadamard_sum_sat(q31_t a, q31_t b, q31_t c, q31_t d) {
+  int64_t sum = (int64_t)a + b + c + d;
+  if (sum > Q31_MAX) return Q31_MAX;
+  if (sum < Q31_MIN) return Q31_MIN;
+  return (q31_t)sum;
 }
 
 static inline q31_t neg_sat(q31_t x) {
@@ -73,7 +76,7 @@ void dsp_fdn4_init(dsp_fdn4_t *fdn,
   for (int i = 0; i < DSP_FDN4_LINES; ++i) {
     uint32_t d = (uint32_t)(primes_48k[i] * sr_ratio);
     if (d < 64u) d = 64u;
-    if (d > line_size - 4u) d = (uint32_t)line_size - 4u;
+    if (d > line_size - 16u) d = (uint32_t)line_size - 16u;
     fdn->base_delay_q16[i] = (q16_16_t)(d << 16);
   }
 
@@ -135,16 +138,16 @@ void dsp_fdn4_process(dsp_fdn4_t *fdn, q31_t input, q31_t *out_l, q31_t *out_r) 
     fdn->last_read[i] = y[i];
   }
 
-  // Normalized Hadamard: H4 / 2. The matrix input is pre-trimmed by 6 dB
-  // so correlated FDN arms cannot overflow Q31 and do not need hard clipping.
+  // Normalized Hadamard: H4 / 2. The pre-halved inputs provide the unitary
+  // scale; the sum saturates only as a final safety net against wrap-around.
   q31_t h0 = y[0] >> 1;
   q31_t h1 = y[1] >> 1;
   q31_t h2 = y[2] >> 1;
   q31_t h3 = y[3] >> 1;
-  q31_t m0 = hadamard_half_sum(h0, h1, h2, h3);
-  q31_t m1 = hadamard_half_sum(h0, neg_sat(h1), h2, neg_sat(h3));
-  q31_t m2 = hadamard_half_sum(h0, h1, neg_sat(h2), neg_sat(h3));
-  q31_t m3 = hadamard_half_sum(h0, neg_sat(h1), neg_sat(h2), h3);
+  q31_t m0 = hadamard_sum_sat(h0, h1, h2, h3);
+  q31_t m1 = hadamard_sum_sat(h0, neg_sat(h1), h2, neg_sat(h3));
+  q31_t m2 = hadamard_sum_sat(h0, h1, neg_sat(h2), neg_sat(h3));
+  q31_t m3 = hadamard_sum_sat(h0, neg_sat(h1), neg_sat(h2), h3);
   q31_t mixed[DSP_FDN4_LINES] = {m0, m1, m2, m3};
   static const q31_t inject[DSP_FDN4_LINES] = {
       FLOAT_TO_Q31(0.50f), FLOAT_TO_Q31(0.37f), -FLOAT_TO_Q31(0.42f), FLOAT_TO_Q31(0.29f)};
