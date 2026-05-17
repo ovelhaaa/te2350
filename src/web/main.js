@@ -418,22 +418,58 @@ const sliderParams = [
 
 const toggleParams = ['freeze', 'fdn_enabled', 'octave_feedback_enabled', 'melody_enabled', 'melody_only'];
 
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const smoothstep01 = (v) => {
+    const x = clamp01(v);
+    return x * x * (3 - 2 * x);
+};
+const deadZone = (v, width) => {
+    const x = clamp01(v);
+    if (x <= width) return 0;
+    return (x - width) / (1 - width);
+};
+
+// Parameter transform roles (documentation only; keep runtime bundle free of dead maps):
+// - amount: direct wet/level/depth controls; they must map knob 0 to a real DSP 0.
+//   Amount parameters: mix, shimmer, ducking, wobble, presence, mod_depth,
+//   melody_volume, octave_feedback_amount.
+// - macro intensity: broad, multi-behaviour controls; they also start at real 0, then
+//   use S/preset-like curves so the upper half has more contrast and intention.
+//   Macro intensity parameters: feedback, diffusion, chaos, mod_rate,
+//   melody_density, melody_decay. Time is intentionally linear here because
+//   build_time_lut() in the C DSP already applies its perceptual time curve.
+const amountCurve = (v, power = 1.2) => {
+    const x = clamp01(v);
+    return clamp01((Math.pow(x, power) * 0.62) + (smoothstep01(x) * 0.38));
+};
+const macroIntensityCurve = (v, power = 1.35) => {
+    const x = clamp01(v);
+    return clamp01((Math.pow(x, power) * 0.45) + (smoothstep01(x) * 0.55));
+};
+const artifactSafeContrastCurve = (v) => {
+    // Tiny dead zone is used only where low non-zero pitch/feedback/random-drift
+    // artifacts are musically worse than silence. Above it, the curve is continuous
+    // and contrasty.
+    const x = deadZone(v, 0.03);
+    return clamp01((Math.pow(x, 1.55) * 0.42) + (smoothstep01(x) * 0.58));
+};
+
 const parameterTransforms = {
-    time: (v) => Math.pow(v, 0.62),
-    feedback: (v) => Math.min(0.985, 0.08 + Math.pow(v, 0.72) * 0.905),
-    mix: (v) => Math.pow(v, 0.78),
-    diffusion: (v) => Math.min(1, 0.06 + Math.pow(v, 0.60) * 0.94),
-    chaos: (v) => Math.min(1, 0.02 + Math.pow(v, 0.82) * 0.98),
-    wobble: (v) => Math.min(1, Math.pow(v, 0.68)),
-    mod_rate: (v) => Math.min(1, 0.04 + Math.pow(v, 0.75) * 0.96),
-    mod_depth: (v) => Math.min(1, Math.pow(v, 0.70)),
-    presence: (v) => Math.min(1, Math.pow(v, 0.66)),
-    ducking: (v) => Math.min(1, 0.02 + Math.pow(v, 0.62) * 0.98),
-    shimmer: (v) => Math.min(1, 0.01 + Math.pow(v, 0.70) * 0.99),
-    melody_volume: (v) => Math.min(1, Math.pow(v, 0.72)),
-    melody_density: (v) => Math.min(1, 0.06 + Math.pow(v, 0.58) * 0.94),
-    melody_decay: (v) => Math.min(1, 0.08 + Math.pow(v, 0.84) * 0.92),
-    octave_feedback_amount: (v) => Math.min(1, 0.03 + Math.pow(v, 0.70) * 0.97)
+    time: (v) => clamp01(v),
+    feedback: (v) => macroIntensityCurve(v, 0.95) * 0.985,
+    mix: (v) => amountCurve(v, 1.05),
+    diffusion: (v) => macroIntensityCurve(v, 1.35),
+    chaos: (v) => artifactSafeContrastCurve(v),
+    wobble: (v) => amountCurve(v, 1.35),
+    mod_rate: (v) => macroIntensityCurve(v, 1.2),
+    mod_depth: (v) => amountCurve(v, 1.25),
+    presence: (v) => amountCurve(v, 1.25),
+    ducking: (v) => amountCurve(v, 1.1),
+    shimmer: (v) => artifactSafeContrastCurve(v),
+    melody_volume: (v) => amountCurve(v, 1.2),
+    melody_density: (v) => macroIntensityCurve(v, 1.25),
+    melody_decay: (v) => macroIntensityCurve(v, 1.1),
+    octave_feedback_amount: (v) => artifactSafeContrastCurve(v)
 };
 
 function sendParam(param, value) {
@@ -452,7 +488,8 @@ sliderParams.forEach((param) => {
     }
 
     const updateDisplay = (value) => {
-        valDisplay.textContent = value.toFixed(2);
+        const mapped = parameterTransforms[param] ? parameterTransforms[param](value) : value;
+        valDisplay.textContent = mapped.toFixed(2);
     };
 
     updateDisplay(parseFloat(slider.value));
