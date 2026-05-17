@@ -429,10 +429,15 @@ const deadZone = (v, width) => {
     return (x - width) / (1 - width);
 };
 
-// Parameter transform roles:
+// Parameter transform roles (documentation only; keep runtime bundle free of dead maps):
 // - amount: direct wet/level/depth controls; they must map knob 0 to a real DSP 0.
+//   Amount parameters: mix, shimmer, ducking, wobble, presence, mod_depth,
+//   melody_volume, octave_feedback_amount.
 // - macro intensity: broad, multi-behaviour controls; they also start at real 0, then
 //   use S/preset-like curves so the upper half has more contrast and intention.
+//   Macro intensity parameters: feedback, diffusion, chaos, mod_rate,
+//   melody_density, melody_decay. Time is intentionally linear here because
+//   build_time_lut() in the C DSP already applies its perceptual time curve.
 const amountCurve = (v, power = 1.2) => {
     const x = clamp01(v);
     return clamp01((Math.pow(x, power) * 0.62) + (smoothstep01(x) * 0.38));
@@ -449,31 +454,9 @@ const artifactSafeContrastCurve = (v) => {
     return clamp01((Math.pow(x, 1.55) * 0.42) + (smoothstep01(x) * 0.58));
 };
 
-const parameterTransformRoles = {
-    amount: [
-        'mix',
-        'shimmer',
-        'ducking',
-        'wobble',
-        'presence',
-        'mod_depth',
-        'melody_volume',
-        'octave_feedback_amount'
-    ],
-    macroIntensity: [
-        'time',
-        'feedback',
-        'diffusion',
-        'chaos',
-        'mod_rate',
-        'melody_density',
-        'melody_decay'
-    ]
-};
-
 const parameterTransforms = {
-    time: (v) => macroIntensityCurve(v, 1.05),
-    feedback: (v) => Math.min(0.985, macroIntensityCurve(v, 0.95) * 0.985),
+    time: (v) => clamp01(v),
+    feedback: (v) => macroIntensityCurve(v, 0.95) * 0.985,
     mix: (v) => amountCurve(v, 1.05),
     diffusion: (v) => macroIntensityCurve(v, 1.35),
     chaos: (v) => artifactSafeContrastCurve(v),
