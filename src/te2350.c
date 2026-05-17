@@ -434,12 +434,23 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t presence_band = dsp_onepole_lp(&ctx->presence_lp, presence_hp);
   q31_t presence_sat = dsp_soft_saturate_gentle(presence_band);
 
-  q31_t presence_target_gain = q31_add_sat(FLOAT_TO_Q31(0.06f),
-                                           q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.30f)));
+  // Broader presence range, with transient-weighted lift so attacks stay articulate
+  // while the existing HP/LP band-pass keeps low mud and harsh top out of the rail.
+  q31_t presence_target_gain = q31_add_sat(FLOAT_TO_Q31(0.04f),
+                                           q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.55f)));
+  q31_t presence_attack_weight = q31_add_sat(FLOAT_TO_Q31(0.10f),
+                                             q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.22f)));
+  presence_target_gain = q31_add_sat(presence_target_gain,
+                                     q31_mul(transient_hint, presence_attack_weight));
+  if (presence_target_gain > FLOAT_TO_Q31(0.82f)) presence_target_gain = FLOAT_TO_Q31(0.82f);
+
   q31_t presence_gain_delta = q31_sub_sat(presence_target_gain, ctx->presence_gain_smooth);
+  q31_t presence_gain_coeff = presence_gain_delta > 0 ? FLOAT_TO_Q31(0.16f) : FLOAT_TO_Q31(0.025f);
   ctx->presence_gain_smooth = q31_add_sat(ctx->presence_gain_smooth,
-                                          q31_mul(presence_gain_delta, FLOAT_TO_Q31(0.03f)));
-  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(presence_sat, ctx->presence_gain_smooth), bloom_tone_trim_mid));
+                                          q31_mul(presence_gain_delta, presence_gain_coeff));
+
+  q31_t presence_send = q31_mul(q31_mul(presence_sat, ctx->presence_gain_smooth), bloom_tone_trim_mid);
+  wet_mid = q31_add_sat(wet_mid, presence_send);
 
   q31_t side_from_taps = 0;
   side_from_taps = q31_add_sat(side_from_taps,
@@ -452,6 +463,11 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   if (ctx->fdn_enabled) {
     wet_side = q31_add_sat(wet_side, q31_mul(fdn_side, FLOAT_TO_Q31(0.48f)));
   }
+  // Feed a small amount of the filtered presence rail into side for stereo audibility
+  // without changing the feedback loop or widening low/harsh bands.
+  q31_t presence_side_gain = q31_add_sat(FLOAT_TO_Q31(0.08f),
+                                         q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.10f)));
+  wet_side = q31_add_sat(wet_side, q31_mul(presence_send, presence_side_gain));
   // Side-only decorrelation stage: subtle depth without feeding the loop/mid path.
   int32_t side_ap_d_i = ((int32_t)(TE_SIDE_AP_SIZE / 2) << 16) + (space_mod >> 8);
   if (side_ap_d_i < 0x10000) side_ap_d_i = 0x10000;

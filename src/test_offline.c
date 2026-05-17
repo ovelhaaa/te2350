@@ -44,8 +44,8 @@ enum {
     TEST_FREEZE_PULSE = 4
 };
 
-void render_test_signal_with_octave(const char* filename, float sample_rate, int type, int duration_sec,
-                                    bool octave_enabled, float octave_amount) {
+void render_test_signal_config(const char* filename, float sample_rate, int type, int duration_sec,
+                               bool octave_enabled, float octave_amount, float presence_amount) {
     int num_samples = duration_sec * (int)sample_rate;
 
     // Reset effect
@@ -59,6 +59,7 @@ void render_test_signal_with_octave(const char* filename, float sample_rate, int
     te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.9f));
     te2350_set_mix(&pedal, FLOAT_TO_Q31(0.6f));
     te2350_set_shimmer(&pedal, FLOAT_TO_Q31(0.3f));
+    te2350_set_presence(&pedal, float_to_q31_safe(presence_amount));
     te2350_set_octave_feedback_enabled(&pedal, octave_enabled);
     te2350_set_octave_feedback_amount(&pedal, float_to_q31_safe(octave_amount));
 
@@ -137,12 +138,17 @@ void render_test_signal_with_octave(const char* filename, float sample_rate, int
     double rms_r = sqrt(sum_sq_r / num_samples);
     double denom = sqrt(sum_sq_l * sum_sq_r);
     double corr = (denom > 1e-12) ? (sum_lr / denom) : 0.0;
-    printf("Rendered %s: Octave=%s Amount=%.2f PeakL=%.4f PeakR=%.4f RMSL=%.4f RMSR=%.4f CorrLR=%.4f\n",
-           filename, octave_enabled ? "on" : "off", octave_amount, peak_l, peak_r, rms_l, rms_r, corr);
+    printf("Rendered %s: Octave=%s Amount=%.2f Presence=%.2f PeakL=%.4f PeakR=%.4f RMSL=%.4f RMSR=%.4f CorrLR=%.4f\n",
+           filename, octave_enabled ? "on" : "off", octave_amount, presence_amount, peak_l, peak_r, rms_l, rms_r, corr);
+}
+
+void render_test_signal_with_octave(const char* filename, float sample_rate, int type, int duration_sec,
+                                    bool octave_enabled, float octave_amount) {
+    render_test_signal_config(filename, sample_rate, type, duration_sec, octave_enabled, octave_amount, 0.20f);
 }
 
 void render_test_signal(const char* filename, float sample_rate, int type, int duration_sec) {
-    render_test_signal_with_octave(filename, sample_rate, type, duration_sec, false, 0.0f);
+    render_test_signal_config(filename, sample_rate, type, duration_sec, false, 0.0f, 0.20f);
 }
 
 void render_octave_ab_suite(float sample_rate) {
@@ -150,6 +156,18 @@ void render_octave_ab_suite(float sample_rate) {
     render_test_signal_with_octave("test_octave_ab_025.wav", sample_rate, TEST_SUSTAINED_CHORD, 4, true, 0.25f);
     render_test_signal_with_octave("test_octave_ab_050.wav", sample_rate, TEST_SUSTAINED_CHORD, 4, true, 0.50f);
     render_test_signal_with_octave("test_octave_ab_100.wav", sample_rate, TEST_SUSTAINED_CHORD, 4, true, 1.00f);
+}
+
+void render_presence_suite(float sample_rate) {
+    const float presence_values[] = {0.0f, 0.5f, 1.0f};
+    const char* labels[] = {"000", "050", "100"};
+    for (int i = 0; i < 3; ++i) {
+        char filename[64];
+        snprintf(filename, sizeof(filename), "test_presence_staccato_%s.wav", labels[i]);
+        render_test_signal_config(filename, sample_rate, TEST_STACCATO, 4, false, 0.0f, presence_values[i]);
+        snprintf(filename, sizeof(filename), "test_presence_sustained_%s.wav", labels[i]);
+        render_test_signal_config(filename, sample_rate, TEST_SUSTAINED_CHORD, 4, false, 0.0f, presence_values[i]);
+    }
 }
 
 int main() {
@@ -162,6 +180,7 @@ int main() {
     render_test_signal("test_sustained_chord.wav", 48000.0f, TEST_SUSTAINED_CHORD, 4);
     render_test_signal("test_freeze_pulse.wav", 48000.0f, TEST_FREEZE_PULSE, 4);
     render_octave_ab_suite(48000.0f);
+    render_presence_suite(48000.0f);
 
     return 0;
 }
