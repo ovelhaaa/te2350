@@ -444,10 +444,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
                                      q31_mul(transient_hint, presence_attack_weight));
   if (presence_target_gain > FLOAT_TO_Q31(0.82f)) presence_target_gain = FLOAT_TO_Q31(0.82f);
 
-  q31_t presence_gain_delta = q31_sub_sat(presence_target_gain, ctx->presence_gain_smooth);
-  q31_t presence_gain_coeff = presence_gain_delta > 0 ? FLOAT_TO_Q31(0.16f) : FLOAT_TO_Q31(0.025f);
-  ctx->presence_gain_smooth = q31_add_sat(ctx->presence_gain_smooth,
-                                          q31_mul(presence_gain_delta, presence_gain_coeff));
+  q31_t presence_gain_coeff = presence_target_gain > ctx->presence_gain_smooth
+                                ? FLOAT_TO_Q31(0.16f)
+                                : FLOAT_TO_Q31(0.025f);
+  SMOOTH_PARAM(presence_target_gain, ctx->presence_gain_smooth, presence_gain_coeff);
 
   q31_t presence_send = q31_mul(q31_mul(presence_sat, ctx->presence_gain_smooth), bloom_tone_trim_mid);
   wet_mid = q31_add_sat(wet_mid, presence_send);
