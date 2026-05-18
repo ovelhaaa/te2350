@@ -61,9 +61,9 @@ static inline q31_t clamp_q31_unit(q31_t v) {
 }
 
 static uint32_t isqrt_u64(uint64_t x) {
-  uint64_t bit = 1ull << 62;
-  while (bit > x) bit >>= 2;
+  if (x == 0) return 0;
 
+  uint64_t bit = 1ull << (62 - (__builtin_clzll(x) & ~1));
   uint64_t result = 0;
   while (bit != 0) {
     if (x >= result + bit) {
@@ -681,6 +681,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // than a linear crossfade, with a small center trim and final soft rounding
   // to preserve headroom when dry/wet correlation is high.
   q31_t mix = clamp_q31_unit(ctx->p_mix_smoothed);
+  if (mix == 0) {
+    *out_l = dry;
+    *out_r = dry;
+    return;
+  }
+  if (mix == Q31_MAX) {
+    *out_l = wet_l;
+    *out_r = wet_r;
+    return;
+  }
+
   q31_t dry_gain = q31_sqrt_unit(q31_sub_sat(Q31_MAX, mix));
   q31_t wet_gain = q31_sqrt_unit(mix);
   q31_t centered_mix = (mix <= (Q31_MAX >> 1))
@@ -693,8 +704,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t mixed_l = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet_l, wet_gain));
   q31_t mixed_r = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet_r, wet_gain));
-  *out_l = q31_mul(dsp_soft_saturate_gentle(mixed_l), TE_MIX_OUTPUT_HEADROOM);
-  *out_r = q31_mul(dsp_soft_saturate_gentle(mixed_r), TE_MIX_OUTPUT_HEADROOM);
+  *out_l = dsp_soft_saturate_gentle(mixed_l);
+  *out_r = dsp_soft_saturate_gentle(mixed_r);
 }
 
 q31_t te2350_get_envelope(te2350_t *ctx) {
