@@ -121,7 +121,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   dsp_onepole_init(&ctx->presence_lp, FLOAT_TO_Q31(0.210f)); // gentle harshness control
   ctx->presence_gain_smooth = FLOAT_TO_Q31(0.12f);
   dsp_onepole_init(&ctx->shimmer_hp, FLOAT_TO_Q31(0.050f));  // trim low body in shimmer lane
-  dsp_onepole_init(&ctx->shimmer_lp, FLOAT_TO_Q31(0.160f));  // tame synthetic top
+  dsp_onepole_init(&ctx->shimmer_lp, FLOAT_TO_Q31(0.190f));  // brighter shimmer rail; clip below tames edge
 
   dsp_melody_init(&ctx->melody);
   dsp_melody_set_volume(&ctx->melody, FLOAT_TO_Q31(0.18f));
@@ -417,7 +417,20 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     q31_t shimmer_lp_ref = dsp_onepole_lp(&ctx->shimmer_hp, halo);
     q31_t shimmer_hp = q31_sub_sat(halo, shimmer_lp_ref);
     q31_t shimmer_voiced = dsp_onepole_lp(&ctx->shimmer_lp, shimmer_hp);
-    q31_t shimmer_gain = q31_add_sat(FLOAT_TO_Q31(0.16f), q31_mul(bloom_wash, FLOAT_TO_Q31(0.22f)));
+
+    // Shimmer-specific air/clip stage: keep a little filtered top-end for
+    // sparkle, then round only this lane before it hits the wet mix or loop.
+    q31_t shimmer_air = q31_sub_sat(shimmer_hp, shimmer_voiced);
+    q31_t shimmer_bright = q31_add_sat(shimmer_voiced, q31_mul(shimmer_air, FLOAT_TO_Q31(0.14f)));
+    q31_t shimmer_drive = q31_add_sat(shimmer_bright,
+                                      q31_mul(q31_mul(shimmer_bright, ctx->p_shimmer), FLOAT_TO_Q31(0.10f)));
+    q31_t shimmer_clipped = dsp_soft_saturate_gentle(shimmer_drive);
+    q31_t shimmer_headroom = q31_sub_sat(FLOAT_TO_Q31(0.92f), q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.08f)));
+    shimmer_headroom = q31_sub_sat(shimmer_headroom, q31_mul(bloom_wash, FLOAT_TO_Q31(0.05f)));
+    if (shimmer_headroom < FLOAT_TO_Q31(0.78f)) shimmer_headroom = FLOAT_TO_Q31(0.78f);
+    shimmer_voiced = q31_mul(shimmer_clipped, shimmer_headroom);
+
+    q31_t shimmer_gain = q31_add_sat(FLOAT_TO_Q31(0.30f), q31_mul(bloom_wash, FLOAT_TO_Q31(0.18f)));
     shimmer_gain = q31_sub_sat(shimmer_gain, q31_mul(freeze_lock, FLOAT_TO_Q31(0.10f)));
     shimmer_parallel = q31_mul(shimmer_voiced, q31_mul(ctx->p_shimmer, shimmer_gain));
   }
@@ -485,7 +498,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     fdn_side = q31_sub_sat(fdn_l >> 1, fdn_r >> 1);
     wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(fdn_mid, FLOAT_TO_Q31(0.38f)), bloom_tone_trim_diffuse));
   }
-  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.11f)), bloom_tone_trim_diffuse));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.22f)), bloom_tone_trim_diffuse));
   wet_mid = q31_add_sat(wet_mid, q31_mul(octave_return, bloom_tone_trim_diffuse));
 
   // Dedicated presence rail: derived from short/clear content only (no loop writeback).
@@ -750,7 +763,11 @@ static q31_t feedback_condition(te2350_t *ctx,
   q31_t hp = q31_sub_sat(loop_src, low_ref);
 
   q31_t shaped = q31_add_sat(q31_mul(lp, FLOAT_TO_Q31(0.72f)), q31_mul(hp, FLOAT_TO_Q31(0.20f)));
-  shaped = q31_add_sat(shaped, q31_mul(shimmer_return, FLOAT_TO_Q31(0.12f)));
+  q31_t shimmer_feedback_gain = q31_add_sat(FLOAT_TO_Q31(0.16f), q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.04f)));
+  shimmer_feedback_gain = q31_sub_sat(shimmer_feedback_gain, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.04f)));
+  if (shimmer_feedback_gain > FLOAT_TO_Q31(0.20f)) shimmer_feedback_gain = FLOAT_TO_Q31(0.20f);
+  if (shimmer_feedback_gain < FLOAT_TO_Q31(0.12f)) shimmer_feedback_gain = FLOAT_TO_Q31(0.12f);
+  shaped = q31_add_sat(shaped, q31_mul(shimmer_return, shimmer_feedback_gain));
   q31_t loop_darkening = q31_sub_sat(Q31_MAX, q31_mul(ctx->bloom_state, FLOAT_TO_Q31(0.24f)));
   if (loop_darkening < FLOAT_TO_Q31(0.62f)) loop_darkening = FLOAT_TO_Q31(0.62f);
   shaped = q31_mul(shaped, loop_darkening);
