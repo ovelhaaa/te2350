@@ -17,6 +17,8 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         this.modRate = 0.5;
         this.modDepth = 0.4;
         this.reportedUnavailableParams = new Set();
+        this.inputMode = 'mono_avg'; // left_only | mono_avg | mono_sum_comp | mid
+        this.currentTopology = 'mono_in_stereo_out';
 
         this.port.onmessage = this.handleMessage.bind(this);
 
@@ -185,6 +187,18 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             case 'fdn_enabled':
                 this._invokeWasm('_wasm_te2350_set_fdn_enabled', [value ? 1 : 0], param);
                 break;
+            case 'input_mode':
+                if (typeof value === 'string') {
+                    const normalized = value.toLowerCase();
+                    const valid = ['left_only', 'mono_avg', 'mono_sum_comp', 'mid'];
+                    if (valid.includes(normalized)) {
+                        this.inputMode = normalized;
+                        this.port.postMessage({ type: 'debug', message: `[InputMode] set to ${this.inputMode}` });
+                    } else {
+                        this.port.postMessage({ type: 'debug', message: `[InputMode] invalid value: ${value}` });
+                    }
+                }
+                break;
         }
     }
 
@@ -228,6 +242,13 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         this.port.postMessage({
             type: 'capabilities',
             capabilities: capabilityMap
+        });
+
+        this.port.postMessage({
+            type: 'io_topology',
+            topology: this.currentTopology,
+            supportedInputModes: ['left_only', 'mono_avg', 'mono_sum_comp', 'mid'],
+            activeInputMode: this.inputMode
         });
     }
 
@@ -280,15 +301,42 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         const outLView = new Float32Array(this.wasmMemory.buffer, this.outLPtr, numSamples);
         const outRView = new Float32Array(this.wasmMemory.buffer, this.outRPtr, numSamples);
 
-        // Copy input to Wasm memory (convert stereo to mono sum if needed, but we'll just take L for now)
+        // Copy input to Wasm memory (worklet currently: mono-in/stereo-out).
+        // For stereo sources, choose the downmix strategy through input_mode.
         let hasInputSignal = false;
+        const inRight = input.length > 1 ? input[1] : null;
         if (inChannel) {
-            // We use simple set for the mono input
-            inView.set(inChannel.subarray(0, numSamples));
-            // If there's a right channel, we could mix it, but let's just use left
-            if (input.length > 1) {
-                for(let i=0; i<numSamples; i++){
-                    inView[i] = (inChannel[i] + input[1][i]) * 0.5;
+            if (!inRight || this.inputMode === 'left_only') {
+                inView.set(inChannel.subarray(0, numSamples));
+            } else {
+                for (let i = 0; i < numSamples; i++) {
+                    const l = inChannel[i];
+                    const r = inRight[i];
+                    switch (this.inputMode) {
+                        case 'mono_sum_comp':
+                            // 0.707 compensation preserves perceived energy better than plain 0.5 average.
+                            inView[i] = (l + r) * 0.70710678;
+                            break;
+                        case 'mid':
+                            // Mid extraction (M=(L+R)/2), useful when side carries mostly decorrelated content.
+                            inView[i] = (l + r) * 0.5;
+                            break;
+                        case 'mono_avg':
+                        default:
+                            inView[i] = (l + r) * 0.5;
+                            break;
+                    }
+                }
+
+                // Optional future API path: feed side-channel analysis to WASM internals when available.
+                if (this._hasWasmFn('_wasm_te2350_set_input_side_rms')) {
+                    let sideEnergy = 0;
+                    for (let i = 0; i < numSamples; i++) {
+                        const side = (inChannel[i] - inRight[i]) * 0.5;
+                        sideEnergy += side * side;
+                    }
+                    const sideRms = Math.sqrt(sideEnergy / numSamples);
+                    this.wasmModule._wasm_te2350_set_input_side_rms(sideRms);
                 }
             }
 
@@ -321,7 +369,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             if (inChannel) {
                 this.port.postMessage({
                     type: 'debug',
-                    message: `[Process] input_active=${hasInputSignal}, wasm_output_active=${hasOutputSignal}`
+                    message: `[Process] input_active=${hasInputSignal}, wasm_output_active=${hasOutputSignal}, mode=${this.inputMode}, topology=${this.currentTopology}`
                 });
             } else {
                 this.port.postMessage({
