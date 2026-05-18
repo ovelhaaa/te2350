@@ -14,6 +14,16 @@
 #define TE_SHIMMER_GAIN_BLOOM_MIX FLOAT_TO_Q31(0.18f)
 #define TE_SHIMMER_GAIN_FREEZE_TRIM FLOAT_TO_Q31(0.10f)
 #define TE_SHIMMER_WET_MID_GAIN FLOAT_TO_Q31(0.22f)
+#define TE_WET_DRIVE_MIX_LIFT FLOAT_TO_Q31(0.600f)
+#define TE_WET_DRIVE_PRESENCE_LIFT FLOAT_TO_Q31(0.150f)
+#define TE_WET_DRIVE_FEEDBACK_LIFT FLOAT_TO_Q31(0.200f)
+#define TE_WET_DRIVE_MAX_EXTRA FLOAT_TO_Q31(0.860f)
+#define TE_WET_HEADROOM_BASE FLOAT_TO_Q31(0.940f)
+#define TE_WET_HEADROOM_MIX_TRIM FLOAT_TO_Q31(0.070f)
+#define TE_WET_HEADROOM_FEEDBACK_TRIM FLOAT_TO_Q31(0.030f)
+#define TE_WET_HEADROOM_MIN FLOAT_TO_Q31(0.800f)
+#define TE_MIX_CENTER_HEADROOM FLOAT_TO_Q31(0.110f)
+#define TE_MIX_OUTPUT_HEADROOM FLOAT_TO_Q31(0.985f)
 
 // Feedback conditioner mix. The LP/HP ratios preserve the original 0.72:0.20
 // tonal balance while reserving normalized headroom for the shimmer return.
@@ -37,6 +47,7 @@ static q31_t feedback_condition(te2350_t *ctx,
                                 q31_t effective_feedback);
 static q31_t voice_octave_signal(q31_t octave, q31_t amount);
 static inline q31_t clamp_q31_unit(q31_t v);
+static inline q31_t q31_sqrt_unit(q31_t v);
 static inline q31_t q31_zone_amount(q31_t v, q31_t start, q31_t end);
 
 static inline q31_t q31_lerp(q31_t a, q31_t b, q31_t t) {
@@ -47,6 +58,32 @@ static inline q31_t clamp_q31_unit(q31_t v) {
   if (v < 0) return 0;
   if (v > Q31_MAX) return Q31_MAX;
   return v;
+}
+
+static uint32_t isqrt_u64(uint64_t x) {
+  uint64_t bit = 1ull << 62;
+  while (bit > x) bit >>= 2;
+
+  uint64_t result = 0;
+  while (bit != 0) {
+    if (x >= result + bit) {
+      x -= result + bit;
+      result = (result >> 1) + bit;
+    } else {
+      result >>= 1;
+    }
+    bit >>= 2;
+  }
+
+  if (result > (uint64_t)Q31_MAX) return (uint32_t)Q31_MAX;
+  return (uint32_t)result;
+}
+
+static inline q31_t q31_sqrt_unit(q31_t v) {
+  if (v <= 0) return 0;
+  uint32_t root = isqrt_u64((uint64_t)(uint32_t)v << 31);
+  if (root > (uint32_t)Q31_MAX) return Q31_MAX;
+  return (q31_t)root;
 }
 
 static inline q31_t q31_zone_amount(q31_t v, q31_t start, q31_t end) {
@@ -608,16 +645,56 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t duck_reduction = q31_mul(q31_sub_sat(Q31_MAX, q31_sub_sat(Q31_MAX, amp_env)), ctx->p_ducking);
   q31_t final_duck_gain = q31_sub_sat(Q31_MAX, duck_reduction);
 
-  q31_t wet_l = q31_add_sat(wet_mid >> 1, q31_mul(wet_side, width) >> 1);
-  q31_t wet_r = q31_sub_sat(wet_mid >> 1, q31_mul(wet_side, width) >> 1);
+  q31_t wet_width = q31_mul(wet_side, width);
+  q31_t wet_l = q31_add_sat(q31_mul(wet_mid, FLOAT_TO_Q31(0.72f)),
+                            q31_mul(wet_width, FLOAT_TO_Q31(0.36f)));
+  q31_t wet_r = q31_sub_sat(q31_mul(wet_mid, FLOAT_TO_Q31(0.72f)),
+                            q31_mul(wet_width, FLOAT_TO_Q31(0.36f)));
   wet_l = q31_mul(wet_l, final_duck_gain);
   wet_r = q31_mul(wet_r, final_duck_gain);
 
-  q31_t dry_gain = q31_sub_sat(Q31_MAX, ctx->p_mix_smoothed);
-  q31_t wet_gain = ctx->p_mix_smoothed;
+  // Internal wet drive: higher mix, presence and feedback add perceived wet
+  // density before the dry/wet law.  The lift is capped, then rounded by a
+  // light post-wet shaper and trimmed so the bus keeps fixed-point headroom.
+  q31_t wet_drive_extra = q31_mul(ctx->p_mix_smoothed, TE_WET_DRIVE_MIX_LIFT);
+  wet_drive_extra = q31_add_sat(
+      wet_drive_extra, q31_mul(ctx->p_presence_smoothed, TE_WET_DRIVE_PRESENCE_LIFT));
+  wet_drive_extra = q31_add_sat(
+      wet_drive_extra, q31_mul(ctx->p_feedback_smoothed, TE_WET_DRIVE_FEEDBACK_LIFT));
+  if (wet_drive_extra > TE_WET_DRIVE_MAX_EXTRA) wet_drive_extra = TE_WET_DRIVE_MAX_EXTRA;
 
-  *out_l = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet_l, wet_gain));
-  *out_r = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet_r, wet_gain));
+  q31_t wet_headroom = q31_sub_sat(TE_WET_HEADROOM_BASE,
+                                   q31_mul(ctx->p_mix_smoothed, TE_WET_HEADROOM_MIX_TRIM));
+  wet_headroom = q31_sub_sat(wet_headroom,
+                             q31_mul(ctx->p_feedback_smoothed, TE_WET_HEADROOM_FEEDBACK_TRIM));
+  if (wet_headroom < TE_WET_HEADROOM_MIN) wet_headroom = TE_WET_HEADROOM_MIN;
+
+  q31_t wet_drive_tail = q31_mul(wet_drive_extra, FLOAT_TO_Q31(0.62f));
+  q31_t wet_l_driven = q31_add_sat(q31_add_sat(wet_l, q31_mul(wet_l, wet_drive_extra)),
+                                   q31_mul(wet_l, wet_drive_tail));
+  q31_t wet_r_driven = q31_add_sat(q31_add_sat(wet_r, q31_mul(wet_r, wet_drive_extra)),
+                                   q31_mul(wet_r, wet_drive_tail));
+  wet_l = q31_mul(dsp_soft_saturate_gentle(wet_l_driven), wet_headroom);
+  wet_r = q31_mul(dsp_soft_saturate_gentle(wet_r_driven), wet_headroom);
+
+  // Equal-power mix curve: smoother loudness between dry and wet endpoints
+  // than a linear crossfade, with a small center trim and final soft rounding
+  // to preserve headroom when dry/wet correlation is high.
+  q31_t mix = clamp_q31_unit(ctx->p_mix_smoothed);
+  q31_t dry_gain = q31_sqrt_unit(q31_sub_sat(Q31_MAX, mix));
+  q31_t wet_gain = q31_sqrt_unit(mix);
+  q31_t centered_mix = (mix <= (Q31_MAX >> 1))
+                            ? (mix << 1)
+                            : (q31_sub_sat(Q31_MAX, mix) << 1);
+  q31_t mix_headroom = q31_sub_sat(Q31_MAX, q31_mul(centered_mix, TE_MIX_CENTER_HEADROOM));
+  mix_headroom = q31_mul(mix_headroom, TE_MIX_OUTPUT_HEADROOM);
+  dry_gain = q31_mul(dry_gain, mix_headroom);
+  wet_gain = q31_mul(wet_gain, mix_headroom);
+
+  q31_t mixed_l = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet_l, wet_gain));
+  q31_t mixed_r = q31_add_sat(q31_mul(dry, dry_gain), q31_mul(wet_r, wet_gain));
+  *out_l = q31_mul(dsp_soft_saturate_gentle(mixed_l), TE_MIX_OUTPUT_HEADROOM);
+  *out_r = q31_mul(dsp_soft_saturate_gentle(mixed_r), TE_MIX_OUTPUT_HEADROOM);
 }
 
 q31_t te2350_get_envelope(te2350_t *ctx) {
