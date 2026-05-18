@@ -1,5 +1,30 @@
 #include "../include/te2350.h"
 
+// --- Shimmer tuning -------------------------------------------------------
+// Keep the shimmer character parameters centralized so gain/brightness/loop
+// behavior can be rebalanced without hunting through the audio-rate code.
+#define TE_SHIMMER_LP_COEFF FLOAT_TO_Q31(0.190f)
+#define TE_SHIMMER_AIR_MIX FLOAT_TO_Q31(0.14f)
+#define TE_SHIMMER_DRIVE_MIX FLOAT_TO_Q31(0.10f)
+#define TE_SHIMMER_HEADROOM_BASE FLOAT_TO_Q31(0.92f)
+#define TE_SHIMMER_HEADROOM_SHIMMER_TRIM FLOAT_TO_Q31(0.08f)
+#define TE_SHIMMER_HEADROOM_BLOOM_TRIM FLOAT_TO_Q31(0.05f)
+#define TE_SHIMMER_HEADROOM_MIN FLOAT_TO_Q31(0.78f)
+#define TE_SHIMMER_GAIN_BASE FLOAT_TO_Q31(0.30f)
+#define TE_SHIMMER_GAIN_BLOOM_MIX FLOAT_TO_Q31(0.18f)
+#define TE_SHIMMER_GAIN_FREEZE_TRIM FLOAT_TO_Q31(0.10f)
+#define TE_SHIMMER_WET_MID_GAIN FLOAT_TO_Q31(0.22f)
+
+// Feedback conditioner mix. The LP/HP ratios preserve the original 0.72:0.20
+// tonal balance while reserving normalized headroom for the shimmer return.
+#define TE_FEEDBACK_LP_TO_DRY_RATIO FLOAT_TO_Q31(0.7826087f)
+#define TE_FEEDBACK_HP_TO_DRY_RATIO FLOAT_TO_Q31(0.2173913f)
+#define TE_SHIMMER_FEEDBACK_GAIN_BASE FLOAT_TO_Q31(0.16f)
+#define TE_SHIMMER_FEEDBACK_GAIN_SCALE FLOAT_TO_Q31(0.04f)
+#define TE_SHIMMER_FEEDBACK_FREEZE_TRIM FLOAT_TO_Q31(0.04f)
+#define TE_SHIMMER_FEEDBACK_GAIN_MIN FLOAT_TO_Q31(0.12f)
+#define TE_SHIMMER_FEEDBACK_GAIN_MAX FLOAT_TO_Q31(0.20f)
+
 static void update_tone_filter(te2350_t *ctx);
 static void update_chaos_zones(te2350_t *ctx);
 static void build_time_lut(te2350_t *ctx);
@@ -121,7 +146,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   dsp_onepole_init(&ctx->presence_lp, FLOAT_TO_Q31(0.210f)); // gentle harshness control
   ctx->presence_gain_smooth = FLOAT_TO_Q31(0.12f);
   dsp_onepole_init(&ctx->shimmer_hp, FLOAT_TO_Q31(0.050f));  // trim low body in shimmer lane
-  dsp_onepole_init(&ctx->shimmer_lp, FLOAT_TO_Q31(0.190f));  // brighter shimmer rail; clip below tames edge
+  dsp_onepole_init(&ctx->shimmer_lp, TE_SHIMMER_LP_COEFF);  // brighter shimmer rail; clip below tames edge
 
   dsp_melody_init(&ctx->melody);
   dsp_melody_set_volume(&ctx->melody, FLOAT_TO_Q31(0.18f));
@@ -421,17 +446,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     // Shimmer-specific air/clip stage: keep a little filtered top-end for
     // sparkle, then round only this lane before it hits the wet mix or loop.
     q31_t shimmer_air = q31_sub_sat(shimmer_hp, shimmer_voiced);
-    q31_t shimmer_bright = q31_add_sat(shimmer_voiced, q31_mul(shimmer_air, FLOAT_TO_Q31(0.14f)));
+    q31_t shimmer_bright = q31_add_sat(shimmer_voiced, q31_mul(shimmer_air, TE_SHIMMER_AIR_MIX));
     q31_t shimmer_drive = q31_add_sat(shimmer_bright,
-                                      q31_mul(q31_mul(shimmer_bright, ctx->p_shimmer), FLOAT_TO_Q31(0.10f)));
+                                      q31_mul(q31_mul(shimmer_bright, ctx->p_shimmer), TE_SHIMMER_DRIVE_MIX));
     q31_t shimmer_clipped = dsp_soft_saturate_gentle(shimmer_drive);
-    q31_t shimmer_headroom = q31_sub_sat(FLOAT_TO_Q31(0.92f), q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.08f)));
-    shimmer_headroom = q31_sub_sat(shimmer_headroom, q31_mul(bloom_wash, FLOAT_TO_Q31(0.05f)));
-    if (shimmer_headroom < FLOAT_TO_Q31(0.78f)) shimmer_headroom = FLOAT_TO_Q31(0.78f);
+    q31_t shimmer_headroom = q31_sub_sat(TE_SHIMMER_HEADROOM_BASE, q31_mul(ctx->p_shimmer, TE_SHIMMER_HEADROOM_SHIMMER_TRIM));
+    shimmer_headroom = q31_sub_sat(shimmer_headroom, q31_mul(bloom_wash, TE_SHIMMER_HEADROOM_BLOOM_TRIM));
+    if (shimmer_headroom < TE_SHIMMER_HEADROOM_MIN) shimmer_headroom = TE_SHIMMER_HEADROOM_MIN;
     shimmer_voiced = q31_mul(shimmer_clipped, shimmer_headroom);
 
-    q31_t shimmer_gain = q31_add_sat(FLOAT_TO_Q31(0.30f), q31_mul(bloom_wash, FLOAT_TO_Q31(0.18f)));
-    shimmer_gain = q31_sub_sat(shimmer_gain, q31_mul(freeze_lock, FLOAT_TO_Q31(0.10f)));
+    q31_t shimmer_gain = q31_add_sat(TE_SHIMMER_GAIN_BASE, q31_mul(bloom_wash, TE_SHIMMER_GAIN_BLOOM_MIX));
+    shimmer_gain = q31_sub_sat(shimmer_gain, q31_mul(freeze_lock, TE_SHIMMER_GAIN_FREEZE_TRIM));
     shimmer_parallel = q31_mul(shimmer_voiced, q31_mul(ctx->p_shimmer, shimmer_gain));
   }
 
@@ -498,7 +523,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     fdn_side = q31_sub_sat(fdn_l >> 1, fdn_r >> 1);
     wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(fdn_mid, FLOAT_TO_Q31(0.38f)), bloom_tone_trim_diffuse));
   }
-  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, FLOAT_TO_Q31(0.22f)), bloom_tone_trim_diffuse));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(shimmer_parallel, TE_SHIMMER_WET_MID_GAIN), bloom_tone_trim_diffuse));
   wet_mid = q31_add_sat(wet_mid, q31_mul(octave_return, bloom_tone_trim_diffuse));
 
   // Dedicated presence rail: derived from short/clear content only (no loop writeback).
@@ -762,11 +787,20 @@ static q31_t feedback_condition(te2350_t *ctx,
   q31_t low_ref = dsp_onepole_lp(&ctx->fb_hp, loop_src);
   q31_t hp = q31_sub_sat(loop_src, low_ref);
 
-  q31_t shaped = q31_add_sat(q31_mul(lp, FLOAT_TO_Q31(0.72f)), q31_mul(hp, FLOAT_TO_Q31(0.20f)));
-  q31_t shimmer_feedback_gain = q31_add_sat(FLOAT_TO_Q31(0.16f), q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(0.04f)));
-  shimmer_feedback_gain = q31_sub_sat(shimmer_feedback_gain, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.04f)));
-  if (shimmer_feedback_gain > FLOAT_TO_Q31(0.20f)) shimmer_feedback_gain = FLOAT_TO_Q31(0.20f);
-  if (shimmer_feedback_gain < FLOAT_TO_Q31(0.12f)) shimmer_feedback_gain = FLOAT_TO_Q31(0.12f);
+  q31_t shimmer_feedback_lift = q31_mul(ctx->p_shimmer, TE_SHIMMER_FEEDBACK_GAIN_SCALE);
+  q31_t shimmer_feedback_gain = q31_add_sat(TE_SHIMMER_FEEDBACK_GAIN_BASE, shimmer_feedback_lift);
+  q31_t shimmer_feedback_freeze_trim = q31_mul(ctx->freeze_crossfade, TE_SHIMMER_FEEDBACK_FREEZE_TRIM);
+  shimmer_feedback_gain = q31_sub_sat(shimmer_feedback_gain, shimmer_feedback_freeze_trim);
+  if (shimmer_feedback_gain > TE_SHIMMER_FEEDBACK_GAIN_MAX) shimmer_feedback_gain = TE_SHIMMER_FEEDBACK_GAIN_MAX;
+  if (shimmer_feedback_gain < TE_SHIMMER_FEEDBACK_GAIN_MIN) shimmer_feedback_gain = TE_SHIMMER_FEEDBACK_GAIN_MIN;
+
+  // Normalize the loop conditioner mix so the LP + HP + shimmer weights stay
+  // at unity. This avoids relying on saturating arithmetic as a mixer when the
+  // shimmer feedback share is raised above the old fixed 0.12 send.
+  q31_t dry_feedback_headroom = q31_sub_sat(Q31_MAX, shimmer_feedback_gain);
+  q31_t lp_feedback_gain = q31_mul(dry_feedback_headroom, TE_FEEDBACK_LP_TO_DRY_RATIO);
+  q31_t hp_feedback_gain = q31_mul(dry_feedback_headroom, TE_FEEDBACK_HP_TO_DRY_RATIO);
+  q31_t shaped = q31_add_sat(q31_mul(lp, lp_feedback_gain), q31_mul(hp, hp_feedback_gain));
   shaped = q31_add_sat(shaped, q31_mul(shimmer_return, shimmer_feedback_gain));
   q31_t loop_darkening = q31_sub_sat(Q31_MAX, q31_mul(ctx->bloom_state, FLOAT_TO_Q31(0.24f)));
   if (loop_darkening < FLOAT_TO_Q31(0.62f)) loop_darkening = FLOAT_TO_Q31(0.62f);
