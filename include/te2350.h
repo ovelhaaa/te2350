@@ -104,6 +104,8 @@ typedef struct {
   q31_t p_shimmer;    // Pitch shift amount (0 = no shift, Q31_MAX = +1 octave)
   q31_t p_diffusion;  // Allpass diffusion amount (0 = off, Q31_MAX = full)
   q31_t p_chaos;      // Chaos/instability amount (0 = stable, Q31_MAX = chaotic)
+  q31_t p_chaos_audible; // Cached chaos zone: 0.40..0.75 normalized to 0..1
+  q31_t p_chaos_unstable; // Cached chaos zone: 0.75..1.00 normalized to 0..1
   q31_t p_ducking;    // Envelope ducking amount (0 = off, Q31_MAX = full duck)
   q31_t p_wobble;     // Feedback wobble amount (0 = stable, Q31_MAX = wobbly)
   q31_t p_presence;   // Presence rail gain (0 = soft, Q31_MAX = articulate)
@@ -129,6 +131,8 @@ typedef struct {
   q31_t time_smooth_coeff; // Sample-rate adjusted smoothing speed
   int32_t wobble_mod_base; // Base modulation samples for wobble
   int32_t wobble_mod_scale; // Scale modulation samples for wobble
+  int32_t wobble_safety_samples; // Max shaped wobble depth at current sample rate
+  int32_t max_delay_mod_samples; // Max delay modulation excursion at current sample rate
 
   // Time mapping LUT for perceptual control response
   #define TE_TIME_LUT_SIZE 128

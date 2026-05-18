@@ -1,6 +1,7 @@
 #include "../include/te2350.h"
 
 static void update_tone_filter(te2350_t *ctx);
+static void update_chaos_zones(te2350_t *ctx);
 static void build_time_lut(te2350_t *ctx);
 static int32_t map_time_samples(const te2350_t *ctx, q31_t time_q31);
 static q31_t feedback_condition(te2350_t *ctx,
@@ -46,6 +47,17 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
 
   ctx->wobble_mod_base = (int32_t)(10 * sr_ratio);
   ctx->wobble_mod_scale = (int32_t)(45 * sr_ratio);
+  ctx->wobble_safety_samples = ctx->wobble_mod_base + ctx->wobble_mod_scale
+                               + (int32_t)(sample_rate * 0.00035f);
+  ctx->max_delay_mod_samples = ctx->wobble_mod_base + ctx->wobble_mod_scale
+                             + (int32_t)(sample_rate * 0.00055f);
+  int32_t delay_mod_span_limit = (ctx->max_delay_samples - ctx->min_delay_samples) / 6;
+  if (ctx->max_delay_mod_samples > delay_mod_span_limit) {
+    ctx->max_delay_mod_samples = delay_mod_span_limit;
+  }
+  if (ctx->max_delay_mod_samples < ctx->wobble_mod_base) {
+    ctx->max_delay_mod_samples = ctx->wobble_mod_base;
+  }
 
   q31_t *mem = (q31_t *)memory_block;
   size_t available_words = total_bytes / sizeof(q31_t);
@@ -131,6 +143,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->p_shimmer = 0;
   ctx->p_diffusion = FLOAT_TO_Q31(0.8f);
   ctx->p_chaos = FLOAT_TO_Q31(0.2f);
+  update_chaos_zones(ctx);
   ctx->p_ducking = FLOAT_TO_Q31(0.15f);
   ctx->p_wobble = FLOAT_TO_Q31(0.3f);
   ctx->p_presence = FLOAT_TO_Q31(0.20f);
@@ -231,8 +244,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t chaos_rand = (q31_t)(ctx->chaos_seed >> 1);
   // Chaos zones: 0.00-0.40 stays subtle, 0.40-0.75 becomes audible,
   // and 0.75-1.00 unlocks unstable/experimental modulation paths.
-  q31_t chaos_audible = q31_zone_amount(ctx->p_chaos, FLOAT_TO_Q31(0.40f), FLOAT_TO_Q31(0.75f));
-  q31_t chaos_unstable = q31_zone_amount(ctx->p_chaos, FLOAT_TO_Q31(0.75f), Q31_MAX);
+  q31_t chaos_audible = ctx->p_chaos_audible;
+  q31_t chaos_unstable = ctx->p_chaos_unstable;
   q31_t chaos_bipolar = (q31_t)ctx->chaos_seed;
 
   q31_t chaos_amt = q31_mul(ctx->p_chaos, FLOAT_TO_Q31(0.22f));
@@ -317,8 +330,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
                                               FLOAT_TO_Q31(0.38f)));
   if (wobble_shape > Q31_MAX) wobble_shape = Q31_MAX;
   int32_t wobble_depth = ctx->wobble_mod_base + (int32_t)(((int64_t)wobble_shape * ctx->wobble_mod_scale) >> 31);
-  int32_t wobble_safety = ctx->wobble_mod_base + ctx->wobble_mod_scale + (int32_t)(ctx->sample_rate * 0.00035f);
-  if (wobble_depth > wobble_safety) wobble_depth = wobble_safety;
+  if (wobble_depth > ctx->wobble_safety_samples) wobble_depth = ctx->wobble_safety_samples;
 
   // Keep movement, but reduce wow dominance in the direct delay line to avoid masking.
   q31_t main_wow_scale = q31_sub_sat(FLOAT_TO_Q31(0.72f), q31_mul(bloom, FLOAT_TO_Q31(0.22f)));
@@ -328,13 +340,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   if (main_wow_scale > FLOAT_TO_Q31(0.92f)) main_wow_scale = FLOAT_TO_Q31(0.92f);
   q31_t main_time_mod = q31_mul(time_mod, main_wow_scale);
   int32_t d_mod = (int32_t)(((int64_t)main_time_mod * wobble_depth) >> 31);
-  int32_t max_delay_mod = ctx->wobble_mod_base + ctx->wobble_mod_scale + (int32_t)(ctx->sample_rate * 0.00055f);
-  if (max_delay_mod > (ctx->max_delay_samples - ctx->min_delay_samples) / 6) {
-    max_delay_mod = (ctx->max_delay_samples - ctx->min_delay_samples) / 6;
-  }
-  if (max_delay_mod < ctx->wobble_mod_base) max_delay_mod = ctx->wobble_mod_base;
-  if (d_mod > max_delay_mod) d_mod = max_delay_mod;
-  if (d_mod < -max_delay_mod) d_mod = -max_delay_mod;
+  if (d_mod > ctx->max_delay_mod_samples) d_mod = ctx->max_delay_mod_samples;
+  if (d_mod < -ctx->max_delay_mod_samples) d_mod = -ctx->max_delay_mod_samples;
   int32_t d_samp_mod = d_base + d_mod;
   if (d_samp_mod < ctx->min_delay_samples) d_samp_mod = ctx->min_delay_samples;
   if (d_samp_mod > ctx->max_delay_samples) d_samp_mod = ctx->max_delay_samples;
@@ -600,14 +607,20 @@ void te2350_set_tone(te2350_t *ctx, q31_t tone) {
   ctx->p_tone = clamp_q31_unit(tone);
 }
 
+static void update_chaos_zones(te2350_t *ctx) {
+  ctx->p_chaos_audible = q31_zone_amount(ctx->p_chaos, FLOAT_TO_Q31(0.40f),
+                                          FLOAT_TO_Q31(0.75f));
+  ctx->p_chaos_unstable = q31_zone_amount(ctx->p_chaos, FLOAT_TO_Q31(0.75f), Q31_MAX);
+}
+
 static void update_tone_filter(te2350_t *ctx) {
   q31_t tone = ctx->p_tone_smoothed;
 
   q31_t lp_coeff = q31_add_sat(FLOAT_TO_Q31(0.04f), q31_mul(tone, FLOAT_TO_Q31(0.22f)));
   q31_t hp_coeff = q31_add_sat(FLOAT_TO_Q31(0.006f), q31_mul(tone, FLOAT_TO_Q31(0.02f)));
 
-  q31_t chaos_audible = q31_zone_amount(ctx->p_chaos, FLOAT_TO_Q31(0.40f), FLOAT_TO_Q31(0.75f));
-  q31_t chaos_unstable = q31_zone_amount(ctx->p_chaos, FLOAT_TO_Q31(0.75f), Q31_MAX);
+  q31_t chaos_audible = ctx->p_chaos_audible;
+  q31_t chaos_unstable = ctx->p_chaos_unstable;
   lp_coeff = q31_add_sat(lp_coeff, q31_mul(chaos_audible, FLOAT_TO_Q31(0.018f)));
   hp_coeff = q31_add_sat(hp_coeff, q31_mul(chaos_audible, FLOAT_TO_Q31(0.004f)));
   hp_coeff = q31_add_sat(hp_coeff, q31_mul(chaos_unstable, FLOAT_TO_Q31(0.009f)));
@@ -670,6 +683,7 @@ void te2350_set_diffusion(te2350_t *ctx, q31_t diffusion) {
 
 void te2350_set_chaos(te2350_t *ctx, q31_t chaos) {
   ctx->p_chaos = clamp_q31_unit(chaos);
+  update_chaos_zones(ctx);
 }
 
 void te2350_set_ducking(te2350_t *ctx, q31_t ducking) {
