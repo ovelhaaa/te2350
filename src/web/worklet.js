@@ -305,9 +305,14 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         // For stereo sources, choose the downmix strategy through input_mode.
         let hasInputSignal = false;
         const inRight = input.length > 1 ? input[1] : null;
+        const hasSideRmsHook = this._hasWasmFn('_wasm_te2350_set_input_side_rms');
         if (inChannel) {
             if (!inRight || this.inputMode === 'left_only') {
                 inView.set(inChannel.subarray(0, numSamples));
+                if (hasSideRmsHook) {
+                    // Avoid stale side RMS when stereo side info is unavailable by topology or mode.
+                    this.wasmModule._wasm_te2350_set_input_side_rms(0);
+                }
             } else {
                 for (let i = 0; i < numSamples; i++) {
                     const l = inChannel[i];
@@ -346,6 +351,10 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             }
         } else {
             inView.fill(0);
+            if (hasSideRmsHook) {
+                // No input block; clear side RMS to prevent stale control state in WASM.
+                this.wasmModule._wasm_te2350_set_input_side_rms(0);
+            }
         }
 
         // Call WASM process function
