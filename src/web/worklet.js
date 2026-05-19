@@ -17,7 +17,8 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         this.modRate = 0.5;
         this.modDepth = 0.4;
         this.reportedUnavailableParams = new Set();
-        this.inputMode = 'mono_avg'; // left_only | mono_avg | mono_sum_comp | mid
+        this.validInputModes = ['left_only', 'mono_avg', 'mono_sum_comp', 'mid'];
+        this.inputMode = 'mono_avg';
         this.currentTopology = 'mono_in_stereo_out';
 
         this.port.onmessage = this.handleMessage.bind(this);
@@ -190,10 +191,10 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
             case 'input_mode':
                 if (typeof value === 'string') {
                     const normalized = value.toLowerCase();
-                    const valid = ['left_only', 'mono_avg', 'mono_sum_comp', 'mid'];
-                    if (valid.includes(normalized)) {
+                    if (this.validInputModes.includes(normalized)) {
                         this.inputMode = normalized;
                         this.port.postMessage({ type: 'debug', message: `[InputMode] set to ${this.inputMode}` });
+                        this._reportCapabilities();
                     } else {
                         this.port.postMessage({ type: 'debug', message: `[InputMode] invalid value: ${value}` });
                     }
@@ -247,7 +248,7 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
         this.port.postMessage({
             type: 'io_topology',
             topology: this.currentTopology,
-            supportedInputModes: ['left_only', 'mono_avg', 'mono_sum_comp', 'mid'],
+            supportedInputModes: this.validInputModes,
             activeInputMode: this.inputMode
         });
     }
@@ -314,32 +315,22 @@ class TE2350WorkletProcessor extends AudioWorkletProcessor {
                     this.wasmModule._wasm_te2350_set_input_side_rms(0);
                 }
             } else {
+                // 0.707 compensation preserves perceived energy better than plain 0.5 average.
+                const mixGain = this.inputMode === 'mono_sum_comp' ? 0.70710678 : 0.5;
+                let sideEnergy = 0;
+
                 for (let i = 0; i < numSamples; i++) {
                     const l = inChannel[i];
                     const r = inRight[i];
-                    switch (this.inputMode) {
-                        case 'mono_sum_comp':
-                            // 0.707 compensation preserves perceived energy better than plain 0.5 average.
-                            inView[i] = (l + r) * 0.70710678;
-                            break;
-                        case 'mid':
-                            // Mid extraction (M=(L+R)/2), useful when side carries mostly decorrelated content.
-                            inView[i] = (l + r) * 0.5;
-                            break;
-                        case 'mono_avg':
-                        default:
-                            inView[i] = (l + r) * 0.5;
-                            break;
+                    inView[i] = (l + r) * mixGain;
+                    if (hasSideRmsHook) {
+                        const side = (l - r) * 0.5;
+                        sideEnergy += side * side;
                     }
                 }
 
                 // Optional future API path: feed side-channel analysis to WASM internals when available.
-                if (this._hasWasmFn('_wasm_te2350_set_input_side_rms')) {
-                    let sideEnergy = 0;
-                    for (let i = 0; i < numSamples; i++) {
-                        const side = (inChannel[i] - inRight[i]) * 0.5;
-                        sideEnergy += side * side;
-                    }
+                if (hasSideRmsHook) {
                     const sideRms = Math.sqrt(sideEnergy / numSamples);
                     this.wasmModule._wasm_te2350_set_input_side_rms(sideRms);
                 }
