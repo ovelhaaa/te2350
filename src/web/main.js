@@ -15,6 +15,8 @@ const exportMp3Btn = document.getElementById('exportMp3Btn');
 const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
+const dynamicallyUnavailableParams = new Set();
+
 const capabilityBindings = {
     presence: { id: 'presence', type: 'slider', label: 'Presence' },
     octave_feedback_amount: { id: 'octave_feedback_amount', type: 'slider', label: 'Octave Feedback Amount' },
@@ -61,6 +63,7 @@ const debugWasmInit = document.getElementById('debugWasmInit');
 const debugReadyMsg = document.getElementById('debugReadyMsg');
 const debugActiveSource = document.getElementById('debugActiveSource');
 const debugLastStage = document.getElementById('debugLastStage');
+const debugUnavailableParams = document.getElementById('debugUnavailableParams');
 const bootstrapLog = document.getElementById('bootstrapLog');
 const bypassMode = document.getElementById('bypassMode');
 
@@ -87,8 +90,21 @@ function updateDebugUI() {
 setInterval(updateDebugUI, 500); // Poll context state occasionally
 
 function showCapabilityWarning(missingLabels) {
+    if (debugUnavailableParams) {
+        debugUnavailableParams.textContent = missingLabels.length ? missingLabels.join(', ') : 'none';
+        debugUnavailableParams.classList.toggle('bad', missingLabels.length > 0);
+        debugUnavailableParams.classList.toggle('ok', missingLabels.length === 0);
+        debugUnavailableParams.classList.toggle('dim', false);
+    }
+
     if (!warningDiv) return;
-    if (!missingLabels.length) return;
+
+    if (!missingLabels.length) {
+        warningDiv.style.display = 'none';
+        warningDiv.textContent = '';
+        return;
+    }
+
     warningDiv.style.display = 'block';
     warningDiv.textContent = `Some controls are unavailable in the loaded WASM build and were disabled: ${missingLabels.join(', ')}.`;
 }
@@ -117,6 +133,13 @@ function applyCapabilityMap(capabilities = {}) {
     });
 
     showCapabilityWarning(missingLabels);
+}
+
+
+function registerUnavailableParam(param) {
+    dynamicallyUnavailableParams.add(param);
+    const labels = [...dynamicallyUnavailableParams].map((name) => capabilityBindings[name]?.label || name);
+    showCapabilityWarning(labels);
 }
 
 let decodedAudioBuffer = null;
@@ -273,6 +296,7 @@ async function initAudioContext() {
                 applyCapabilityMap(data.capabilities || {});
             } else if (data.type === 'parameter_unavailable') {
                 console.warn(`Parameter unavailable in current WASM build: ${data.param} (${data.functionName})`);
+                registerUnavailableParam(data.param);
             }
         };
 
