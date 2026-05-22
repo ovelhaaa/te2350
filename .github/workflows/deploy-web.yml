@@ -35,7 +35,18 @@ jobs:
       - name: Build WebAssembly
         run: |
           cd src/web
-          make
+          make clean all
+
+      - name: Verify required WASM exports (FDN support)
+        run: |
+          if ! grep -q "_wasm_te2350_set_fdn_enabled" src/web/te2350.js; then
+            echo "ERROR: _wasm_te2350_set_fdn_enabled export missing from generated web build."
+            exit 1
+          fi
+          if ! grep -q "fdn_enabled: '_wasm_te2350_set_fdn_enabled'" src/web/te2350-worklet.bundle.js; then
+            echo "ERROR: FDN capability binding missing in worklet bundle."
+            exit 1
+          fi
 
       - name: Prepare Site Directory
         run: |
