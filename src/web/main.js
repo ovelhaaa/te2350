@@ -15,6 +15,8 @@ const exportMp3Btn = document.getElementById('exportMp3Btn');
 const stopBtn = document.getElementById('stopBtn');
 const fileInput = document.getElementById('fileInput');
 const warningDiv = document.getElementById('warning');
+const dynamicallyUnavailableParams = new Set();
+
 const capabilityBindings = {
     presence: { id: 'presence', type: 'slider', label: 'Presence' },
     octave_feedback_amount: { id: 'octave_feedback_amount', type: 'slider', label: 'Octave Feedback Amount' },
@@ -61,6 +63,8 @@ const debugWasmInit = document.getElementById('debugWasmInit');
 const debugReadyMsg = document.getElementById('debugReadyMsg');
 const debugActiveSource = document.getElementById('debugActiveSource');
 const debugLastStage = document.getElementById('debugLastStage');
+const debugUnavailableParams = document.getElementById('debugUnavailableParams');
+const debugAvailableParams = document.getElementById('debugAvailableParams');
 const bootstrapLog = document.getElementById('bootstrapLog');
 const bypassMode = document.getElementById('bypassMode');
 
@@ -87,13 +91,43 @@ function updateDebugUI() {
 setInterval(updateDebugUI, 500); // Poll context state occasionally
 
 function showCapabilityWarning(missingLabels) {
+    const unavailableParamNames = new Set([...dynamicallyUnavailableParams]);
+    const unavailableLabels = [];
+    const availableLabels = [];
+
+    Object.entries(capabilityBindings).forEach(([name, binding]) => {
+        const isUnavailable = unavailableParamNames.has(name) || missingLabels.includes(binding.label);
+        if (isUnavailable) unavailableLabels.push(binding.label);
+        else availableLabels.push(binding.label);
+    });
+
+    if (debugUnavailableParams) {
+        debugUnavailableParams.textContent = unavailableLabels.length ? unavailableLabels.join(', ') : 'none';
+        debugUnavailableParams.classList.toggle('bad', unavailableLabels.length > 0);
+        debugUnavailableParams.classList.toggle('ok', unavailableLabels.length === 0);
+        debugUnavailableParams.classList.toggle('dim', false);
+    }
+    if (debugAvailableParams) {
+        debugAvailableParams.textContent = availableLabels.length ? availableLabels.join(', ') : 'none';
+        debugAvailableParams.classList.toggle('ok', availableLabels.length > 0);
+        debugAvailableParams.classList.toggle('dim', availableLabels.length === 0);
+        debugAvailableParams.classList.toggle('bad', false);
+    }
+
     if (!warningDiv) return;
-    if (!missingLabels.length) return;
+
+    if (!unavailableLabels.length) {
+        warningDiv.style.display = 'none';
+        warningDiv.textContent = '';
+        return;
+    }
+
     warningDiv.style.display = 'block';
-    warningDiv.textContent = `Some controls are unavailable in the loaded WASM build and were disabled: ${missingLabels.join(', ')}.`;
+    warningDiv.textContent = `Some controls are unavailable in the loaded WASM build and were disabled: ${unavailableLabels.join(', ')}.`;
 }
 
 function applyCapabilityMap(capabilities = {}) {
+    dynamicallyUnavailableParams.clear();
     const missingLabels = [];
 
     Object.entries(capabilityBindings).forEach(([param, binding]) => {
@@ -107,6 +141,11 @@ function applyCapabilityMap(capabilities = {}) {
 
         el.disabled = !available;
         el.dataset.available = available ? '1' : '0';
+        const container = el.closest('.knob-cell, .toggle-row');
+        if (container) {
+            container.classList.toggle('unavailable', !available);
+            container.title = available ? '' : `${binding.label} unavailable in current WASM build`;
+        }
 
         if (binding.type === 'slider') {
             const arc = document.getElementById(`arc-${binding.id}`);
@@ -117,6 +156,26 @@ function applyCapabilityMap(capabilities = {}) {
     });
 
     showCapabilityWarning(missingLabels);
+}
+
+
+function registerUnavailableParam(param) {
+    dynamicallyUnavailableParams.add(param);
+    const labels = [...dynamicallyUnavailableParams].map((name) => capabilityBindings[name]?.label || name);
+    const binding = capabilityBindings[param];
+    if (binding) {
+        const el = document.getElementById(binding.id);
+        if (el) {
+            el.disabled = true;
+            el.dataset.available = '0';
+            const container = el.closest('.knob-cell, .toggle-row');
+            if (container) {
+                container.classList.add('unavailable');
+                container.title = `${binding.label} unavailable in current WASM build`;
+            }
+        }
+    }
+    showCapabilityWarning(labels);
 }
 
 let decodedAudioBuffer = null;
@@ -273,6 +332,7 @@ async function initAudioContext() {
                 applyCapabilityMap(data.capabilities || {});
             } else if (data.type === 'parameter_unavailable') {
                 console.warn(`Parameter unavailable in current WASM build: ${data.param} (${data.functionName})`);
+                registerUnavailableParam(data.param);
             }
         };
 

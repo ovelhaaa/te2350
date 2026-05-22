@@ -245,6 +245,20 @@
       transition: border-color 0.15s;
     }
     .knob-cell:focus-within { border-color: var(--accent); }
+    .knob-cell.unavailable {
+      border-color: #5a2626;
+      background: #1b1313;
+    }
+    .knob-cell.unavailable::after {
+      content: 'UNAVAILABLE';
+      display: block;
+      margin-top: 6px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: var(--red);
+      text-align: center;
+    }
 
     .knob-header {
       display: flex;
@@ -342,6 +356,10 @@
       user-select: none;
     }
     .toggle-row:hover { border-color: var(--accent2); }
+    .toggle-row.unavailable {
+      border-color: #5a2626;
+      background: #1b1313;
+    }
 
     .toggle-row input[type="checkbox"] {
       display: none;
@@ -361,6 +379,7 @@
       color: var(--text-dim);
     }
     .toggle-row:has(input[type="checkbox"]:checked) .toggle-label { color: var(--accent2); }
+    .toggle-row.unavailable .toggle-label { color: var(--red); }
 
     .toggle-pip {
       width: 32px;
@@ -752,6 +771,14 @@
       <div class="status-row">
         <span class="status-key">Source</span>
         <span class="status-val dim" id="debugActiveSource">none</span>
+      </div>
+      <div class="status-row">
+        <span class="status-key">Unavailable Params</span>
+        <span class="status-val dim" id="debugUnavailableParams">checking...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-key">Available Params</span>
+        <span class="status-val dim" id="debugAvailableParams">checking...</span>
       </div>
       <div class="status-row">
         <span class="status-key">Last Stage</span>
