@@ -110,6 +110,7 @@ function showCapabilityWarning(missingLabels) {
 }
 
 function applyCapabilityMap(capabilities = {}) {
+    dynamicallyUnavailableParams.clear();
     const missingLabels = [];
 
     Object.entries(capabilityBindings).forEach(([param, binding]) => {
@@ -123,6 +124,11 @@ function applyCapabilityMap(capabilities = {}) {
 
         el.disabled = !available;
         el.dataset.available = available ? '1' : '0';
+        const container = el.closest('.knob-cell, .toggle-row');
+        if (container) {
+            container.classList.toggle('unavailable', !available);
+            container.title = available ? '' : `${binding.label} unavailable in current WASM build`;
+        }
 
         if (binding.type === 'slider') {
             const arc = document.getElementById(`arc-${binding.id}`);
@@ -139,6 +145,19 @@ function applyCapabilityMap(capabilities = {}) {
 function registerUnavailableParam(param) {
     dynamicallyUnavailableParams.add(param);
     const labels = [...dynamicallyUnavailableParams].map((name) => capabilityBindings[name]?.label || name);
+    const binding = capabilityBindings[param];
+    if (binding) {
+        const el = document.getElementById(binding.id);
+        if (el) {
+            el.disabled = true;
+            el.dataset.available = '0';
+            const container = el.closest('.knob-cell, .toggle-row');
+            if (container) {
+                container.classList.add('unavailable');
+                container.title = `${binding.label} unavailable in current WASM build`;
+            }
+        }
+    }
     showCapabilityWarning(labels);
 }
 
