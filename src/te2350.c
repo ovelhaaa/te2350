@@ -197,7 +197,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->fdn_enabled = true;
 
   ctx->p_feedback = FLOAT_TO_Q31(0.88f);
-  ctx->p_tail = FLOAT_TO_Q31(0.50f);
+  ctx->p_tail = 0;
   ctx->p_time = FLOAT_TO_Q31(0.74f);
   ctx->p_rate = FLOAT_TO_Q31(0.45f);
   ctx->p_depth = FLOAT_TO_Q31(0.32f);
@@ -523,6 +523,9 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   // Dedicated Tail macro: extends decay mostly independent from the base feedback control.
   q31_t tail_auto_mix = q31_mul(q31_add_sat(bloom, sustain_hint), FLOAT_TO_Q31(0.08f));
   if (tail_auto_mix > FLOAT_TO_Q31(0.18f)) tail_auto_mix = FLOAT_TO_Q31(0.18f);
+  // Keep legacy decay when Tail is zero: auto extension only participates once
+  // the dedicated Tail macro is raised by the client.
+  tail_auto_mix = q31_mul(tail_auto_mix, ctx->p_tail_smoothed);
   q31_t tail_mix = q31_add_sat(q31_mul(ctx->p_tail_smoothed, FLOAT_TO_Q31(0.62f)), tail_auto_mix);
   if (tail_mix > FLOAT_TO_Q31(0.84f)) tail_mix = FLOAT_TO_Q31(0.84f);
   effective_feedback = q31_lerp(effective_feedback, FLOAT_TO_Q31(0.995f), tail_mix);
