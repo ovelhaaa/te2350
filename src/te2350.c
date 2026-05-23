@@ -558,6 +558,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
         tail_tone_trim = q31_add_sat(tail_tone_trim, FLOAT_TO_Q31(0.035f));
       }
       tone_for_fdn = q31_sub_sat(tone_for_fdn, tail_tone_trim);
+      if (tone_for_fdn < 0) tone_for_fdn = 0;
       dsp_fdn4_set_params(&ctx->fdn, effective_feedback, tone_for_fdn, diff_eff, ctx->p_rate, depth_eff);
     }
     ctx->fdn_param_counter = (ctx->fdn_param_counter + 1u) & 0x0Fu;
