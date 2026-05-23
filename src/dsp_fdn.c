@@ -104,10 +104,10 @@ void dsp_fdn4_set_params(dsp_fdn4_t *fdn,
   mod_rate = clamp_unit(mod_rate);
   mod_depth = clamp_unit(mod_depth);
 
-  // Keep the loop below unity; the Hadamard core diffuses energy while the
-  // fixed headroom, filters, and saturation remove additional energy.
-  q31_t fb = q31_add_sat(FLOAT_TO_Q31(0.48f), q31_mul(feedback, FLOAT_TO_Q31(0.47f)));
-  if (fb > FLOAT_TO_Q31(0.965f)) fb = FLOAT_TO_Q31(0.965f);
+  // Keep the loop below unity; this mapping intentionally supports a longer
+  // ambience tail while preserving margin for modulation transients.
+  q31_t fb = q31_add_sat(FLOAT_TO_Q31(0.58f), q31_mul(feedback, FLOAT_TO_Q31(0.40f)));
+  if (fb > FLOAT_TO_Q31(0.985f)) fb = FLOAT_TO_Q31(0.985f);
   fdn->feedback = fb;
 
   fdn->input_gain = q31_add_sat(FLOAT_TO_Q31(0.16f), q31_mul(diffusion, FLOAT_TO_Q31(0.24f)));
