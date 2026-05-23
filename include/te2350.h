@@ -96,6 +96,7 @@ typedef struct {
   bool octave_feedback_enabled;
   q31_t octave_feedback_amount; // Amount 0..1
   q31_t p_feedback;
+  q31_t p_tail;      // Tail macro: controls decay length independently of base feedback density
   q31_t p_time;          // Main delay time target (0..1 -> maps to ms)
   q31_t p_rate;   // Modulation rate
   q31_t p_depth;  // Modulation depth
@@ -110,10 +111,12 @@ typedef struct {
   q31_t p_wobble;     // Feedback wobble amount (0 = stable, Q31_MAX = wobbly)
   q31_t p_presence;   // Presence rail gain (0 = soft, Q31_MAX = articulate)
   q31_t p_space_gravity; // Internal macro behavior (derived from existing params)
+  bool p_infinite_lite;  // Optional high-clamp sustain mode with dynamic protection
 
   // Smoothed runtime values
   q31_t p_time_smoothed;
   q31_t p_feedback_smoothed;
+  q31_t p_tail_smoothed;
   q31_t p_mix_smoothed;
   q31_t p_tone_smoothed;
   q31_t p_diffusion_smoothed;
@@ -176,6 +179,7 @@ q31_t te2350_get_modulator(te2350_t *ctx);
 
 // Parameter Setters
 void te2350_set_feedback(te2350_t *ctx, q31_t feedback); // 0..~0.95
+void te2350_set_tail(te2350_t *ctx, q31_t tail);         // 0..1
 void te2350_set_time(te2350_t *ctx, q31_t time);         // 0..1
 void te2350_set_mod(te2350_t *ctx, q31_t rate, q31_t depth);
 void te2350_set_tone(te2350_t *ctx, q31_t tone);
@@ -197,5 +201,6 @@ void te2350_set_chaos(te2350_t *ctx, q31_t chaos);       // 0..1 (modulation cha
 void te2350_set_ducking(te2350_t *ctx, q31_t ducking);   // 0..1 (envelope ducking)
 void te2350_set_wobble(te2350_t *ctx, q31_t wobble);     // 0..1 (feedback wobble)
 void te2350_set_presence(te2350_t *ctx, q31_t presence); // 0..1 (presence rail blend)
+void te2350_set_infinite_lite(te2350_t *ctx, bool enabled); // Optional high sustain mode
 
 #endif // TE_2350_H
