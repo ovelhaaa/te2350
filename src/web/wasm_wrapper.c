@@ -76,6 +76,11 @@ void wasm_te2350_set_feedback(float feedback) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_tail(float tail) {
+    te2350_set_tail(&pedal, float_to_q31_safe(tail));
+}
+
+EMSCRIPTEN_KEEPALIVE
 void wasm_te2350_set_mix(float mix) {
     te2350_set_mix(&pedal, float_to_q31_safe(mix));
 }
@@ -133,6 +138,11 @@ void wasm_te2350_set_freeze(bool freeze) {
 EMSCRIPTEN_KEEPALIVE
 void wasm_te2350_set_fdn_enabled(bool enabled) {
     te2350_set_fdn_enabled(&pedal, enabled);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void wasm_te2350_set_infinite_lite(bool enabled) {
+    te2350_set_infinite_lite(&pedal, enabled);
 }
 
 EMSCRIPTEN_KEEPALIVE

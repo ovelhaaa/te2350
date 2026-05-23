@@ -197,6 +197,7 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->fdn_enabled = true;
 
   ctx->p_feedback = FLOAT_TO_Q31(0.88f);
+  ctx->p_tail = 0;
   ctx->p_time = FLOAT_TO_Q31(0.74f);
   ctx->p_rate = FLOAT_TO_Q31(0.45f);
   ctx->p_depth = FLOAT_TO_Q31(0.32f);
@@ -210,9 +211,11 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->p_wobble = FLOAT_TO_Q31(0.3f);
   ctx->p_presence = FLOAT_TO_Q31(0.20f);
   ctx->p_space_gravity = FLOAT_TO_Q31(0.55f);
+  ctx->p_infinite_lite = false;
 
   ctx->p_time_smoothed = ctx->p_time;
   ctx->p_feedback_smoothed = ctx->p_feedback;
+  ctx->p_tail_smoothed = ctx->p_tail;
   ctx->p_mix_smoothed = ctx->p_mix;
   ctx->p_tone_smoothed = ctx->p_tone;
   ctx->p_diffusion_smoothed = ctx->p_diffusion;
@@ -272,6 +275,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   if (fast_smooth > FLOAT_TO_Q31(0.1f)) fast_smooth = FLOAT_TO_Q31(0.1f);
 
   SMOOTH_PARAM(ctx->p_feedback, ctx->p_feedback_smoothed, fast_smooth);
+  SMOOTH_PARAM(ctx->p_tail, ctx->p_tail_smoothed, fast_smooth);
   SMOOTH_PARAM(ctx->p_mix, ctx->p_mix_smoothed, fast_smooth);
   SMOOTH_PARAM(ctx->p_tone, ctx->p_tone_smoothed, fast_smooth);
   SMOOTH_PARAM(ctx->p_diffusion, ctx->p_diffusion_smoothed, fast_smooth);
@@ -516,10 +520,15 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   }
 
   q31_t effective_feedback = ctx->p_feedback_smoothed;
-  // Extend tail by steering feedback toward a safe ceiling with controlled mix.
-  q31_t tail_feedback_mix = q31_mul(q31_add_sat(bloom, sustain_hint), FLOAT_TO_Q31(0.10f));
-  if (tail_feedback_mix > FLOAT_TO_Q31(0.35f)) tail_feedback_mix = FLOAT_TO_Q31(0.35f);
-  effective_feedback = q31_lerp(effective_feedback, FLOAT_TO_Q31(0.995f), tail_feedback_mix);
+  // Dedicated Tail macro: extends decay mostly independent from the base feedback control.
+  q31_t tail_auto_mix = q31_mul(q31_add_sat(bloom, sustain_hint), FLOAT_TO_Q31(0.08f));
+  if (tail_auto_mix > FLOAT_TO_Q31(0.18f)) tail_auto_mix = FLOAT_TO_Q31(0.18f);
+  // Keep legacy decay when Tail is zero: auto extension only participates once
+  // the dedicated Tail macro is raised by the client.
+  tail_auto_mix = q31_mul(tail_auto_mix, ctx->p_tail_smoothed);
+  q31_t tail_mix = q31_add_sat(q31_mul(ctx->p_tail_smoothed, FLOAT_TO_Q31(0.62f)), tail_auto_mix);
+  if (tail_mix > FLOAT_TO_Q31(0.84f)) tail_mix = FLOAT_TO_Q31(0.84f);
+  effective_feedback = q31_lerp(effective_feedback, FLOAT_TO_Q31(0.995f), tail_mix);
   q31_t feedback_gain_wobble = q31_mul(space_rnd, q31_add_sat(q31_mul(chaos_audible, FLOAT_TO_Q31(0.018f)),
                                                                q31_mul(chaos_unstable, FLOAT_TO_Q31(0.040f))));
   effective_feedback = q31_add_sat(effective_feedback, feedback_gain_wobble);
@@ -528,6 +537,13 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     effective_feedback = q31_lerp(effective_feedback, freeze_fb, ctx->freeze_crossfade);
   }
   q31_t feedback_ceiling = q31_sub_sat(FLOAT_TO_Q31(0.995f), q31_mul(chaos_unstable, FLOAT_TO_Q31(0.018f)));
+  if (ctx->p_infinite_lite) {
+    // Infinite-lite: higher ceiling with dynamic protection via envelope/instability trims.
+    q31_t protection = q31_add_sat(q31_mul(env_level, FLOAT_TO_Q31(0.020f)),
+                                   q31_mul(chaos_unstable, FLOAT_TO_Q31(0.020f)));
+    feedback_ceiling = q31_sub_sat(FLOAT_TO_Q31(0.9990f), protection);
+    if (feedback_ceiling < FLOAT_TO_Q31(0.975f)) feedback_ceiling = FLOAT_TO_Q31(0.975f);
+  }
   if (effective_feedback > feedback_ceiling) effective_feedback = feedback_ceiling;
   if (effective_feedback < 0) effective_feedback = 0;
 
@@ -535,7 +551,15 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t fdn_r = 0;
   if (ctx->fdn_enabled) {
     if (ctx->fdn_param_counter == 0) {
-      dsp_fdn4_set_params(&ctx->fdn, effective_feedback, ctx->p_tone_smoothed, diff_eff, ctx->p_rate, depth_eff);
+      q31_t tone_for_fdn = ctx->p_tone_smoothed;
+      // Tail-dependent air LP compensation: longer tails get slightly softer highs.
+      q31_t tail_tone_trim = q31_mul(ctx->p_tail_smoothed, FLOAT_TO_Q31(0.10f));
+      if (ctx->p_infinite_lite) {
+        tail_tone_trim = q31_add_sat(tail_tone_trim, FLOAT_TO_Q31(0.035f));
+      }
+      tone_for_fdn = q31_sub_sat(tone_for_fdn, tail_tone_trim);
+      if (tone_for_fdn < 0) tone_for_fdn = 0;
+      dsp_fdn4_set_params(&ctx->fdn, effective_feedback, tone_for_fdn, diff_eff, ctx->p_rate, depth_eff);
     }
     ctx->fdn_param_counter = (ctx->fdn_param_counter + 1u) & 0x0Fu;
     dsp_fdn4_process(&ctx->fdn, post2, &fdn_l, &fdn_r);
@@ -720,6 +744,10 @@ void te2350_set_feedback(te2350_t *ctx, q31_t feedback) {
   ctx->p_feedback = clamp_q31_unit(feedback);
 }
 
+void te2350_set_tail(te2350_t *ctx, q31_t tail) {
+  ctx->p_tail = clamp_q31_unit(tail);
+}
+
 void te2350_set_time(te2350_t *ctx, q31_t time) {
   ctx->p_time = clamp_q31_unit(time);
 }
@@ -822,6 +850,10 @@ void te2350_set_wobble(te2350_t *ctx, q31_t wobble) {
 
 void te2350_set_presence(te2350_t *ctx, q31_t presence) {
   ctx->p_presence = clamp_q31_unit(presence);
+}
+
+void te2350_set_infinite_lite(te2350_t *ctx, bool enabled) {
+  ctx->p_infinite_lite = enabled;
 }
 
 static void build_time_lut(te2350_t *ctx) {
