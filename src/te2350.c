@@ -196,20 +196,20 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   ctx->octave_feedback_amount = 0;
   ctx->fdn_enabled = true;
 
-  ctx->p_feedback = FLOAT_TO_Q31(0.88f);
-  ctx->p_tail = 0;
-  ctx->p_time = FLOAT_TO_Q31(0.74f);
+  ctx->p_feedback = FLOAT_TO_Q31(0.78f);
+  ctx->p_tail = FLOAT_TO_Q31(0.35f);
+  ctx->p_time = FLOAT_TO_Q31(0.62f);
   ctx->p_rate = FLOAT_TO_Q31(0.45f);
   ctx->p_depth = FLOAT_TO_Q31(0.32f);
-  ctx->p_tone = FLOAT_TO_Q31(0.12f);
-  ctx->p_mix = FLOAT_TO_Q31(0.5f);
-  ctx->p_shimmer = 0;
-  ctx->p_diffusion = FLOAT_TO_Q31(0.8f);
-  ctx->p_chaos = FLOAT_TO_Q31(0.2f);
+  ctx->p_tone = FLOAT_TO_Q31(0.20f);
+  ctx->p_mix = FLOAT_TO_Q31(0.46f);
+  ctx->p_shimmer = FLOAT_TO_Q31(0.12f);
+  ctx->p_diffusion = FLOAT_TO_Q31(0.58f);
+  ctx->p_chaos = FLOAT_TO_Q31(0.42f);
   update_chaos_zones(ctx);
   ctx->p_ducking = FLOAT_TO_Q31(0.15f);
-  ctx->p_wobble = FLOAT_TO_Q31(0.3f);
-  ctx->p_presence = FLOAT_TO_Q31(0.20f);
+  ctx->p_wobble = FLOAT_TO_Q31(0.24f);
+  ctx->p_presence = FLOAT_TO_Q31(0.38f);
   ctx->p_space_gravity = FLOAT_TO_Q31(0.55f);
   ctx->p_infinite_lite = false;
 
@@ -435,6 +435,12 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   }
 
   q31_t late_accents = 0;
+  q31_t ghost_taps = 0;
+  q31_t ghost_amt = q31_add_sat(q31_mul(chaos_audible, FLOAT_TO_Q31(0.55f)),
+                                q31_mul(chaos_unstable, FLOAT_TO_Q31(0.35f)));
+  ghost_amt = q31_add_sat(ghost_amt, q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.20f)));
+  ghost_amt = q31_sub_sat(ghost_amt, q31_mul(transient_hint, FLOAT_TO_Q31(0.30f)));
+  ghost_amt = clamp_q31_unit(ghost_amt);
   q31_t late_freeze_scale = q31_sub_sat(Q31_MAX, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(0.9f)));
   q31_t late_damp = q31_sub_sat(FLOAT_TO_Q31(0.95f), q31_mul(gravity, FLOAT_TO_Q31(0.12f)));
   late_damp = q31_add_sat(late_damp, q31_mul(sustain_hint, FLOAT_TO_Q31(0.03f)));
@@ -453,6 +459,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     g = q31_mul(g, q31_add_sat(FLOAT_TO_Q31(0.90f), q31_mul(gravity, FLOAT_TO_Q31(0.18f))));
     g = q31_mul(g, q31_add_sat(FLOAT_TO_Q31(0.96f), q31_mul(sustain_hint, FLOAT_TO_Q31(0.06f))));
     late_accents = q31_add_sat(late_accents, q31_mul(tap, g));
+
+    int32_t ghost_offset = 23 + (i * 17);
+    int32_t ghost_d = (int32_t)ctx->late_tap_delays[i] + ghost_offset - (late_jitter >> 1);
+    if (ghost_d < 1) ghost_d = 1;
+    if (ghost_d >= TE_MAIN_DELAY_SIZE) ghost_d = TE_MAIN_DELAY_SIZE - 1;
+    q31_t ghost_tap = dsp_delay_read(&ctx->main_delay, (size_t)ghost_d);
+    if (i & 1) ghost_tap = -ghost_tap;
+
+    q31_t ghost_g = q31_add_sat(FLOAT_TO_Q31(0.055f), q31_mul(ghost_amt, FLOAT_TO_Q31(0.075f)));
+    ghost_g = q31_add_sat(ghost_g, q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.045f)));
+    ghost_taps = q31_add_sat(ghost_taps, q31_mul(ghost_tap, ghost_g));
   }
 
   q31_t post_in = q31_add_sat(delay_out, q31_mul(early_cloud, FLOAT_TO_Q31(0.55f)));
@@ -498,7 +515,11 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
     q31_t shimmer_gain = q31_add_sat(TE_SHIMMER_GAIN_BASE, q31_mul(bloom_wash, TE_SHIMMER_GAIN_BLOOM_MIX));
     shimmer_gain = q31_sub_sat(shimmer_gain, q31_mul(freeze_lock, TE_SHIMMER_GAIN_FREEZE_TRIM));
-    shimmer_parallel = q31_mul(shimmer_voiced, q31_mul(ctx->p_shimmer, shimmer_gain));
+    q31_t shimmer_event = q31_mul(ctx->p_shimmer, sustain_hint);
+    shimmer_event = q31_add_sat(shimmer_event, q31_mul(bloom, FLOAT_TO_Q31(0.18f)));
+    shimmer_event = q31_sub_sat(shimmer_event, q31_mul(transient_hint, FLOAT_TO_Q31(0.40f)));
+    shimmer_event = clamp_q31_unit(shimmer_event);
+    shimmer_parallel = q31_mul(shimmer_voiced, q31_mul(shimmer_event, shimmer_gain));
   }
 
   // Octave return is gated by octave_feedback_enabled so the toggle removes
@@ -576,9 +597,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t fdn_side = 0;
 
-  q31_t wet_mid = q31_add_sat(q31_mul(q31_mul(post2, FLOAT_TO_Q31(0.24f)), bloom_tone_trim_diffuse),
-                              q31_mul(q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_mid));
+  q31_t delay_identity = q31_sub_sat(Q31_MAX, q31_mul(diff_eff, FLOAT_TO_Q31(0.55f)));
+  if (delay_identity < FLOAT_TO_Q31(0.42f)) delay_identity = FLOAT_TO_Q31(0.42f);
+  q31_t diffuse_identity = q31_sub_sat(Q31_MAX, delay_identity);
+  q31_t clear_echo = q31_mul(delay_out, delay_identity);
+  q31_t diffuse_body = q31_mul(post2, diffuse_identity);
+
+  q31_t wet_mid = q31_add_sat(q31_mul(q31_mul(clear_echo, FLOAT_TO_Q31(0.42f)), bloom_tone_trim_mid),
+                              q31_mul(q31_mul(diffuse_body, FLOAT_TO_Q31(0.36f)), bloom_tone_trim_diffuse));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(early_cloud, FLOAT_TO_Q31(0.20f)), bloom_tone_trim_mid));
   wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(late_accents, FLOAT_TO_Q31(0.14f)), bloom_tone_trim_diffuse));
+  wet_mid = q31_add_sat(wet_mid, q31_mul(q31_mul(ghost_taps, FLOAT_TO_Q31(0.35f)), bloom_tone_trim_mid));
   if (ctx->fdn_enabled) {
     q31_t fdn_mid = q31_add_sat(fdn_l >> 1, fdn_r >> 1);
     fdn_side = q31_sub_sat(fdn_l >> 1, fdn_r >> 1);
@@ -621,6 +650,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   q31_t side_diff = q31_sub_sat(post1 >> 1, post2 >> 1);
   q31_t wet_side = q31_add_sat(q31_mul(side_diff, FLOAT_TO_Q31(0.42f)), q31_mul(side_from_taps, FLOAT_TO_Q31(0.32f)));
+  wet_side = q31_add_sat(wet_side, q31_mul(ghost_taps, FLOAT_TO_Q31(0.70f)));
   if (ctx->fdn_enabled) {
     wet_side = q31_add_sat(wet_side, q31_mul(fdn_side, FLOAT_TO_Q31(0.48f)));
   }
@@ -662,6 +692,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   width = q31_add_sat(width, q31_mul(gravity, FLOAT_TO_Q31(0.12f)));
   width = q31_add_sat(width, q31_mul(chaos_audible, FLOAT_TO_Q31(0.055f)));
   width = q31_add_sat(width, q31_mul(chaos_unstable, FLOAT_TO_Q31(0.095f)));
+  width = q31_add_sat(width, q31_mul(ghost_amt, FLOAT_TO_Q31(0.070f)));
   width = q31_sub_sat(width, q31_mul(transient_hint, FLOAT_TO_Q31(0.08f)));
   if (width > FLOAT_TO_Q31(0.94f)) width = FLOAT_TO_Q31(0.94f);
 
@@ -921,6 +952,15 @@ static q31_t feedback_condition(te2350_t *ctx,
   q31_t lp_feedback_gain = q31_mul(dry_feedback_headroom, TE_FEEDBACK_LP_TO_DRY_RATIO);
   q31_t hp_feedback_gain = q31_mul(dry_feedback_headroom, TE_FEEDBACK_HP_TO_DRY_RATIO);
   q31_t shaped = q31_add_sat(q31_mul(lp, lp_feedback_gain), q31_mul(hp, hp_feedback_gain));
+
+  q31_t formant_bp = 0;
+  q31_t formant_hp = 0;
+  q31_t formant_lp = dsp_svf_process(&ctx->damping_filter, shaped, &formant_bp, &formant_hp);
+  q31_t formant_amt = q31_add_sat(q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.10f)),
+                                  q31_mul(ctx->p_chaos_audible, FLOAT_TO_Q31(0.08f)));
+  if (formant_amt > FLOAT_TO_Q31(0.16f)) formant_amt = FLOAT_TO_Q31(0.16f);
+  shaped = q31_add_sat(q31_mul(formant_lp, FLOAT_TO_Q31(0.94f)), q31_mul(formant_bp, formant_amt));
+
   shaped = q31_add_sat(shaped, q31_mul(shimmer_return, shimmer_feedback_gain));
   q31_t loop_darkening = q31_sub_sat(Q31_MAX, q31_mul(ctx->bloom_state, FLOAT_TO_Q31(0.24f)));
   if (loop_darkening < FLOAT_TO_Q31(0.62f)) loop_darkening = FLOAT_TO_Q31(0.62f);
