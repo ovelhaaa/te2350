@@ -111,14 +111,14 @@ static int32_t te2350_scaled_main_mod_depth(const te2350_t *ctx, int32_t delay_b
   percent = q31_add_sat(percent, q31_mul(ctx->p_chaos, TE_MAIN_MOD_CHAOS_PCT));
 
   int32_t depth = (int32_t)(((int64_t)delay_base_samples * percent) >> 31);
-  if (depth < TE_MAIN_MOD_MIN_SAMPLES) depth = TE_MAIN_MOD_MIN_SAMPLES;
-  if (depth > TE_MAIN_MOD_MAX_SAMPLES) depth = TE_MAIN_MOD_MAX_SAMPLES;
-
-  if (delay_base_samples < te2350_ms_to_samples(ctx, TE_MAIN_MOD_SHORT_MS)) {
+  if (delay_base_samples < ctx->main_mod_short_limit) {
     depth >>= 2;
-  } else if (delay_base_samples < te2350_ms_to_samples(ctx, TE_MAIN_MOD_MID_MS)) {
+  } else if (delay_base_samples < ctx->main_mod_mid_limit) {
     depth >>= 1;
   }
+
+  if (depth < TE_MAIN_MOD_MIN_SAMPLES) depth = TE_MAIN_MOD_MIN_SAMPLES;
+  if (depth > TE_MAIN_MOD_MAX_SAMPLES) depth = TE_MAIN_MOD_MAX_SAMPLES;
 
   if (depth < 1) depth = 1;
   return depth;
@@ -130,6 +130,8 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   }
   ctx->sample_rate = sample_rate;
   ctx->sample_rate_i = (int32_t)(sample_rate + 0.5f);
+  ctx->main_mod_short_limit = te2350_ms_to_samples(ctx, TE_MAIN_MOD_SHORT_MS);
+  ctx->main_mod_mid_limit = te2350_ms_to_samples(ctx, TE_MAIN_MOD_MID_MS);
 
   float sr_ratio = sample_rate / 48000.0f;
   ctx->time_smooth_coeff = float_to_q31_safe(0.002f * (48000.0f / sample_rate));
