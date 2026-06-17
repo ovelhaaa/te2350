@@ -34,11 +34,20 @@
 #define TE_SHIMMER_FEEDBACK_FREEZE_TRIM FLOAT_TO_Q31(0.04f)
 #define TE_SHIMMER_FEEDBACK_GAIN_MIN FLOAT_TO_Q31(0.12f)
 #define TE_SHIMMER_FEEDBACK_GAIN_MAX FLOAT_TO_Q31(0.20f)
+#define TE_MAIN_MOD_BASE_PCT FLOAT_TO_Q31(0.0008f)
+#define TE_MAIN_MOD_WOBBLE_PCT FLOAT_TO_Q31(0.0022f)
+#define TE_MAIN_MOD_CHAOS_PCT FLOAT_TO_Q31(0.0025f)
+#define TE_MAIN_MOD_MIN_SAMPLES 2
+#define TE_MAIN_MOD_MAX_SAMPLES 72
+#define TE_MAIN_MOD_SHORT_MS 80
+#define TE_MAIN_MOD_MID_MS 180
 
 static void update_tone_filter(te2350_t *ctx);
 static void update_chaos_zones(te2350_t *ctx);
 static void build_time_lut(te2350_t *ctx);
 static int32_t map_time_samples(const te2350_t *ctx, q31_t time_q31);
+static int32_t te2350_ms_to_samples(const te2350_t *ctx, int32_t ms);
+static int32_t te2350_scaled_main_mod_depth(const te2350_t *ctx, int32_t delay_base_samples);
 static q31_t feedback_condition(te2350_t *ctx,
                                 q31_t loop_src,
                                 q31_t shimmer_return,
@@ -92,11 +101,35 @@ static inline q31_t q31_zone_amount(q31_t v, q31_t start, q31_t end) {
   return (q31_t)(((int64_t)(v - start) * Q31_MAX) / (int64_t)(end - start));
 }
 
+static int32_t te2350_ms_to_samples(const te2350_t *ctx, int32_t ms) {
+  return (int32_t)(((int64_t)ctx->sample_rate_i * ms) / 1000);
+}
+
+static int32_t te2350_scaled_main_mod_depth(const te2350_t *ctx, int32_t delay_base_samples) {
+  q31_t percent = TE_MAIN_MOD_BASE_PCT;
+  percent = q31_add_sat(percent, q31_mul(ctx->p_wobble, TE_MAIN_MOD_WOBBLE_PCT));
+  percent = q31_add_sat(percent, q31_mul(ctx->p_chaos, TE_MAIN_MOD_CHAOS_PCT));
+
+  int32_t depth = (int32_t)(((int64_t)delay_base_samples * percent) >> 31);
+  if (depth < TE_MAIN_MOD_MIN_SAMPLES) depth = TE_MAIN_MOD_MIN_SAMPLES;
+  if (depth > TE_MAIN_MOD_MAX_SAMPLES) depth = TE_MAIN_MOD_MAX_SAMPLES;
+
+  if (delay_base_samples < te2350_ms_to_samples(ctx, TE_MAIN_MOD_SHORT_MS)) {
+    depth >>= 2;
+  } else if (delay_base_samples < te2350_ms_to_samples(ctx, TE_MAIN_MOD_MID_MS)) {
+    depth >>= 1;
+  }
+
+  if (depth < 1) depth = 1;
+  return depth;
+}
+
 bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sample_rate) {
   if (sample_rate <= 0.0f) {
     sample_rate = 48000.0f;
   }
   ctx->sample_rate = sample_rate;
+  ctx->sample_rate_i = (int32_t)(sample_rate + 0.5f);
 
   float sr_ratio = sample_rate / 48000.0f;
   ctx->time_smooth_coeff = float_to_q31_safe(0.002f * (48000.0f / sample_rate));
@@ -389,14 +422,10 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
 
   dsp_delay_write(&ctx->main_delay, pre2);
 
-  q31_t perceived_time = q31_add_sat(ctx->p_time_smoothed, q31_mul(gravity, FLOAT_TO_Q31(0.12f)));
-  int32_t d_base = map_time_samples(ctx, perceived_time);
-  q31_t wobble_shape = q31_add_sat(q31_mul(ctx->p_wobble, FLOAT_TO_Q31(0.72f)),
-                                      q31_mul(q31_mul(ctx->p_wobble, ctx->p_wobble),
-                                              FLOAT_TO_Q31(0.38f)));
-  if (wobble_shape > Q31_MAX) wobble_shape = Q31_MAX;
-  int32_t wobble_depth = ctx->wobble_mod_base + (int32_t)(((int64_t)wobble_shape * ctx->wobble_mod_scale) >> 31);
-  if (wobble_depth > ctx->wobble_safety_samples) wobble_depth = ctx->wobble_safety_samples;
+  q31_t main_perceived_time = q31_add_sat(ctx->p_time_smoothed,
+                                          q31_mul(gravity, FLOAT_TO_Q31(0.035f)));
+  int32_t d_base = map_time_samples(ctx, main_perceived_time);
+  int32_t main_mod_depth = te2350_scaled_main_mod_depth(ctx, d_base);
 
   // Keep movement, but reduce wow dominance in the direct delay line to avoid masking.
   q31_t main_wow_scale = q31_sub_sat(FLOAT_TO_Q31(0.72f), q31_mul(bloom, FLOAT_TO_Q31(0.22f)));
@@ -405,9 +434,9 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   if (main_wow_scale < FLOAT_TO_Q31(0.45f)) main_wow_scale = FLOAT_TO_Q31(0.45f);
   if (main_wow_scale > FLOAT_TO_Q31(0.92f)) main_wow_scale = FLOAT_TO_Q31(0.92f);
   q31_t main_time_mod = q31_mul(time_mod, main_wow_scale);
-  int32_t d_mod = (int32_t)(((int64_t)main_time_mod * wobble_depth) >> 31);
-  if (d_mod > ctx->max_delay_mod_samples) d_mod = ctx->max_delay_mod_samples;
-  if (d_mod < -ctx->max_delay_mod_samples) d_mod = -ctx->max_delay_mod_samples;
+  int32_t d_mod = (int32_t)(((int64_t)main_time_mod * main_mod_depth) >> 31);
+  if (d_mod > main_mod_depth) d_mod = main_mod_depth;
+  if (d_mod < -main_mod_depth) d_mod = -main_mod_depth;
   int32_t d_samp_mod = d_base + d_mod;
   if (d_samp_mod < ctx->min_delay_samples) d_samp_mod = ctx->min_delay_samples;
   if (d_samp_mod > ctx->max_delay_samples) d_samp_mod = ctx->max_delay_samples;
