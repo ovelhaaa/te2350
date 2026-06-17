@@ -127,6 +127,9 @@ typedef struct {
   // Internal State
   uint32_t chaos_seed;
   float sample_rate; // Operating sample rate
+  int32_t sample_rate_i; // Rounded sample rate for audio-rate integer helpers
+  int32_t main_mod_short_limit; // Cached short-delay modulation protection threshold
+  int32_t main_mod_mid_limit; // Cached mid-delay modulation protection threshold
 
   // Derived Sample-Rate Coefficients
   int32_t max_delay_samples; // Scaled max main delay samples
