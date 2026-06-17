@@ -465,7 +465,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
     if (ghost_d < 1) ghost_d = 1;
     if (ghost_d >= TE_MAIN_DELAY_SIZE) ghost_d = TE_MAIN_DELAY_SIZE - 1;
     q31_t ghost_tap = dsp_delay_read(&ctx->main_delay, (size_t)ghost_d);
-    if (i & 1) ghost_tap = -ghost_tap;
+    if (i & 1) ghost_tap = q31_sub_sat(0, ghost_tap);
 
     q31_t ghost_g = q31_add_sat(FLOAT_TO_Q31(0.055f), q31_mul(ghost_amt, FLOAT_TO_Q31(0.075f)));
     ghost_g = q31_add_sat(ghost_g, q31_mul(ctx->p_presence_smoothed, FLOAT_TO_Q31(0.045f)));
