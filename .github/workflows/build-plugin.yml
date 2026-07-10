@@ -28,10 +28,10 @@ jobs:
       - name: Configure
         run: >
           cmake -S te2350-vst -B build/te2350-vst
-          -DCMAKE_BUILD_TYPE=Release
-          -DTE2350_FETCH_JUCE=ON
-          -DTE2350_JUCE_TAG=7.0.12
-          -DTE2350_BUILD_GOLDEN_TESTS=ON
+          "-DCMAKE_BUILD_TYPE=Release"
+          "-DTE2350_FETCH_JUCE=ON"
+          "-DTE2350_JUCE_TAG=7.0.12"
+          "-DTE2350_BUILD_GOLDEN_TESTS=ON"
 
       - name: Build plugin
         run: cmake --build build/te2350-vst --config Release --parallel 4
