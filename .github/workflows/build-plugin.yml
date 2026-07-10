@@ -39,6 +39,9 @@ jobs:
       - name: Build golden-reference renderer
         run: cmake --build build/te2350-vst --config Release --target TE2350GoldenReference --parallel 4
 
+      - name: Render golden reference
+        run: ctest --test-dir build/te2350-vst --build-config Release --output-on-failure
+
       - name: Upload plugin artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -56,3 +59,10 @@ jobs:
           if-no-files-found: warn
           path: |
             build/te2350-vst/**/TE2350GoldenReference*
+
+      - name: Upload golden-reference render
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-golden-render
+          if-no-files-found: error
+          path: build/te2350-vst/GoldenReferenceOutput/plugin_reference.raw

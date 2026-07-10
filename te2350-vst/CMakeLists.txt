@@ -5,6 +5,7 @@ project(TE2350AntigravityPlugin VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(CTest)
 
 option(TE2350_FETCH_JUCE "Fetch JUCE with CMake FetchContent when TE2350_JUCE_PATH is not set" ON)
 set(TE2350_JUCE_PATH "" CACHE PATH "Path to a local JUCE checkout")
@@ -104,4 +105,10 @@ if(TE2350_BUILD_GOLDEN_TESTS)
     add_executable(TE2350GoldenReference Tests/GoldenReferenceTest.cpp)
     target_include_directories(TE2350GoldenReference PRIVATE Source "${TE2350_ROOT}/include")
     target_link_libraries(TE2350GoldenReference PRIVATE te2350_core juce::juce_audio_basics)
+
+    set(TE2350_GOLDEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/GoldenReferenceOutput")
+    file(MAKE_DIRECTORY "${TE2350_GOLDEN_OUTPUT_DIR}")
+    add_test(NAME TE2350GoldenReferenceRender COMMAND $<TARGET_FILE:TE2350GoldenReference>)
+    set_tests_properties(TE2350GoldenReferenceRender PROPERTIES
+        WORKING_DIRECTORY "${TE2350_GOLDEN_OUTPUT_DIR}")
 endif()
