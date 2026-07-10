@@ -1,0 +1,58 @@
+name: Build JUCE Plugin
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows VST3
+            os: windows-latest
+            artifact: te2350-antigravity-windows-vst3
+          - name: macOS VST3 AU
+            os: macos-14
+            artifact: te2350-antigravity-macos-vst3-au
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -S te2350-vst -B build/te2350-vst
+          -DCMAKE_BUILD_TYPE=Release
+          -DTE2350_FETCH_JUCE=ON
+          -DTE2350_JUCE_TAG=7.0.12
+          -DTE2350_BUILD_GOLDEN_TESTS=ON
+
+      - name: Build plugin
+        run: cmake --build build/te2350-vst --config Release --parallel 4
+
+      - name: Build golden-reference renderer
+        run: cmake --build build/te2350-vst --config Release --target TE2350GoldenReference --parallel 4
+
+      - name: Upload plugin artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: error
+          path: |
+            build/te2350-vst/**/*Antigravity*.vst3/**
+            build/te2350-vst/**/*Antigravity*.component/**
+            build/te2350-vst/**/*Antigravity*.au/**
+
+      - name: Upload golden-reference tool
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-golden-reference
+          if-no-files-found: warn
+          path: |
+            build/te2350-vst/**/TE2350GoldenReference*

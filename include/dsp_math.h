@@ -14,19 +14,37 @@ typedef uint32_t q16_16_t;
 // --- Saturating Arithmetic ---
 
 static inline q31_t q31_add_sat(q31_t a, q31_t b) {
+#if defined(_MSC_VER) && !defined(__clang__)
+  int64_t sum = (int64_t)a + (int64_t)b;
+  if (sum > Q31_MAX)
+    return Q31_MAX;
+  if (sum < Q31_MIN)
+    return Q31_MIN;
+  return (q31_t)sum;
+#else
   q31_t res;
   if (__builtin_add_overflow(a, b, &res)) {
     return (a < 0) ? Q31_MIN : Q31_MAX;
   }
   return res;
+#endif
 }
 
 static inline q31_t q31_sub_sat(q31_t a, q31_t b) {
+#if defined(_MSC_VER) && !defined(__clang__)
+  int64_t diff = (int64_t)a - (int64_t)b;
+  if (diff > Q31_MAX)
+    return Q31_MAX;
+  if (diff < Q31_MIN)
+    return Q31_MIN;
+  return (q31_t)diff;
+#else
   q31_t res;
   if (__builtin_sub_overflow(a, b, &res)) {
     return (a < 0) ? Q31_MIN : Q31_MAX;
   }
   return res;
+#endif
 }
 
 static inline q31_t q31_mul(q31_t a, q31_t b) {
