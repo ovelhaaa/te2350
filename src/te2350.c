@@ -1,5 +1,9 @@
 #include "../include/te2350.h"
 
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <intrin.h>
+#endif
+
 // --- Shimmer tuning -------------------------------------------------------
 // Keep the shimmer character parameters centralized so gain/brightness/loop
 // behavior can be rebalanced without hunting through the audio-rate code.
@@ -69,10 +73,30 @@ static inline q31_t clamp_q31_unit(q31_t v) {
   return v;
 }
 
+static inline uint32_t clz_u64(uint64_t x) {
+#if defined(_MSC_VER) && !defined(__clang__)
+  unsigned long index = 0;
+  #if defined(_M_X64) || defined(_M_ARM64)
+  _BitScanReverse64(&index, x);
+  return 63u - (uint32_t)index;
+  #else
+  const uint32_t high = (uint32_t)(x >> 32);
+  if (high != 0) {
+    _BitScanReverse(&index, high);
+    return 31u - (uint32_t)index;
+  }
+  _BitScanReverse(&index, (uint32_t)x);
+  return 63u - (uint32_t)index;
+  #endif
+#else
+  return (uint32_t)__builtin_clzll(x);
+#endif
+}
+
 static uint32_t isqrt_u64(uint64_t x) {
   if (x == 0) return 0;
 
-  uint64_t bit = 1ull << (62 - (__builtin_clzll(x) & ~1));
+  uint64_t bit = 1ull << (62 - (clz_u64(x) & ~1u));
   uint64_t result = 0;
   while (bit != 0) {
     if (x >= result + bit) {
