@@ -102,13 +102,23 @@ target_link_libraries(TE2350Antigravity PRIVATE
 
 option(TE2350_BUILD_GOLDEN_TESTS "Build the golden-reference scaffold executable" OFF)
 if(TE2350_BUILD_GOLDEN_TESTS)
+    add_executable(TE2350OfflineReference "${TE2350_ROOT}/src/web/offline_host.c")
+    target_include_directories(TE2350OfflineReference PRIVATE "${TE2350_ROOT}/include")
+    target_link_libraries(TE2350OfflineReference PRIVATE te2350_core)
+
     add_executable(TE2350GoldenReference Tests/GoldenReferenceTest.cpp)
     target_include_directories(TE2350GoldenReference PRIVATE Source "${TE2350_ROOT}/include")
     target_link_libraries(TE2350GoldenReference PRIVATE te2350_core juce::juce_audio_basics)
 
     set(TE2350_GOLDEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/GoldenReferenceOutput")
     file(MAKE_DIRECTORY "${TE2350_GOLDEN_OUTPUT_DIR}")
+    add_test(NAME TE2350OfflineReferenceRender COMMAND $<TARGET_FILE:TE2350OfflineReference>)
     add_test(NAME TE2350GoldenReferenceRender COMMAND $<TARGET_FILE:TE2350GoldenReference>)
-    set_tests_properties(TE2350GoldenReferenceRender PROPERTIES
+    add_test(NAME TE2350GoldenReferenceCompare
+        COMMAND "${CMAKE_COMMAND}" -E compare_files output.raw plugin_reference.raw)
+
+    set_tests_properties(TE2350OfflineReferenceRender TE2350GoldenReferenceRender TE2350GoldenReferenceCompare PROPERTIES
         WORKING_DIRECTORY "${TE2350_GOLDEN_OUTPUT_DIR}")
+    set_tests_properties(TE2350GoldenReferenceCompare PROPERTIES
+        DEPENDS "TE2350OfflineReferenceRender;TE2350GoldenReferenceRender")
 endif()
