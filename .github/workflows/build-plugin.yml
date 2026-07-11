@@ -65,4 +65,4 @@ jobs:
         with:
           name: ${{ matrix.artifact }}-golden-render
           if-no-files-found: error
-          path: build/te2350-vst/GoldenReferenceOutput/plugin_reference.raw
+          path: build/te2350-vst/GoldenReferenceOutput/plugin_reference.*
