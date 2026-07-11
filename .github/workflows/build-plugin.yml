@@ -42,6 +42,67 @@ jobs:
       - name: Render golden reference
         run: ctest --test-dir build/te2350-vst --build-config Release --output-on-failure
 
+      - name: Download pluginval
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force tools/pluginval | Out-Null
+
+          $release = gh api repos/Tracktion/pluginval/releases/latest | ConvertFrom-Json
+          $assetPattern = if ($env:RUNNER_OS -eq "Windows") {
+            "win|windows"
+          } elseif ($env:RUNNER_OS -eq "macOS") {
+            "mac|macos|osx|darwin"
+          } else {
+            "linux"
+          }
+
+          $assets = @($release.assets | Where-Object { $_.name -match $assetPattern })
+          if ($assets.Count -eq 0) {
+            $available = ($release.assets | ForEach-Object { $_.name }) -join ", "
+            throw "No pluginval asset matched '$assetPattern'. Available assets: $available"
+          }
+
+          foreach ($asset in $assets) {
+            gh release download $release.tag_name --repo Tracktion/pluginval --pattern $asset.name --dir tools/pluginval --clobber
+          }
+
+          Get-ChildItem tools/pluginval -File | ForEach-Object {
+            if ($_.Extension -eq ".zip") {
+              Expand-Archive -LiteralPath $_.FullName -DestinationPath tools/pluginval -Force
+            } elseif ($_.Name -like "*.tar.gz" -or $_.Extension -eq ".tgz") {
+              tar -xf $_.FullName -C tools/pluginval
+            }
+          }
+
+          $pluginval = Get-ChildItem tools/pluginval -Recurse -File |
+            Where-Object { $_.Name -eq "pluginval.exe" -or $_.Name -eq "pluginval" } |
+            Select-Object -First 1
+
+          if ($null -eq $pluginval) {
+            throw "pluginval executable was not found in downloaded release assets"
+          }
+
+          if ($env:RUNNER_OS -ne "Windows") {
+            chmod +x $pluginval.FullName
+          }
+
+          "PLUGINVAL=$($pluginval.FullName)" >> $env:GITHUB_ENV
+
+      - name: Validate VST3 with pluginval
+        shell: pwsh
+        run: |
+          $plugin = Get-ChildItem build/te2350-vst -Recurse -Directory -Filter "*.vst3" |
+            Where-Object { $_.Name -like "*Antigravity*" } |
+            Select-Object -First 1
+
+          if ($null -eq $plugin) {
+            throw "TE-2350 Antigravity VST3 bundle was not found"
+          }
+
+          & "$env:PLUGINVAL" --strictness-level 5 --validate-in-process --validate "$($plugin.FullName)"
+
       - name: Upload plugin artifacts
         uses: actions/upload-artifact@v4
         with:
