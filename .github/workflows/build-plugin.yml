@@ -97,8 +97,20 @@ jobs:
             Where-Object { $_.Name -like "*Antigravity*" })
 
           if ($env:RUNNER_OS -eq "macOS") {
-            $plugins += @(Get-ChildItem build/te2350-vst -Recurse -Directory -Filter "*.component" |
+            $components = @(Get-ChildItem build/te2350-vst -Recurse -Directory -Filter "*.component" |
               Where-Object { $_.Name -like "*Antigravity*" })
+            $componentInstallDir = Join-Path $HOME "Library/Audio/Plug-Ins/Components"
+            New-Item -ItemType Directory -Force $componentInstallDir | Out-Null
+
+            foreach ($component in $components) {
+              $installedComponent = Join-Path $componentInstallDir $component.Name
+              if (Test-Path $installedComponent) {
+                Remove-Item -Recurse -Force $installedComponent
+              }
+
+              Copy-Item -Recurse -Force $component.FullName $installedComponent
+              $plugins += Get-Item $installedComponent
+            }
           }
 
           if ($plugins.Count -eq 0) {
