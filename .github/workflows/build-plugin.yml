@@ -90,18 +90,25 @@ jobs:
 
           "PLUGINVAL=$($pluginval.FullName)" >> $env:GITHUB_ENV
 
-      - name: Validate VST3 with pluginval
+      - name: Validate plugin bundles with pluginval
         shell: pwsh
         run: |
-          $plugin = Get-ChildItem build/te2350-vst -Recurse -Directory -Filter "*.vst3" |
-            Where-Object { $_.Name -like "*Antigravity*" } |
-            Select-Object -First 1
+          $plugins = @(Get-ChildItem build/te2350-vst -Recurse -Directory -Filter "*.vst3" |
+            Where-Object { $_.Name -like "*Antigravity*" })
 
-          if ($null -eq $plugin) {
-            throw "TE-2350 Antigravity VST3 bundle was not found"
+          if ($env:RUNNER_OS -eq "macOS") {
+            $plugins += @(Get-ChildItem build/te2350-vst -Recurse -Directory -Filter "*.component" |
+              Where-Object { $_.Name -like "*Antigravity*" })
           }
 
-          & "$env:PLUGINVAL" --strictness-level 5 --validate-in-process --validate "$($plugin.FullName)"
+          if ($plugins.Count -eq 0) {
+            throw "No TE-2350 Antigravity plugin bundle was found"
+          }
+
+          foreach ($plugin in $plugins) {
+            Write-Host "Validating $($plugin.FullName)"
+            & "$env:PLUGINVAL" --strictness-level 5 --validate-in-process --validate "$($plugin.FullName)"
+          }
 
       - name: Upload plugin artifacts
         uses: actions/upload-artifact@v4
