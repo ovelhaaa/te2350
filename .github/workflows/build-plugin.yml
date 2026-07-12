@@ -37,9 +37,9 @@ jobs:
         run: cmake --build build/te2350-vst --config Release --parallel 4
 
       - name: Build golden-reference tools
-        run: cmake --build build/te2350-vst --config Release --target TE2350GoldenReference TE2350OfflineReference --parallel 4
+        run: cmake --build build/te2350-vst --config Release --target TE2350GoldenReference TE2350OfflineReference TE2350PluginSmokeTest --parallel 4
 
-      - name: Render golden reference
+      - name: Run CTest validation
         run: ctest --test-dir build/te2350-vst --build-config Release --output-on-failure
 
       - name: Download pluginval

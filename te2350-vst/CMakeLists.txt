@@ -121,4 +121,16 @@ if(TE2350_BUILD_GOLDEN_TESTS)
         WORKING_DIRECTORY "${TE2350_GOLDEN_OUTPUT_DIR}")
     set_tests_properties(TE2350GoldenReferenceCompare PROPERTIES
         DEPENDS "TE2350OfflineReferenceRender;TE2350GoldenReferenceRender")
+
+    add_executable(TE2350PluginSmokeTest Tests/PluginSmokeTest.cpp)
+    target_include_directories(TE2350PluginSmokeTest PRIVATE Source "${TE2350_ROOT}/include")
+    target_compile_definitions(TE2350PluginSmokeTest PRIVATE
+        JucePlugin_Name="TE-2350 Antigravity"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+    target_link_libraries(TE2350PluginSmokeTest PRIVATE
+        TE2350Antigravity
+        juce::juce_audio_utils
+        juce::juce_dsp)
+    add_test(NAME TE2350PluginSmokeTest COMMAND $<TARGET_FILE:TE2350PluginSmokeTest>)
 endif()
