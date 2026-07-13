@@ -48,6 +48,11 @@ if(APPLE)
     list(APPEND TE2350_FORMATS AU)
 endif()
 
+juce_add_binary_data(TE2350Assets
+    SOURCES
+        Source/Assets/te2350_logo_custom.svg
+)
+
 juce_add_plugin(TE2350Antigravity
     COMPANY_NAME "TE-2350"
     BUNDLE_ID "com.te2350.antigravity"
@@ -93,6 +98,7 @@ endif()
 
 target_link_libraries(TE2350Antigravity PRIVATE
     te2350_core
+    TE2350Assets
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_recommended_config_flags

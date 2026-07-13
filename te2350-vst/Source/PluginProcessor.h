@@ -2,6 +2,8 @@
 
 #include <JuceHeader.h>
 
+#include <atomic>
+
 #include "Core/TE2350CoreWrapper.h"
 #include "DSP/OversamplingChain.h"
 #include "Params/MacroEngine.h"
@@ -38,7 +40,9 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
-    float getInstabilityMeterValue() const { return macroEngine.getInstability(); }
+    float getInstabilityMeterValue() const { return instabilityMeter.load(); }
+    float getInputMeterValue() const { return inputMeter.load(); }
+    float getOutputMeterValue() const { return outputMeter.load(); }
 
 private:
     float getRawFloat(juce::StringRef parameterID, float fallback) const;
@@ -51,6 +55,9 @@ private:
     te2350::TE2350CoreWrapper core;
     te2350::MacroEngine macroEngine;
     te2350::OversamplingChain oversampling;
+    std::atomic<float> instabilityMeter { 0.0f };
+    std::atomic<float> inputMeter { 0.0f };
+    std::atomic<float> outputMeter { 0.0f };
     int currentProgram = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TE2350AudioProcessor)

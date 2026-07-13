@@ -75,6 +75,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 
     params.push_back(makeFloat("inputTrim", "Input Trim", -24.0f, 24.0f, 0.0f, 0.0f, " dB"));
     params.push_back(makeFloat("outputTrim", "Output Trim", -24.0f, 24.0f, 0.0f, 0.0f, " dB"));
+    params.push_back(makeBool("bypass", "Bypass", false));
     params.push_back(makeChoice("qualityMode", "Hardware / Studio Mode", { "Hardware", "Studio" }, 0));
     params.push_back(makeBool("freezeEngage", "Freeze", false));
     params.push_back(makeChoice("freezeMode", "Freeze Mode", { "Momentary", "Latch" }, 1));

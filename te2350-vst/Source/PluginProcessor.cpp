@@ -2,6 +2,26 @@
 #include "PluginEditor.h"
 #include "Presets/FactoryPresets.h"
 
+namespace
+{
+float measureBufferLevel(const juce::AudioBuffer<float>& buffer)
+{
+    if (buffer.getNumSamples() <= 0 || buffer.getNumChannels() <= 0)
+        return 0.0f;
+
+    auto rms = 0.0f;
+    for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+        rms = juce::jmax(rms, buffer.getRMSLevel(channel, 0, buffer.getNumSamples()));
+
+    return juce::jlimit(0.0f, 1.0f, rms * 1.8f);
+}
+
+float smoothMeter(float previous, float current)
+{
+    return current > previous ? current : previous * 0.88f + current * 0.12f;
+}
+}
+
 TE2350AudioProcessor::TE2350AudioProcessor()
     : AudioProcessor(BusesProperties()
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
@@ -35,6 +55,8 @@ bool TE2350AudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) co
 void TE2350AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
+    const auto inputLevel = measureBufferLevel(buffer);
+    inputMeter.store(smoothMeter(inputMeter.load(), inputLevel));
 
     const auto totalInputChannels = getTotalNumInputChannels();
     const auto totalOutputChannels = getTotalNumOutputChannels();
@@ -42,12 +64,21 @@ void TE2350AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     for (auto channel = totalInputChannels; channel < totalOutputChannels; ++channel)
         buffer.clear(channel, 0, buffer.getNumSamples());
 
+    if (getBool("bypass"))
+    {
+        outputMeter.store(smoothMeter(outputMeter.load(), inputLevel));
+        return;
+    }
+
     const auto bpm = getHostBpm();
     macroEngine.update(apvts, buffer.getNumSamples());
+    instabilityMeter.store(macroEngine.getInstability());
     oversampling.setStudioMode(getChoiceIndex("qualityMode") == 1, *this);
 
     core.setParameters(collectCoreParameters(bpm));
     core.processBlock(buffer);
+
+    outputMeter.store(smoothMeter(outputMeter.load(), measureBufferLevel(buffer)));
 }
 
 juce::AudioProcessorEditor* TE2350AudioProcessor::createEditor()

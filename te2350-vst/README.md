@@ -31,6 +31,8 @@ The build enables VST3 on every platform and AU on Apple platforms.
   that state; it is disabled by the wrapper and not exposed as plugin UI.
 - The editor is a minimal validation UI organized as Layer 1, Layer 2, and
   utility controls.
+- The custom TE-2350 SVG logo lives in `Source/Assets` and is embedded through
+  JUCE BinaryData for future UI work.
 
 ## Notes
 
@@ -45,6 +47,8 @@ The build enables VST3 on every platform and AU on Apple platforms.
   they should affect sound.
 - Sync mode reads host BPM and maps note values onto `timeMs` before the core's
   normalized time setter.
+- `Source/Assets/te2350_logo_custom.svg` is available to C++ as BinaryData
+  (`te2350_logo_custom_svg`) once the plugin target is built.
 
 ## Validation
 
