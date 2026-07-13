@@ -59,19 +59,23 @@ jobs:
             ${{ runner.os }}-juce-${{ env.JUCE_TAG }}-
 
       - name: Configure
-        run: >
-          cmake -S te2350-vst -B "${{ env.BUILD_DIR }}"
-          -DCMAKE_BUILD_TYPE=Release
-          -DTE2350_FETCH_JUCE=ON
-          -DTE2350_JUCE_TAG=${{ env.JUCE_TAG }}
-          -DTE2350_BUILD_GOLDEN_TESTS=ON
-          -DTE2350_PLUGIN_COPY_DIR="${{ github.workspace }}/build/installed-plugins"
+        shell: pwsh
+        run: |
+          cmake `
+            -S "te2350-vst" `
+            -B "${{ env.BUILD_DIR }}" `
+            -G "Ninja" `
+            "-DCMAKE_BUILD_TYPE=Release" `
+            "-DTE2350_FETCH_JUCE=ON" `
+            "-DTE2350_JUCE_TAG=${{ env.JUCE_TAG }}" `
+            "-DTE2350_BUILD_GOLDEN_TESTS=ON" `
+            "-DTE2350_PLUGIN_COPY_DIR=${{ github.workspace }}/build/installed-plugins"
 
       - name: Build plugin and validation tools
-        run: cmake --build "${{ env.BUILD_DIR }}" --config Release --parallel 4
+        run: cmake --build "${{ env.BUILD_DIR }}" --parallel 4
 
       - name: Run CTest validation
-        run: ctest --test-dir "${{ env.BUILD_DIR }}" --build-config Release --output-on-failure
+        run: ctest --test-dir "${{ env.BUILD_DIR }}" --output-on-failure
 
       - name: Download pluginval
         shell: pwsh
