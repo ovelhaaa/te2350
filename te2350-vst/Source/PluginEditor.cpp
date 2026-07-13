@@ -231,11 +231,12 @@ public:
         : title(std::move(titleText)), subtitle(std::move(subtitleText)), accent(accentColour), isMacro(macro)
     {
         slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, macro ? 76 : 64, 18);
+        slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         slider.setColour(juce::Slider::rotarySliderFillColourId, accent);
         slider.setColour(juce::Slider::textBoxTextColourId, textMain());
         slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+        slider.onValueChange = [this] { repaint(); };
         addAndMakeVisible(slider);
     }
 
@@ -249,22 +250,37 @@ public:
         g.setColour(accent.withAlpha(isMacro ? 0.58f : 0.28f));
         g.drawRoundedRectangle(r, 7.0f, isMacro ? 1.2f : 0.9f);
 
+        auto labelArea = getLocalBounds().reduced(isMacro ? 10 : 7);
+
         g.setColour(textMain());
-        g.setFont(uiFont(isMacro ? 22.0f : 13.0f, juce::Font::bold));
-        g.drawText(title.toUpperCase(), getLocalBounds().withTrimmedTop(isMacro ? 7 : 4),
-                   juce::Justification::centredTop);
+        g.setFont(uiFont(isMacro ? 20.0f : 12.5f, juce::Font::bold));
+        g.drawText(title.toUpperCase(), labelArea.removeFromTop(isMacro ? 25 : 17),
+                   juce::Justification::centred);
 
         g.setColour(textMuted());
-        g.setFont(uiFont(isMacro ? 11.0f : 10.0f, juce::Font::plain));
-        g.drawText(subtitle.toUpperCase(), 5, isMacro ? 33 : 21, getWidth() - 10, 14,
+        g.setFont(uiFont(isMacro ? 10.5f : 9.5f, juce::Font::plain));
+        g.drawText(subtitle.toUpperCase(), labelArea.removeFromTop(isMacro ? 14 : 12),
+                   juce::Justification::centred);
+
+        auto value = getLocalBounds().reduced(isMacro ? 17 : 10).removeFromBottom(isMacro ? 20 : 17).toFloat();
+        g.setColour(juce::Colour(0xff05080d).withAlpha(0.72f));
+        g.fillRoundedRectangle(value, 4.0f);
+        g.setColour(accent.withAlpha(0.42f));
+        g.drawRoundedRectangle(value, 4.0f, 0.8f);
+        g.setColour(textMain().withAlpha(0.88f));
+        g.setFont(uiFont(isMacro ? 11.0f : 9.5f, juce::Font::bold));
+        g.drawText(slider.getTextFromValue(slider.getValue()), value.toNearestInt().reduced(4, 0),
                    juce::Justification::centred);
     }
 
     void resized() override
     {
         auto area = getLocalBounds().reduced(isMacro ? 8 : 5);
-        area.removeFromTop(isMacro ? 48 : 33);
-        slider.setBounds(area);
+        area.removeFromTop(isMacro ? 43 : 31);
+        area.removeFromBottom(isMacro ? 23 : 20);
+
+        const auto side = juce::jmax(32, juce::jmin(area.getWidth(), area.getHeight()));
+        slider.setBounds(juce::Rectangle<int>(side, side).withCentre(area.getCentre()));
     }
 
 private:
@@ -590,9 +606,11 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
 
-    setResizeLimits(820, 500, 1200, 760);
+    advancedPanel->setVisible(advancedExpanded);
+
+    setResizeLimits(900, 600, 1200, 780);
     setResizable(true, true);
-    setSize(900, 560);
+    setSize(1000, 660);
     startTimerHz(30);
 }
 
@@ -642,21 +660,21 @@ void TE2350AudioProcessorEditor::paint(juce::Graphics& g)
 void TE2350AudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced(margin);
-    auto header = area.removeFromTop(60);
+    auto header = area.removeFromTop(54);
 
-    logoMark->setBounds(header.removeFromLeft(58).reduced(2));
+    logoMark->setBounds(header.removeFromLeft(52).reduced(2));
     header.removeFromLeft(12);
 
     auto headerRight = header.removeFromRight(360);
-    bypassButton.setBounds(headerRight.removeFromRight(48).reduced(3, 13));
-    resetButton.setBounds(headerRight.removeFromRight(45).reduced(3, 13));
-    abButton.setBounds(headerRight.removeFromRight(45).reduced(3, 13));
-    advancedToggle.setBounds(headerRight.removeFromRight(48).reduced(3, 13));
+    bypassButton.setBounds(headerRight.removeFromRight(48).reduced(3, 10));
+    resetButton.setBounds(headerRight.removeFromRight(45).reduced(3, 10));
+    abButton.setBounds(headerRight.removeFromRight(45).reduced(3, 10));
+    advancedToggle.setBounds(headerRight.removeFromRight(48).reduced(3, 10));
     headerRight.removeFromRight(8);
-    presetSelector.setBounds(headerRight.removeFromRight(160).reduced(2, 13));
+    presetSelector.setBounds(headerRight.removeFromRight(160).reduced(2, 10));
 
-    area.removeFromTop(14);
-    auto utility = area.removeFromBottom(92);
+    area.removeFromTop(12);
+    auto utility = area.removeFromBottom(124);
     area.removeFromBottom(12);
 
     const auto leftWidth = juce::jlimit(250, 330, area.getWidth() / 3);
@@ -668,7 +686,7 @@ void TE2350AudioProcessorEditor::resized()
 
     if (advancedExpanded)
     {
-        auto core = area.removeFromTop(juce::jmax(190, area.getHeight() / 2 + 20));
+        auto core = area.removeFromTop(juce::jmax(220, area.getHeight() / 2 + 20));
         area.removeFromTop(12);
         corePanel->setBounds(core);
         advancedPanel->setBounds(area);
@@ -683,13 +701,15 @@ void TE2350AudioProcessorEditor::resized()
     advancedLayer.setBounds(advancedPanel->getContentBounds());
 
     layoutMacroControls(macroLayer.getLocalBounds());
-    layoutGrid(coreLayer.getLocalBounds(), coreControls, coreLayer.getWidth() < 500 ? 4 : 4);
-    layoutGrid(advancedLayer.getLocalBounds(), advancedControls, advancedLayer.getWidth() < 520 ? 4 : 4);
+    const auto coreColumns = coreLayer.getWidth() >= 620 ? 4 : 3;
+    const auto advancedColumns = advancedLayer.getWidth() >= 600 ? 4 : 3;
+    layoutGrid(coreLayer.getLocalBounds(), coreControls, coreColumns);
+    layoutGrid(advancedLayer.getLocalBounds(), advancedControls, advancedColumns);
 
     auto utilityContent = utilityPanel->getContentBounds();
     auto meterArea = utilityContent.removeFromRight(utilityContent.getWidth() / 2);
     utilityContent.removeFromRight(10);
-    layoutGrid(utilityContent, utilityControls, 4);
+    layoutGrid(utilityContent, utilityControls, 2);
 
     gravityMeter->setBounds(meterArea.removeFromRight(86).reduced(2));
     meterArea.removeFromRight(8);
@@ -755,15 +775,16 @@ void TE2350AudioProcessorEditor::layoutGrid(juce::Rectangle<int> area,
 
     columns = juce::jmax(1, columns);
     const auto rows = (static_cast<int>(group.size()) + columns - 1) / columns;
-    const auto cellW = area.getWidth() / columns;
-    const auto cellH = area.getHeight() / rows;
+    constexpr int gap = 8;
+    const auto cellW = (area.getWidth() - gap * (columns - 1)) / columns;
+    const auto cellH = (area.getHeight() - gap * (rows - 1)) / rows;
 
     for (int i = 0; i < static_cast<int>(group.size()); ++i)
     {
         const auto row = i / columns;
         const auto column = i % columns;
-        group[static_cast<size_t>(i)]->setBounds(area.getX() + column * cellW,
-                                                 area.getY() + row * cellH,
+        group[static_cast<size_t>(i)]->setBounds(area.getX() + column * (cellW + gap),
+                                                 area.getY() + row * (cellH + gap),
                                                  cellW,
                                                  cellH);
     }

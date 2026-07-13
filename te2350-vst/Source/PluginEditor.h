@@ -87,7 +87,7 @@ private:
     juce::ValueTree snapshotA;
     juce::ValueTree snapshotB;
     bool showingSnapshotA = true;
-    bool advancedExpanded = true;
+    bool advancedExpanded = false;
     float animationPhase = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TE2350AudioProcessorEditor)
