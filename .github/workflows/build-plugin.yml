@@ -37,12 +37,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Windows VST3
+          - name: Windows VST3 + Standalone
             os: windows-latest
-            artifact: te2350-antigravity-windows-vst3
-          - name: macOS VST3 + AU
+            artifact: te2350-antigravity-windows-vst3-standalone
+          - name: macOS VST3 + AU + Standalone
             os: macos-14
-            artifact: te2350-antigravity-macos-vst3-au
+            artifact: te2350-antigravity-macos-vst3-au-standalone
 
     steps:
       - name: Check out repository
@@ -180,6 +180,8 @@ jobs:
           path: |
             ${{ env.BUILD_DIR }}/**/*Antigravity*.vst3/**
             ${{ env.BUILD_DIR }}/**/*Antigravity*.component/**
+            ${{ env.BUILD_DIR }}/**/*Antigravity*.app/**
+            ${{ env.BUILD_DIR }}/**/*Antigravity*.exe
 
       - name: Upload golden-reference output
         uses: actions/upload-artifact@v4

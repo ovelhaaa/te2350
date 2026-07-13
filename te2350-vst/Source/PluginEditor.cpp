@@ -22,6 +22,18 @@ juce::Font uiFont(float size, int style = juce::Font::plain)
     return juce::Font("Arial Narrow", size, style);
 }
 
+void populateComboChoices(juce::ComboBox& combo, juce::RangedAudioParameter* parameter)
+{
+    combo.clear(juce::dontSendNotification);
+
+    if (parameter == nullptr)
+        return;
+
+    const auto choices = parameter->getAllValueStrings();
+    for (int index = 0; index < choices.size(); ++index)
+        combo.addItem(choices[index], index + 1);
+}
+
 }
 
 class TE2350AudioProcessorEditor::OrbitalLookAndFeel final : public juce::LookAndFeel_V4
@@ -712,6 +724,7 @@ juce::ComboBox& TE2350AudioProcessorEditor::addCombo(juce::Component& parent,
     auto control = std::make_unique<ComboTile>(title, subtitle);
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
+    populateComboChoices(raw->getCombo(), processor.apvts.getParameter(parameterID));
     comboAttachments.push_back(std::make_unique<ComboAttachment>(processor.apvts, parameterID, raw->getCombo()));
     group.push_back(raw);
     ownedComponents.push_back(std::move(control));

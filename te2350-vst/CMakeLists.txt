@@ -43,7 +43,7 @@ add_library(te2350_core STATIC
 target_include_directories(te2350_core PUBLIC "${TE2350_ROOT}/include")
 target_compile_definitions(te2350_core PUBLIC TE_MAIN_DELAY_SIZE=${TE2350_MAIN_DELAY_SIZE})
 
-set(TE2350_FORMATS VST3)
+set(TE2350_FORMATS VST3 Standalone)
 if(APPLE)
     list(APPEND TE2350_FORMATS AU)
 endif()
