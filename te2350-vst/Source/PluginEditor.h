@@ -23,6 +23,7 @@ private:
     class FaderTile;
     class ComboTile;
     class ToggleTile;
+    class GroupLabel;
     class SectionPanel;
     class MeterStrip;
     class GravityMeter;
@@ -77,6 +78,10 @@ private:
     MeterStrip* inputMeter = nullptr;
     MeterStrip* outputMeter = nullptr;
     MeterStrip* feedbackMeter = nullptr;
+    GroupLabel* corePerformLabel = nullptr;
+    GroupLabel* coreColorLabel = nullptr;
+    GroupLabel* advancedMotionLabel = nullptr;
+    GroupLabel* advancedTextureLabel = nullptr;
     LogoMark* logoMark = nullptr;
 
     juce::Component macroLayer;

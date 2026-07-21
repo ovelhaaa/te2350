@@ -319,6 +319,39 @@ private:
     juce::String code;
 };
 
+class TE2350AudioProcessorEditor::GroupLabel final : public juce::Component
+{
+public:
+    GroupLabel(juce::String labelText, juce::Colour accentColour)
+        : label(std::move(labelText)), accent(accentColour)
+    {
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        auto r = getLocalBounds().toFloat();
+        const auto lineY = r.getCentreY();
+
+        g.setColour(accent.withAlpha(0.72f));
+        g.fillRoundedRectangle(r.removeFromLeft(4.0f).reduced(0.0f, 3.0f), 1.0f);
+
+        g.setColour(textMuted().withAlpha(0.92f));
+        g.setFont(uiFont(10.0f, juce::Font::bold));
+        g.drawText(label.toUpperCase(), getLocalBounds().withTrimmedLeft(10), juce::Justification::centredLeft);
+
+        g.setColour(panelLine().withAlpha(0.34f));
+        g.drawLine(static_cast<float>(juce::jmin(92, getWidth() / 3)),
+                   lineY,
+                   static_cast<float>(getWidth()),
+                   lineY,
+                   1.0f);
+    }
+
+private:
+    juce::String label;
+    juce::Colour accent;
+};
+
 class TE2350AudioProcessorEditor::KnobTile final : public juce::Component
 {
 public:
@@ -793,6 +826,10 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     inputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Input", cyan())));
     outputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Output", spectral())));
     feedbackMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Feedback Safety", amber(), true)));
+    corePerformLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Perform", cyan())));
+    coreColorLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Color", spectral())));
+    advancedMotionLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Motion", violet())));
+    advancedTextureLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Texture", amber())));
 
     addAndMakeVisible(logoMark);
     addAndMakeVisible(macroPanel);
@@ -804,6 +841,10 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     corePanel->addAndMakeVisible(coreLayer);
     advancedPanel->addAndMakeVisible(advancedLayer);
     utilityPanel->addAndMakeVisible(utilityLayer);
+    coreLayer.addAndMakeVisible(corePerformLabel);
+    coreLayer.addAndMakeVisible(coreColorLabel);
+    advancedLayer.addAndMakeVisible(advancedMotionLabel);
+    advancedLayer.addAndMakeVisible(advancedTextureLabel);
     utilityPanel->addAndMakeVisible(gravityMeter);
     utilityPanel->addAndMakeVisible(inputMeter);
     utilityPanel->addAndMakeVisible(outputMeter);
@@ -1097,6 +1138,11 @@ void TE2350AudioProcessorEditor::layoutCoreControls(juce::Rectangle<int> area)
     auto primaryArea = area.removeFromTop(static_cast<int>(static_cast<float>(area.getHeight()) * 0.58f));
     area.removeFromTop(gap);
 
+    corePerformLabel->setBounds(primaryArea.removeFromTop(16));
+    primaryArea.removeFromTop(4);
+    coreColorLabel->setBounds(area.removeFromTop(16));
+    area.removeFromTop(4);
+
     layoutGrid(primaryArea, corePrimaryControls, corePrimaryControls.size() >= 3 ? 3 : 1);
 
     const auto secondaryColumns = area.getWidth() >= 600 ? 5 : 3;
@@ -1111,6 +1157,11 @@ void TE2350AudioProcessorEditor::layoutAdvancedControls(juce::Rectangle<int> are
     const auto gap = 10;
     auto motionArea = area.removeFromTop(static_cast<int>(static_cast<float>(area.getHeight()) * 0.46f));
     area.removeFromTop(gap);
+
+    advancedMotionLabel->setBounds(motionArea.removeFromTop(16));
+    motionArea.removeFromTop(4);
+    advancedTextureLabel->setBounds(area.removeFromTop(16));
+    area.removeFromTop(4);
 
     const auto motionColumns = motionArea.getWidth() >= 760 ? 6 : motionArea.getWidth() >= 600 ? 4 : 3;
     const auto textureColumns = area.getWidth() >= 760 ? 4 : area.getWidth() >= 600 ? 4 : 3;
