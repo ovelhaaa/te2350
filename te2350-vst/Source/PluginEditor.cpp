@@ -265,24 +265,27 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat().reduced(0.5f);
-        juce::ColourGradient bg(panel().withAlpha(0.96f), r.getX(), r.getY(),
+        juce::ColourGradient bg(panel().withAlpha(0.94f), r.getX(), r.getY(),
                                 juce::Colour(0xff090d16), r.getRight(), r.getBottom(), false);
-        bg.addColour(0.62, juce::Colour(0xff101529));
+        bg.addColour(0.62, juce::Colour(0xff0f1421));
         g.setGradientFill(bg);
         g.fillRoundedRectangle(r, 8.0f);
 
-        g.setColour(panelLine().withAlpha(0.82f));
+        g.setColour(panelLine().withAlpha(0.62f));
         g.drawRoundedRectangle(r, 8.0f, 1.0f);
 
-        g.setColour(cyan().withAlpha(0.50f));
+        g.setColour(cyan().withAlpha(0.24f));
         g.drawLine(r.getX() + 12.0f, r.getY() + 25.0f, r.getRight() - 12.0f, r.getY() + 25.0f, 1.0f);
 
         g.setFont(uiFont(12.0f, juce::Font::bold));
         g.setColour(textMain());
         g.drawText(title.toUpperCase(), 12, 4, getWidth() - 24, 18, juce::Justification::centredLeft);
 
-        g.setColour(textMuted());
-        g.drawText(code, 12, 4, getWidth() - 24, 18, juce::Justification::centredRight);
+        if (code.isNotEmpty())
+        {
+            g.setColour(textMuted().withAlpha(0.78f));
+            g.drawText(code.toUpperCase(), 12, 4, getWidth() - 24, 18, juce::Justification::centredRight);
+        }
     }
 
 private:
@@ -701,10 +704,10 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     };
 
     logoMark = static_cast<LogoMark*>(addOwned(std::make_unique<LogoMark>()));
-    macroPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Macro Orbit", "M-01")));
-    corePanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Delay / Reverb Layer", "D-2350")));
-    advancedPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Advanced Field", "X-02")));
-    utilityPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Telemetry", "IO / SAFETY")));
+    macroPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Macros", "Performance")));
+    corePanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Delay / Reverb", "Main")));
+    advancedPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Advanced", "Edit")));
+    utilityPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("I/O", "Levels")));
     gravityMeter = static_cast<GravityMeter*>(addOwned(std::make_unique<GravityMeter>()));
     inputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Input", cyan())));
     outputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Output", spectral())));
@@ -840,7 +843,7 @@ void TE2350AudioProcessorEditor::paint(juce::Graphics& g)
     auto header = getLocalBounds().reduced(margin).removeFromTop(54);
     g.setColour(textMuted());
     g.setFont(uiFont(11.0f, juce::Font::bold));
-    g.drawText("AMBIENT DELAY / REVERB  |  ORBITAL MODULATION UNIT",
+    g.drawText("AMBIENT DELAY / REVERB TEXTURE INSTRUMENT",
                header.withTrimmedLeft(76).removeFromBottom(16), juce::Justification::centredLeft);
 
     g.setColour(textMain());
