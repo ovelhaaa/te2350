@@ -60,6 +60,7 @@ private:
     void layoutGrid(juce::Rectangle<int> area, const std::vector<juce::Component*>& group, int columns);
     void layoutMacroControls(juce::Rectangle<int> area);
     void layoutCoreControls(juce::Rectangle<int> area);
+    void layoutAdvancedControls(juce::Rectangle<int> area);
     void resetParametersToDefault();
     void toggleAB();
     void applySnapshot(const juce::ValueTree& snapshot);
@@ -94,7 +95,8 @@ private:
     std::vector<juce::Component*> macroControls;
     std::vector<juce::Component*> corePrimaryControls;
     std::vector<juce::Component*> coreSecondaryControls;
-    std::vector<juce::Component*> advancedControls;
+    std::vector<juce::Component*> advancedMotionControls;
+    std::vector<juce::Component*> advancedTextureControls;
     std::vector<juce::Component*> utilityControls;
     std::vector<std::unique_ptr<SliderAttachment>> sliderAttachments;
     std::vector<std::unique_ptr<ComboAttachment>> comboAttachments;

@@ -863,20 +863,20 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     addSlider(coreLayer, coreSecondaryControls, "wetWidth", "Width", "stereo field", cyan(), false, "%", 100.0, 0);
     addCombo(coreLayer, coreSecondaryControls, "syncMode", "Sync", "host grid");
 
-    addSlider(advancedLayer, advancedControls, "modRateHz", "Mod Rate", "slow orbit", cyan(), false, " Hz", 1.0, 2);
-    addSlider(advancedLayer, advancedControls, "modDepth", "Mod Depth", "field bend", violet(), false, "%", 100.0, 0);
-    addCombo(advancedLayer, advancedControls, "modShape", "Mod Shape", "movement");
-    addSlider(advancedLayer, advancedControls, "chaos", "Chaos", "diffusion random", violet(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedControls, "presence", "Presence", "front detail", spectral(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedControls, "wobble", "Pitch Drift", "tape gravity", spectral(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedControls, "shimmerAmount", "Shimmer", "octave veil", amber(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedControls, "shimmerFeedback", "Shimmer FB", "recirculate", amber(), false, "%", 100.0, 0);
-    addCombo(advancedLayer, advancedControls, "shimmerInterval", "Octave", "interval");
-    addSlider(advancedLayer, advancedControls, "duckAmount", "Ducking", "clear centre", cyan(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedControls, "duckThreshold", "Duck Thr", "trigger level", cyan(), false, " dB", 1.0, 1);
-    addToggle(advancedLayer, advancedControls, "freezeEngage", "Freeze", spectral());
-    addCombo(advancedLayer, advancedControls, "freezeMode", "Freeze Mode", "gesture");
-    addCombo(advancedLayer, advancedControls, "qualityMode", "Oversampling", "mode");
+    addSlider(advancedLayer, advancedMotionControls, "modRateHz", "Mod Rate", "slow orbit", cyan(), false, " Hz", 1.0, 2);
+    addSlider(advancedLayer, advancedMotionControls, "modDepth", "Mod Depth", "field bend", violet(), false, "%", 100.0, 0);
+    addCombo(advancedLayer, advancedMotionControls, "modShape", "Mod Shape", "movement");
+    addSlider(advancedLayer, advancedMotionControls, "chaos", "Chaos", "diffusion random", violet(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedMotionControls, "presence", "Presence", "front detail", spectral(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedMotionControls, "wobble", "Pitch Drift", "tape gravity", spectral(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedTextureControls, "shimmerAmount", "Shimmer", "octave veil", amber(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedTextureControls, "shimmerFeedback", "Shimmer FB", "recirculate", amber(), false, "%", 100.0, 0);
+    addCombo(advancedLayer, advancedTextureControls, "shimmerInterval", "Octave", "interval");
+    addSlider(advancedLayer, advancedTextureControls, "duckAmount", "Ducking", "clear centre", cyan(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedTextureControls, "duckThreshold", "Duck Thr", "trigger level", cyan(), false, " dB", 1.0, 1);
+    addToggle(advancedLayer, advancedTextureControls, "freezeEngage", "Freeze", spectral());
+    addCombo(advancedLayer, advancedTextureControls, "freezeMode", "Freeze Mode", "gesture");
+    addCombo(advancedLayer, advancedTextureControls, "qualityMode", "Oversampling", "mode");
 
     addFader(utilityLayer, utilityControls, "inputTrim", "Input", "trim", cyan(), " dB", 1.0, 1);
     addFader(utilityLayer, utilityControls, "outputTrim", "Output", "trim", spectral(), " dB", 1.0, 1);
@@ -975,9 +975,8 @@ void TE2350AudioProcessorEditor::resized()
     advancedLayer.setBounds(advancedPanel->getContentBounds());
 
     layoutMacroControls(macroLayer.getLocalBounds());
-    const auto advancedColumns = advancedLayer.getWidth() >= 760 ? 5 : advancedLayer.getWidth() >= 600 ? 4 : 3;
     layoutCoreControls(coreLayer.getLocalBounds());
-    layoutGrid(advancedLayer.getLocalBounds(), advancedControls, advancedColumns);
+    layoutAdvancedControls(advancedLayer.getLocalBounds());
 
     auto utilityContent = utilityPanel->getContentBounds();
     auto meterArea = utilityContent.removeFromRight(utilityContent.getWidth() / 2);
@@ -1102,6 +1101,22 @@ void TE2350AudioProcessorEditor::layoutCoreControls(juce::Rectangle<int> area)
 
     const auto secondaryColumns = area.getWidth() >= 600 ? 5 : 3;
     layoutGrid(area, coreSecondaryControls, secondaryColumns);
+}
+
+void TE2350AudioProcessorEditor::layoutAdvancedControls(juce::Rectangle<int> area)
+{
+    if (advancedMotionControls.empty() && advancedTextureControls.empty())
+        return;
+
+    const auto gap = 10;
+    auto motionArea = area.removeFromTop(static_cast<int>(static_cast<float>(area.getHeight()) * 0.46f));
+    area.removeFromTop(gap);
+
+    const auto motionColumns = motionArea.getWidth() >= 760 ? 6 : motionArea.getWidth() >= 600 ? 4 : 3;
+    const auto textureColumns = area.getWidth() >= 760 ? 4 : area.getWidth() >= 600 ? 4 : 3;
+
+    layoutGrid(motionArea, advancedMotionControls, motionColumns);
+    layoutGrid(area, advancedTextureControls, textureColumns);
 }
 
 void TE2350AudioProcessorEditor::layoutMacroControls(juce::Rectangle<int> area)
