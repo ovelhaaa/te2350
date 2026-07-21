@@ -19,7 +19,7 @@ juce::Colour spectral()   { return juce::Colour(0xff62f0b1); }
 
 juce::Font uiFont(float size, int style = juce::Font::plain)
 {
-    return juce::Font("Arial Narrow", size, style);
+    return juce::Font("Segoe UI", size, style);
 }
 
 void populateComboChoices(juce::ComboBox& combo, juce::RangedAudioParameter* parameter)
@@ -401,14 +401,14 @@ public:
         auto labelArea = getLocalBounds().reduced(isMacro ? 10 : 7);
 
         g.setColour(textMain());
-        g.setFont(uiFont(isMacro ? 20.0f : 12.5f, juce::Font::bold));
-        g.drawText(title.toUpperCase(), labelArea.removeFromTop(isMacro ? 25 : 17),
-                   juce::Justification::centred);
+        g.setFont(uiFont(isMacro ? 18.5f : 11.5f, juce::Font::bold));
+        g.drawFittedText(title.toUpperCase(), labelArea.removeFromTop(isMacro ? 25 : 17),
+                         juce::Justification::centred, 1);
 
         g.setColour(textMuted());
-        g.setFont(uiFont(isMacro ? 10.5f : 9.5f, juce::Font::plain));
-        g.drawText(subtitle.toUpperCase(), labelArea.removeFromTop(isMacro ? 14 : 12),
-                   juce::Justification::centred);
+        g.setFont(uiFont(isMacro ? 10.0f : 9.0f, juce::Font::plain));
+        g.drawFittedText(subtitle.toUpperCase(), labelArea.removeFromTop(isMacro ? 14 : 12),
+                         juce::Justification::centred, 1);
 
         auto value = getLocalBounds().reduced(isMacro ? 17 : 10).removeFromBottom(isMacro ? 20 : 17).toFloat();
         g.setColour(juce::Colour(0xff05080d).withAlpha(0.72f));
@@ -549,12 +549,14 @@ public:
         g.drawRoundedRectangle(r, 7.0f, 0.9f);
 
         g.setColour(textMain());
-        g.setFont(uiFont(12.0f, juce::Font::bold));
-        g.drawText(title.toUpperCase(), 7, 7, getWidth() - 14, 14, juce::Justification::centred);
+        g.setFont(uiFont(11.0f, juce::Font::bold));
+        g.drawFittedText(title.toUpperCase(), 7, 7, getWidth() - 14, 14,
+                         juce::Justification::centred, 1);
 
         g.setColour(textMuted());
-        g.setFont(uiFont(9.5f));
-        g.drawText(subtitle.toUpperCase(), 7, 21, getWidth() - 14, 12, juce::Justification::centred);
+        g.setFont(uiFont(8.8f));
+        g.drawFittedText(subtitle.toUpperCase(), 7, 21, getWidth() - 14, 12,
+                         juce::Justification::centred, 1);
     }
 
     void resized() override
