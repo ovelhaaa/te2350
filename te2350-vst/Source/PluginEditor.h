@@ -84,9 +84,10 @@ private:
 
     juce::ComboBox presetSelector;
     juce::TextButton abButton { "A/B" };
-    juce::TextButton resetButton { "RST" };
+    juce::TextButton resetButton { "RESET" };
     juce::TextButton advancedToggle { "ADV" };
-    juce::ToggleButton bypassButton { "BYP" };
+    juce::ToggleButton bypassButton { "BYPASS" };
+    juce::TooltipWindow tooltipWindow { this, 700 };
 
     std::vector<std::unique_ptr<juce::Component>> ownedComponents;
     std::vector<juce::Component*> macroControls;

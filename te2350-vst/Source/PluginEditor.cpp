@@ -322,7 +322,8 @@ public:
         g.drawRoundedRectangle(value, 4.0f, 0.8f);
         g.setColour(textMain().withAlpha(0.88f));
         g.setFont(uiFont(isMacro ? 11.0f : 9.5f, juce::Font::bold));
-        g.drawText(formatValue(), value.toNearestInt().reduced(4, 0), juce::Justification::centred);
+        g.drawFittedText(formatValue(), value.toNearestInt().reduced(4, 0),
+                         juce::Justification::centred, 1);
     }
 
     void resized() override
@@ -391,7 +392,7 @@ public:
 
         g.setColour(textMain().withAlpha(0.88f));
         g.setFont(uiFont(10.5f, juce::Font::bold));
-        g.drawText(formatValue(), top, juce::Justification::centredRight);
+        g.drawFittedText(formatValue(), top, juce::Justification::centredRight, 1);
 
         g.setColour(textMuted());
         g.setFont(uiFont(9.0f));
@@ -694,9 +695,15 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
         addAndMakeVisible(button);
     }
 
-    bypassButton.setButtonText("BYP");
+    bypassButton.setButtonText("BYPASS");
     addAndMakeVisible(bypassButton);
     buttonAttachments.push_back(std::make_unique<ButtonAttachment>(processor.apvts, "bypass", bypassButton));
+
+    presetSelector.setTooltip("Load a factory preset.");
+    advancedToggle.setTooltip("Switch between the performance controls and the advanced edit view.");
+    abButton.setTooltip("Store and compare two parameter snapshots.");
+    resetButton.setTooltip("Reset all parameters to their default values.");
+    bypassButton.setTooltip("Bypass the effect.");
 
     abButton.onClick = [this] { toggleAB(); };
     resetButton.onClick = [this] { resetParametersToDefault(); };
@@ -704,6 +711,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     {
         advancedExpanded = ! advancedExpanded;
         advancedToggle.setButtonText(advancedExpanded ? "CORE" : "ADV");
+        advancedToggle.setToggleState(advancedExpanded, juce::dontSendNotification);
         resized();
     };
 
@@ -715,7 +723,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     addSlider(coreLayer, coreControls, "feedback", "Feedback", "regeneration", amber(), false, "%", 100.0, 0);
     addSlider(coreLayer, coreControls, "mix", "Mix", "dry / wet", spectral(), false, "%", 100.0, 0);
     addSlider(coreLayer, coreControls, "diffusion", "Diffusion", "cloud density", violet(), false, "%", 100.0, 0);
-    addSlider(coreLayer, coreControls, "highCutHz", "Tone", "air / damp", spectral(), false, " Hz", 1.0, 0);
+    addSlider(coreLayer, coreControls, "highCutHz", "Tone", "air / damp", spectral(), false, " kHz", 0.001, 1);
     addSlider(coreLayer, coreControls, "lowCutHz", "Damp", "low orbit", amber(), false, " Hz", 1.0, 0);
     addSlider(coreLayer, coreControls, "wetWidth", "Width", "stereo field", cyan(), false, "%", 100.0, 0);
     addCombo(coreLayer, coreControls, "syncMode", "Sync", "host grid");
@@ -788,7 +796,7 @@ void TE2350AudioProcessorEditor::paint(juce::Graphics& g)
 
     g.setColour(textMain());
     g.setFont(uiFont(27.0f, juce::Font::bold));
-    g.drawText("TE-2350 ANTIGRAVITY", header.withTrimmedLeft(76).withTrimmedRight(366),
+    g.drawText("TE-2350 ANTIGRAVITY", header.withTrimmedLeft(76).withTrimmedRight(448),
                juce::Justification::centredLeft);
 
     g.setColour(cyan().withAlpha(0.58f));
@@ -803,13 +811,13 @@ void TE2350AudioProcessorEditor::resized()
     logoMark->setBounds(header.removeFromLeft(52).reduced(2));
     header.removeFromLeft(12);
 
-    auto headerRight = header.removeFromRight(360);
-    bypassButton.setBounds(headerRight.removeFromRight(48).reduced(3, 10));
-    resetButton.setBounds(headerRight.removeFromRight(45).reduced(3, 10));
-    abButton.setBounds(headerRight.removeFromRight(45).reduced(3, 10));
-    advancedToggle.setBounds(headerRight.removeFromRight(48).reduced(3, 10));
+    auto headerRight = header.removeFromRight(438);
+    bypassButton.setBounds(headerRight.removeFromRight(74).reduced(3, 10));
+    resetButton.setBounds(headerRight.removeFromRight(66).reduced(3, 10));
+    abButton.setBounds(headerRight.removeFromRight(48).reduced(3, 10));
+    advancedToggle.setBounds(headerRight.removeFromRight(58).reduced(3, 10));
     headerRight.removeFromRight(8);
-    presetSelector.setBounds(headerRight.removeFromRight(160).reduced(2, 10));
+    presetSelector.setBounds(headerRight.removeFromRight(184).reduced(2, 10));
 
     area.removeFromTop(12);
     auto utility = area.removeFromBottom(124);
