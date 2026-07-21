@@ -40,6 +40,18 @@ void enableDefaultReset(juce::Slider& slider, juce::RangedAudioParameter* parame
         slider.setDoubleClickReturnValue(true, parameter->convertFrom0to1(parameter->getDefaultValue()));
 }
 
+juce::String makeControlTooltip(const juce::String& title, const juce::String& subtitle, bool canReset)
+{
+    auto tip = title;
+    if (subtitle.isNotEmpty())
+        tip << " - " << subtitle;
+
+    if (canReset)
+        tip << ". Double-click to reset.";
+
+    return tip;
+}
+
 }
 
 class TE2350AudioProcessorEditor::OrbitalLookAndFeel final : public juce::LookAndFeel_V4
@@ -311,12 +323,14 @@ public:
           accent(accentColour),
           isMacro(macro)
     {
+        const auto tooltip = makeControlTooltip(title, subtitle, true);
         slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
         slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         slider.setColour(juce::Slider::rotarySliderFillColourId, accent);
         slider.setColour(juce::Slider::textBoxTextColourId, textMain());
         slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+        slider.setTooltip(tooltip);
         slider.onValueChange = [this] { repaint(); };
         addAndMakeVisible(slider);
     }
@@ -401,9 +415,11 @@ public:
           decimalPlaces(decimals),
           accent(accentColour)
     {
+        const auto tooltip = makeControlTooltip(title, subtitle, true);
         slider.setSliderStyle(juce::Slider::LinearHorizontal);
         slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         slider.setColour(juce::Slider::rotarySliderFillColourId, accent);
+        slider.setTooltip(tooltip);
         slider.onValueChange = [this] { repaint(); };
         addAndMakeVisible(slider);
     }
@@ -444,7 +460,12 @@ public:
 private:
     juce::String formatValue() const
     {
-        return juce::String(slider.getValue() * displayScale, decimalPlaces) + suffix;
+        const auto displayValue = slider.getValue() * displayScale;
+        auto text = juce::String(displayValue, decimalPlaces);
+        if (slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0 && displayValue > 0.0)
+            text = "+" + text;
+
+        return text + suffix;
     }
 
     juce::String title;
@@ -462,6 +483,7 @@ public:
     ComboTile(juce::String titleText, juce::String subtitleText)
         : title(std::move(titleText)), subtitle(std::move(subtitleText))
     {
+        combo.setTooltip(makeControlTooltip(title, subtitle, false));
         addAndMakeVisible(combo);
     }
 
@@ -501,6 +523,7 @@ public:
     ToggleTile(juce::String titleText, juce::Colour accentColour)
         : title(std::move(titleText)), accent(accentColour)
     {
+        button.setTooltip(makeControlTooltip(title, juce::String("Toggle ") + title.toLowerCase(), false));
         button.setColour(juce::TextButton::buttonOnColourId, accent);
         button.onStateChange = [this] { updateButtonText(); repaint(); };
         updateButtonText();
@@ -793,7 +816,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
 
     presetSelector.setTooltip("Load a factory preset.");
     advancedToggle.setTooltip("Switch between the performance controls and the advanced edit view.");
-    abButton.setTooltip("Store and compare two parameter snapshots.");
+    abButton.setTooltip("Compare snapshot A and snapshot B.");
     resetButton.setTooltip("Reset all parameters to their default values.");
     bypassButton.setTooltip("Bypass the effect.");
 
@@ -1088,7 +1111,7 @@ void TE2350AudioProcessorEditor::resetParametersToDefault()
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
     showingSnapshotA = true;
-    abButton.setButtonText("A/B");
+    abButton.setButtonText("A");
 }
 
 void TE2350AudioProcessorEditor::toggleAB()

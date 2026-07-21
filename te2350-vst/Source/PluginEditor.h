@@ -84,7 +84,7 @@ private:
     juce::Component utilityLayer;
 
     juce::ComboBox presetSelector;
-    juce::TextButton abButton { "A/B" };
+    juce::TextButton abButton { "A" };
     juce::TextButton resetButton { "RESET" };
     juce::TextButton advancedToggle { "ADV" };
     juce::ToggleButton bypassButton { "BYPASS" };
