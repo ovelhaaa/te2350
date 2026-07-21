@@ -34,6 +34,12 @@ void populateComboChoices(juce::ComboBox& combo, juce::RangedAudioParameter* par
         combo.addItem(choices[index], index + 1);
 }
 
+void enableDefaultReset(juce::Slider& slider, juce::RangedAudioParameter* parameter)
+{
+    if (parameter != nullptr)
+        slider.setDoubleClickReturnValue(true, parameter->convertFrom0to1(parameter->getDefaultValue()));
+}
+
 }
 
 class TE2350AudioProcessorEditor::OrbitalLookAndFeel final : public juce::LookAndFeel_V4
@@ -198,11 +204,29 @@ public:
         g.fillRoundedRectangle(track, 3.5f);
 
         auto fill = track.withRight(clampedPos);
+        if (slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0)
+        {
+            const auto zeroPos = track.getX()
+                + track.getWidth() * static_cast<float>(slider.valueToProportionOfLength(0.0));
+            fill = juce::Rectangle<float>(juce::jmin(zeroPos, clampedPos),
+                                          track.getY(),
+                                          std::abs(clampedPos - zeroPos),
+                                          track.getHeight());
+        }
+
         g.setColour(accent.withAlpha(0.82f));
         g.fillRoundedRectangle(fill, 3.5f);
 
         g.setColour(panelLine().withAlpha(0.82f));
         g.drawRoundedRectangle(track, 3.5f, 1.0f);
+
+        if (slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0)
+        {
+            const auto zeroPos = track.getX()
+                + track.getWidth() * static_cast<float>(slider.valueToProportionOfLength(0.0));
+            g.setColour(textMuted().withAlpha(0.70f));
+            g.drawVerticalLine(juce::roundToInt(zeroPos), track.getY() - 4.0f, track.getBottom() + 4.0f);
+        }
 
         const auto thumb = juce::Rectangle<float>(10.0f, 10.0f).withCentre({ clampedPos, track.getCentreY() });
         g.setColour(textMain());
@@ -339,7 +363,12 @@ public:
 private:
     juce::String formatValue() const
     {
-        return juce::String(slider.getValue() * displayScale, decimalPlaces) + suffix;
+        const auto displayValue = slider.getValue() * displayScale;
+        auto text = juce::String(displayValue, decimalPlaces);
+        if (slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0 && displayValue > 0.0)
+            text = "+" + text;
+
+        return text + suffix;
     }
 
     juce::String title;
@@ -719,14 +748,14 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     addSlider(macroLayer, macroControls, "wild", "Wild", "instability", violet(), true, "%", 100.0, 0);
     addSlider(macroLayer, macroControls, "bloom", "Bloom", "tail / expand", amber(), true, "%", 100.0, 0);
 
-    addSlider(coreLayer, coreControls, "timeMs", "Time", "delay line", cyan(), false, " ms", 1.0, 0);
-    addSlider(coreLayer, coreControls, "feedback", "Feedback", "regeneration", amber(), false, "%", 100.0, 0);
-    addSlider(coreLayer, coreControls, "mix", "Mix", "dry / wet", spectral(), false, "%", 100.0, 0);
-    addSlider(coreLayer, coreControls, "diffusion", "Diffusion", "cloud density", violet(), false, "%", 100.0, 0);
-    addSlider(coreLayer, coreControls, "highCutHz", "Tone", "air / damp", spectral(), false, " kHz", 0.001, 1);
-    addSlider(coreLayer, coreControls, "lowCutHz", "Damp", "low orbit", amber(), false, " Hz", 1.0, 0);
-    addSlider(coreLayer, coreControls, "wetWidth", "Width", "stereo field", cyan(), false, "%", 100.0, 0);
-    addCombo(coreLayer, coreControls, "syncMode", "Sync", "host grid");
+    addSlider(coreLayer, corePrimaryControls, "timeMs", "Time", "delay line", cyan(), true, " ms", 1.0, 0);
+    addSlider(coreLayer, corePrimaryControls, "feedback", "Feedback", "regeneration", amber(), true, "%", 100.0, 0);
+    addSlider(coreLayer, corePrimaryControls, "mix", "Mix", "dry / wet", spectral(), true, "%", 100.0, 0);
+    addSlider(coreLayer, coreSecondaryControls, "diffusion", "Diffusion", "cloud density", violet(), false, "%", 100.0, 0);
+    addSlider(coreLayer, coreSecondaryControls, "highCutHz", "Tone", "air / damp", spectral(), false, " kHz", 0.001, 1);
+    addSlider(coreLayer, coreSecondaryControls, "lowCutHz", "Damp", "low orbit", amber(), false, " Hz", 1.0, 0);
+    addSlider(coreLayer, coreSecondaryControls, "wetWidth", "Width", "stereo field", cyan(), false, "%", 100.0, 0);
+    addCombo(coreLayer, coreSecondaryControls, "syncMode", "Sync", "host grid");
 
     addSlider(advancedLayer, advancedControls, "modRateHz", "Mod Rate", "slow orbit", cyan(), false, " Hz", 1.0, 2);
     addSlider(advancedLayer, advancedControls, "modDepth", "Mod Depth", "field bend", violet(), false, "%", 100.0, 0);
@@ -840,9 +869,8 @@ void TE2350AudioProcessorEditor::resized()
     advancedLayer.setBounds(advancedPanel->getContentBounds());
 
     layoutMacroControls(macroLayer.getLocalBounds());
-    const auto coreColumns = coreLayer.getWidth() >= 620 ? 4 : 3;
     const auto advancedColumns = advancedLayer.getWidth() >= 760 ? 5 : advancedLayer.getWidth() >= 600 ? 4 : 3;
-    layoutGrid(coreLayer.getLocalBounds(), coreControls, coreColumns);
+    layoutCoreControls(coreLayer.getLocalBounds());
     layoutGrid(advancedLayer.getLocalBounds(), advancedControls, advancedColumns);
 
     auto utilityContent = utilityPanel->getContentBounds();
@@ -872,6 +900,7 @@ juce::Slider& TE2350AudioProcessorEditor::addSlider(juce::Component& parent,
                                               suffix, displayScale, decimalPlaces);
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
+    enableDefaultReset(raw->getSlider(), processor.apvts.getParameter(parameterID));
     sliderAttachments.push_back(std::make_unique<SliderAttachment>(processor.apvts, parameterID, raw->getSlider()));
     group.push_back(raw);
     ownedComponents.push_back(std::move(control));
@@ -892,6 +921,7 @@ juce::Slider& TE2350AudioProcessorEditor::addFader(juce::Component& parent,
                                                suffix, displayScale, decimalPlaces);
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
+    enableDefaultReset(raw->getSlider(), processor.apvts.getParameter(parameterID));
     sliderAttachments.push_back(std::make_unique<SliderAttachment>(processor.apvts, parameterID, raw->getSlider()));
     group.push_back(raw);
     ownedComponents.push_back(std::move(control));
@@ -951,6 +981,21 @@ void TE2350AudioProcessorEditor::layoutGrid(juce::Rectangle<int> area,
                                                  cellW,
                                                  cellH);
     }
+}
+
+void TE2350AudioProcessorEditor::layoutCoreControls(juce::Rectangle<int> area)
+{
+    if (corePrimaryControls.empty() && coreSecondaryControls.empty())
+        return;
+
+    const auto gap = 10;
+    auto primaryArea = area.removeFromTop(static_cast<int>(static_cast<float>(area.getHeight()) * 0.58f));
+    area.removeFromTop(gap);
+
+    layoutGrid(primaryArea, corePrimaryControls, corePrimaryControls.size() >= 3 ? 3 : 1);
+
+    const auto secondaryColumns = area.getWidth() >= 600 ? 5 : 3;
+    layoutGrid(area, coreSecondaryControls, secondaryColumns);
 }
 
 void TE2350AudioProcessorEditor::layoutMacroControls(juce::Rectangle<int> area)
