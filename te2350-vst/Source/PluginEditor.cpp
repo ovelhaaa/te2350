@@ -127,7 +127,8 @@ public:
     {
         auto r = button.getLocalBounds().toFloat().reduced(0.5f);
         const auto active = button.getToggleState();
-        const auto accent = active ? spectral() : cyan();
+        const auto controlAccent = button.findColour(juce::TextButton::buttonOnColourId);
+        const auto accent = active ? controlAccent : cyan();
         const auto base = active ? accent.withAlpha(0.86f) : juce::Colour(0xff0b111b);
 
         g.setColour(base.brighter(down ? 0.08f : 0.0f));
@@ -495,9 +496,11 @@ class TE2350AudioProcessorEditor::ToggleTile final : public juce::Component
 {
 public:
     ToggleTile(juce::String titleText, juce::Colour accentColour)
-        : accent(accentColour)
+        : title(std::move(titleText)), accent(accentColour)
     {
-        button.setButtonText(std::move(titleText));
+        button.setColour(juce::TextButton::buttonOnColourId, accent);
+        button.onStateChange = [this] { updateButtonText(); repaint(); };
+        updateButtonText();
         addAndMakeVisible(button);
     }
 
@@ -506,18 +509,32 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat().reduced(4.0f);
+        const auto active = button.getToggleState();
         g.setColour(juce::Colour(0xff080d16).withAlpha(0.35f));
         g.fillRoundedRectangle(r, 7.0f);
-        g.setColour(accent.withAlpha(0.30f));
-        g.drawRoundedRectangle(r, 7.0f, 0.9f);
+        g.setColour((active ? accent : accent.withAlpha(0.30f)).withAlpha(active ? 0.72f : 0.30f));
+        g.drawRoundedRectangle(r, 7.0f, active ? 1.2f : 0.9f);
+
+        g.setColour(textMain());
+        g.setFont(uiFont(11.0f, juce::Font::bold));
+        g.drawFittedText(title.toUpperCase(), getLocalBounds().reduced(8, 6).removeFromTop(17),
+                         juce::Justification::centred, 1);
     }
 
     void resized() override
     {
-        button.setBounds(getLocalBounds().reduced(12).withSizeKeepingCentre(getWidth() - 24, 28));
+        auto area = getLocalBounds().reduced(10, 6);
+        area.removeFromTop(21);
+        button.setBounds(area.withSizeKeepingCentre(area.getWidth(), juce::jmin(30, area.getHeight())));
     }
 
 private:
+    void updateButtonText()
+    {
+        button.setButtonText(button.getToggleState() ? "ON" : "OFF");
+    }
+
+    juce::String title;
     juce::Colour accent;
     juce::ToggleButton button;
 };
@@ -724,7 +741,10 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
         addAndMakeVisible(button);
     }
 
+    advancedToggle.setColour(juce::TextButton::buttonOnColourId, violet());
+
     bypassButton.setButtonText("BYPASS");
+    bypassButton.setColour(juce::TextButton::buttonOnColourId, spectral());
     addAndMakeVisible(bypassButton);
     buttonAttachments.push_back(std::make_unique<ButtonAttachment>(processor.apvts, "bypass", bypassButton));
 
