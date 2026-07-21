@@ -703,7 +703,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     advancedToggle.onClick = [this]
     {
         advancedExpanded = ! advancedExpanded;
-        advancedPanel->setVisible(advancedExpanded);
+        advancedToggle.setButtonText(advancedExpanded ? "CORE" : "ADV");
         resized();
     };
 
@@ -722,11 +722,17 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
 
     addSlider(advancedLayer, advancedControls, "modRateHz", "Mod Rate", "slow orbit", cyan(), false, " Hz", 1.0, 2);
     addSlider(advancedLayer, advancedControls, "modDepth", "Mod Depth", "field bend", violet(), false, "%", 100.0, 0);
+    addCombo(advancedLayer, advancedControls, "modShape", "Mod Shape", "movement");
+    addSlider(advancedLayer, advancedControls, "chaos", "Chaos", "diffusion random", violet(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedControls, "presence", "Presence", "front detail", spectral(), false, "%", 100.0, 0);
     addSlider(advancedLayer, advancedControls, "wobble", "Pitch Drift", "tape gravity", spectral(), false, "%", 100.0, 0);
     addSlider(advancedLayer, advancedControls, "shimmerAmount", "Shimmer", "octave veil", amber(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedControls, "shimmerFeedback", "Shimmer FB", "recirculate", amber(), false, "%", 100.0, 0);
     addCombo(advancedLayer, advancedControls, "shimmerInterval", "Octave", "interval");
     addSlider(advancedLayer, advancedControls, "duckAmount", "Ducking", "clear centre", cyan(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedControls, "duckThreshold", "Duck Thr", "trigger level", cyan(), false, " dB", 1.0, 1);
     addToggle(advancedLayer, advancedControls, "freezeEngage", "Freeze", spectral());
+    addCombo(advancedLayer, advancedControls, "freezeMode", "Freeze Mode", "gesture");
     addCombo(advancedLayer, advancedControls, "qualityMode", "Oversampling", "mode");
 
     addFader(utilityLayer, utilityControls, "inputTrim", "Input", "trim", cyan(), " dB", 1.0, 1);
@@ -737,6 +743,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
 
+    corePanel->setVisible(! advancedExpanded);
     advancedPanel->setVisible(advancedExpanded);
 
     setResizeLimits(900, 600, 1200, 780);
@@ -815,17 +822,10 @@ void TE2350AudioProcessorEditor::resized()
     macroPanel->setBounds(left);
     utilityPanel->setBounds(utility);
 
-    if (advancedExpanded)
-    {
-        auto core = area.removeFromTop(juce::jmax(220, area.getHeight() / 2 + 20));
-        area.removeFromTop(12);
-        corePanel->setBounds(core);
-        advancedPanel->setBounds(area);
-    }
-    else
-    {
-        corePanel->setBounds(area);
-    }
+    corePanel->setVisible(! advancedExpanded);
+    advancedPanel->setVisible(advancedExpanded);
+    corePanel->setBounds(area);
+    advancedPanel->setBounds(area);
 
     macroLayer.setBounds(macroPanel->getContentBounds());
     coreLayer.setBounds(corePanel->getContentBounds());
@@ -833,7 +833,7 @@ void TE2350AudioProcessorEditor::resized()
 
     layoutMacroControls(macroLayer.getLocalBounds());
     const auto coreColumns = coreLayer.getWidth() >= 620 ? 4 : 3;
-    const auto advancedColumns = advancedLayer.getWidth() >= 600 ? 4 : 3;
+    const auto advancedColumns = advancedLayer.getWidth() >= 760 ? 5 : advancedLayer.getWidth() >= 600 ? 4 : 3;
     layoutGrid(coreLayer.getLocalBounds(), coreControls, coreColumns);
     layoutGrid(advancedLayer.getLocalBounds(), advancedControls, advancedColumns);
 
