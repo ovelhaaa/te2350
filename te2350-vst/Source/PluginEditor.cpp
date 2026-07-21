@@ -833,7 +833,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     buttonAttachments.push_back(std::make_unique<ButtonAttachment>(processor.apvts, "bypass", bypassButton));
 
     presetSelector.setTooltip("Load a factory preset.");
-    advancedToggle.setTooltip("Switch between the performance controls and the advanced edit view.");
+    advancedToggle.setTooltip("Switch to the advanced edit view.");
     abButton.setTooltip("Compare snapshot A and snapshot B.");
     resetButton.setTooltip("Reset all parameters to their default values.");
     bypassButton.setTooltip("Bypass the effect.");
@@ -843,8 +843,10 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     advancedToggle.onClick = [this]
     {
         advancedExpanded = ! advancedExpanded;
-        advancedToggle.setButtonText(advancedExpanded ? "CORE" : "ADV");
+        advancedToggle.setButtonText(advancedExpanded ? "MAIN" : "EDIT");
         advancedToggle.setToggleState(advancedExpanded, juce::dontSendNotification);
+        advancedToggle.setTooltip(advancedExpanded ? "Return to the main performance view."
+                                                   : "Switch to the advanced edit view.");
         resized();
     };
 
@@ -929,7 +931,7 @@ void TE2350AudioProcessorEditor::paint(juce::Graphics& g)
 
     g.setColour(textMain());
     g.setFont(uiFont(27.0f, juce::Font::bold));
-    g.drawText("TE-2350 ANTIGRAVITY", header.withTrimmedLeft(76).withTrimmedRight(448),
+    g.drawText("TE-2350 ANTIGRAVITY", header.withTrimmedLeft(76).withTrimmedRight(452),
                juce::Justification::centredLeft);
 
     g.setColour(cyan().withAlpha(0.58f));
@@ -944,11 +946,11 @@ void TE2350AudioProcessorEditor::resized()
     logoMark->setBounds(header.removeFromLeft(52).reduced(2));
     header.removeFromLeft(12);
 
-    auto headerRight = header.removeFromRight(438);
+    auto headerRight = header.removeFromRight(442);
     bypassButton.setBounds(headerRight.removeFromRight(74).reduced(3, 10));
     resetButton.setBounds(headerRight.removeFromRight(66).reduced(3, 10));
     abButton.setBounds(headerRight.removeFromRight(48).reduced(3, 10));
-    advancedToggle.setBounds(headerRight.removeFromRight(58).reduced(3, 10));
+    advancedToggle.setBounds(headerRight.removeFromRight(62).reduced(3, 10));
     headerRight.removeFromRight(8);
     presetSelector.setBounds(headerRight.removeFromRight(184).reduced(2, 10));
 

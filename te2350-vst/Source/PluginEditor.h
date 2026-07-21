@@ -86,7 +86,7 @@ private:
     juce::ComboBox presetSelector;
     juce::TextButton abButton { "A" };
     juce::TextButton resetButton { "RESET" };
-    juce::TextButton advancedToggle { "ADV" };
+    juce::TextButton advancedToggle { "EDIT" };
     juce::ToggleButton bypassButton { "BYPASS" };
     juce::TooltipWindow tooltipWindow { this, 700 };
 
