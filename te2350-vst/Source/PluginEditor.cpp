@@ -6,6 +6,7 @@
 namespace
 {
 constexpr int margin = 16;
+constexpr int gridGap = 8;
 
 juce::Colour night()      { return juce::Colour(0xff06080e); }
 juce::Colour panel()      { return juce::Colour(0xff0d1420); }
@@ -67,6 +68,15 @@ juce::String formatDisplayValue(double value,
         text = "+" + text;
 
     return text + suffix;
+}
+
+int chooseColumns(juce::Rectangle<int> area, int itemCount, int minCellWidth, int maxColumns)
+{
+    if (itemCount <= 0)
+        return 1;
+
+    const auto fit = (area.getWidth() + gridGap) / (minCellWidth + gridGap);
+    return juce::jlimit(1, juce::jmin(itemCount, maxColumns), fit);
 }
 
 }
@@ -475,7 +485,10 @@ public:
         area.removeFromTop(isMacro ? 43 : 31);
         area.removeFromBottom(isMacro ? 23 : 20);
 
-        const auto side = juce::jmax(32, juce::jmin(area.getWidth(), area.getHeight()));
+        const auto maxSide = isMacro ? 118 : 62;
+        const auto side = juce::jlimit(isMacro ? 72 : 34,
+                                       maxSide,
+                                       juce::jmin(area.getWidth(), area.getHeight()));
         slider.setBounds(juce::Rectangle<int>(side, side).withCentre(area.getCentre()));
     }
 
@@ -980,9 +993,9 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     corePanel->setVisible(! advancedExpanded);
     advancedPanel->setVisible(advancedExpanded);
 
-    setResizeLimits(900, 600, 1200, 780);
+    setResizeLimits(920, 620, 1280, 820);
     setResizable(true, true);
-    setSize(1000, 660);
+    setSize(1040, 680);
     startTimerHz(30);
 }
 
@@ -1046,10 +1059,11 @@ void TE2350AudioProcessorEditor::resized()
     presetSelector.setBounds(headerRight.removeFromRight(184).reduced(2, 10));
 
     area.removeFromTop(12);
-    auto utility = area.removeFromBottom(124);
+    const auto utilityHeight = juce::jlimit(116, 136, area.getHeight() / 5);
+    auto utility = area.removeFromBottom(utilityHeight);
     area.removeFromBottom(12);
 
-    const auto leftWidth = juce::jlimit(250, 330, area.getWidth() / 3);
+    const auto leftWidth = juce::jlimit(252, 304, area.getWidth() / 3);
     auto left = area.removeFromLeft(leftWidth);
     area.removeFromLeft(12);
 
@@ -1072,7 +1086,7 @@ void TE2350AudioProcessorEditor::resized()
     auto utilityContent = utilityPanel->getContentBounds();
     auto meterArea = utilityContent.removeFromRight(utilityContent.getWidth() / 2);
     utilityContent.removeFromRight(10);
-    layoutGrid(utilityContent, utilityControls, 4);
+    layoutGrid(utilityContent, utilityControls, chooseColumns(utilityContent, static_cast<int>(utilityControls.size()), 112, 4));
 
     gravityMeter->setBounds(meterArea.removeFromRight(86).reduced(2));
     meterArea.removeFromRight(8);
@@ -1176,16 +1190,15 @@ void TE2350AudioProcessorEditor::layoutGrid(juce::Rectangle<int> area,
 
     columns = juce::jmax(1, columns);
     const auto rows = (static_cast<int>(group.size()) + columns - 1) / columns;
-    constexpr int gap = 8;
-    const auto cellW = (area.getWidth() - gap * (columns - 1)) / columns;
-    const auto cellH = (area.getHeight() - gap * (rows - 1)) / rows;
+    const auto cellW = (area.getWidth() - gridGap * (columns - 1)) / columns;
+    const auto cellH = (area.getHeight() - gridGap * (rows - 1)) / rows;
 
     for (int i = 0; i < static_cast<int>(group.size()); ++i)
     {
         const auto row = i / columns;
         const auto column = i % columns;
-        group[static_cast<size_t>(i)]->setBounds(area.getX() + column * (cellW + gap),
-                                                 area.getY() + row * (cellH + gap),
+        group[static_cast<size_t>(i)]->setBounds(area.getX() + column * (cellW + gridGap),
+                                                 area.getY() + row * (cellH + gridGap),
                                                  cellW,
                                                  cellH);
     }
@@ -1197,7 +1210,8 @@ void TE2350AudioProcessorEditor::layoutCoreControls(juce::Rectangle<int> area)
         return;
 
     const auto gap = 10;
-    auto primaryArea = area.removeFromTop(static_cast<int>(static_cast<float>(area.getHeight()) * 0.58f));
+    const auto primaryHeight = juce::jlimit(160, 230, static_cast<int>(static_cast<float>(area.getHeight()) * 0.55f));
+    auto primaryArea = area.removeFromTop(primaryHeight);
     area.removeFromTop(gap);
 
     corePerformLabel->setBounds(primaryArea.removeFromTop(16));
@@ -1205,9 +1219,9 @@ void TE2350AudioProcessorEditor::layoutCoreControls(juce::Rectangle<int> area)
     coreColorLabel->setBounds(area.removeFromTop(16));
     area.removeFromTop(4);
 
-    layoutGrid(primaryArea, corePrimaryControls, corePrimaryControls.size() >= 3 ? 3 : 1);
+    layoutGrid(primaryArea, corePrimaryControls, chooseColumns(primaryArea, static_cast<int>(corePrimaryControls.size()), 150, 3));
 
-    const auto secondaryColumns = area.getWidth() >= 600 ? 5 : 3;
+    const auto secondaryColumns = chooseColumns(area, static_cast<int>(coreSecondaryControls.size()), 116, 5);
     layoutGrid(area, coreSecondaryControls, secondaryColumns);
 }
 
@@ -1217,7 +1231,8 @@ void TE2350AudioProcessorEditor::layoutAdvancedControls(juce::Rectangle<int> are
         return;
 
     const auto gap = 10;
-    auto motionArea = area.removeFromTop(static_cast<int>(static_cast<float>(area.getHeight()) * 0.46f));
+    const auto motionHeight = juce::jlimit(140, 210, static_cast<int>(static_cast<float>(area.getHeight()) * 0.45f));
+    auto motionArea = area.removeFromTop(motionHeight);
     area.removeFromTop(gap);
 
     advancedMotionLabel->setBounds(motionArea.removeFromTop(16));
@@ -1225,8 +1240,8 @@ void TE2350AudioProcessorEditor::layoutAdvancedControls(juce::Rectangle<int> are
     advancedTextureLabel->setBounds(area.removeFromTop(16));
     area.removeFromTop(4);
 
-    const auto motionColumns = motionArea.getWidth() >= 760 ? 6 : motionArea.getWidth() >= 600 ? 4 : 3;
-    const auto textureColumns = area.getWidth() >= 760 ? 4 : area.getWidth() >= 600 ? 4 : 3;
+    const auto motionColumns = chooseColumns(motionArea, static_cast<int>(advancedMotionControls.size()), 104, 6);
+    const auto textureColumns = chooseColumns(area, static_cast<int>(advancedTextureControls.size()), 112, 4);
 
     layoutGrid(motionArea, advancedMotionControls, motionColumns);
     layoutGrid(area, advancedTextureControls, textureColumns);
