@@ -20,6 +20,7 @@ private:
 
     class OrbitalLookAndFeel;
     class KnobTile;
+    class FaderTile;
     class ComboTile;
     class ToggleTile;
     class SectionPanel;
@@ -33,7 +34,19 @@ private:
                             const juce::String& title,
                             const juce::String& subtitle,
                             juce::Colour accent,
-                            bool large = false);
+                            bool large = false,
+                            const juce::String& suffix = {},
+                            double displayScale = 1.0,
+                            int decimalPlaces = 1);
+    juce::Slider& addFader(juce::Component& parent,
+                           std::vector<juce::Component*>& group,
+                           const juce::String& parameterID,
+                           const juce::String& title,
+                           const juce::String& subtitle,
+                           juce::Colour accent,
+                           const juce::String& suffix = {},
+                           double displayScale = 1.0,
+                           int decimalPlaces = 1);
     juce::ComboBox& addCombo(juce::Component& parent,
                              std::vector<juce::Component*>& group,
                              const juce::String& parameterID,

@@ -170,6 +170,47 @@ public:
         g.fillPath(arrow);
     }
 
+    void drawLinearSlider(juce::Graphics& g,
+                          int x,
+                          int y,
+                          int width,
+                          int height,
+                          float sliderPos,
+                          float,
+                          float,
+                          const juce::Slider::SliderStyle style,
+                          juce::Slider& slider) override
+    {
+        if (style != juce::Slider::LinearHorizontal)
+        {
+            juce::LookAndFeel_V4::drawLinearSlider(g, x, y, width, height, sliderPos,
+                                                   0.0f, 0.0f, style, slider);
+            return;
+        }
+
+        auto r = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y),
+                                        static_cast<float>(width), static_cast<float>(height)).reduced(5.0f, 8.0f);
+        const auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
+        const auto track = r.withHeight(7.0f).withCentre({ r.getCentreX(), r.getCentreY() });
+        const auto clampedPos = juce::jlimit(track.getX(), track.getRight(), sliderPos);
+
+        g.setColour(juce::Colour(0xff05080d));
+        g.fillRoundedRectangle(track, 3.5f);
+
+        auto fill = track.withRight(clampedPos);
+        g.setColour(accent.withAlpha(0.82f));
+        g.fillRoundedRectangle(fill, 3.5f);
+
+        g.setColour(panelLine().withAlpha(0.82f));
+        g.drawRoundedRectangle(track, 3.5f, 1.0f);
+
+        const auto thumb = juce::Rectangle<float>(10.0f, 10.0f).withCentre({ clampedPos, track.getCentreY() });
+        g.setColour(textMain());
+        g.fillEllipse(thumb);
+        g.setColour(accent.withAlpha(0.72f));
+        g.drawEllipse(thumb.expanded(2.0f), 1.0f);
+    }
+
     void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
     {
         label.setBounds(9, 1, box.getWidth() - 28, box.getHeight() - 2);
@@ -227,8 +268,20 @@ private:
 class TE2350AudioProcessorEditor::KnobTile final : public juce::Component
 {
 public:
-    KnobTile(juce::String titleText, juce::String subtitleText, juce::Colour accentColour, bool macro)
-        : title(std::move(titleText)), subtitle(std::move(subtitleText)), accent(accentColour), isMacro(macro)
+    KnobTile(juce::String titleText,
+             juce::String subtitleText,
+             juce::Colour accentColour,
+             bool macro,
+             juce::String suffixText,
+             double scale,
+             int decimals)
+        : title(std::move(titleText)),
+          subtitle(std::move(subtitleText)),
+          suffix(std::move(suffixText)),
+          displayScale(scale),
+          decimalPlaces(decimals),
+          accent(accentColour),
+          isMacro(macro)
     {
         slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
         slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -269,8 +322,7 @@ public:
         g.drawRoundedRectangle(value, 4.0f, 0.8f);
         g.setColour(textMain().withAlpha(0.88f));
         g.setFont(uiFont(isMacro ? 11.0f : 9.5f, juce::Font::bold));
-        g.drawText(slider.getTextFromValue(slider.getValue()), value.toNearestInt().reduced(4, 0),
-                   juce::Justification::centred);
+        g.drawText(formatValue(), value.toNearestInt().reduced(4, 0), juce::Justification::centred);
     }
 
     void resized() override
@@ -284,10 +336,89 @@ public:
     }
 
 private:
+    juce::String formatValue() const
+    {
+        return juce::String(slider.getValue() * displayScale, decimalPlaces) + suffix;
+    }
+
     juce::String title;
     juce::String subtitle;
+    juce::String suffix;
+    double displayScale = 1.0;
+    int decimalPlaces = 1;
     juce::Colour accent;
     bool isMacro = false;
+    juce::Slider slider;
+};
+
+class TE2350AudioProcessorEditor::FaderTile final : public juce::Component
+{
+public:
+    FaderTile(juce::String titleText,
+              juce::String subtitleText,
+              juce::Colour accentColour,
+              juce::String suffixText,
+              double scale,
+              int decimals)
+        : title(std::move(titleText)),
+          subtitle(std::move(subtitleText)),
+          suffix(std::move(suffixText)),
+          displayScale(scale),
+          decimalPlaces(decimals),
+          accent(accentColour)
+    {
+        slider.setSliderStyle(juce::Slider::LinearHorizontal);
+        slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        slider.setColour(juce::Slider::rotarySliderFillColourId, accent);
+        slider.onValueChange = [this] { repaint(); };
+        addAndMakeVisible(slider);
+    }
+
+    juce::Slider& getSlider() { return slider; }
+
+    void paint(juce::Graphics& g) override
+    {
+        auto r = getLocalBounds().toFloat().reduced(4.0f);
+        g.setColour(juce::Colour(0xff080d16).withAlpha(0.32f));
+        g.fillRoundedRectangle(r, 7.0f);
+        g.setColour(accent.withAlpha(0.26f));
+        g.drawRoundedRectangle(r, 7.0f, 0.9f);
+
+        auto top = getLocalBounds().reduced(8, 5).removeFromTop(17);
+        g.setColour(textMain());
+        g.setFont(uiFont(11.5f, juce::Font::bold));
+        g.drawText(title.toUpperCase(), top.removeFromLeft(top.getWidth() / 2), juce::Justification::centredLeft);
+
+        g.setColour(textMain().withAlpha(0.88f));
+        g.setFont(uiFont(10.5f, juce::Font::bold));
+        g.drawText(formatValue(), top, juce::Justification::centredRight);
+
+        g.setColour(textMuted());
+        g.setFont(uiFont(9.0f));
+        g.drawText(subtitle.toUpperCase(), 8, getHeight() - 17, getWidth() - 16, 12,
+                   juce::Justification::centredLeft);
+    }
+
+    void resized() override
+    {
+        auto area = getLocalBounds().reduced(7, 4);
+        area.removeFromTop(20);
+        area.removeFromBottom(15);
+        slider.setBounds(area);
+    }
+
+private:
+    juce::String formatValue() const
+    {
+        return juce::String(slider.getValue() * displayScale, decimalPlaces) + suffix;
+    }
+
+    juce::String title;
+    juce::String subtitle;
+    juce::String suffix;
+    double displayScale = 1.0;
+    int decimalPlaces = 1;
+    juce::Colour accent;
     juce::Slider slider;
 };
 
@@ -576,30 +707,30 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
         resized();
     };
 
-    addSlider(macroLayer, macroControls, "space", "Space", "depth / size", cyan(), true);
-    addSlider(macroLayer, macroControls, "wild", "Wild", "instability", violet(), true);
-    addSlider(macroLayer, macroControls, "bloom", "Bloom", "tail / expand", amber(), true);
+    addSlider(macroLayer, macroControls, "space", "Space", "depth / size", cyan(), true, "%", 100.0, 0);
+    addSlider(macroLayer, macroControls, "wild", "Wild", "instability", violet(), true, "%", 100.0, 0);
+    addSlider(macroLayer, macroControls, "bloom", "Bloom", "tail / expand", amber(), true, "%", 100.0, 0);
 
-    addSlider(coreLayer, coreControls, "timeMs", "Time", "delay line", cyan());
-    addSlider(coreLayer, coreControls, "feedback", "Feedback", "regeneration", amber());
-    addSlider(coreLayer, coreControls, "mix", "Mix", "dry / wet", spectral());
-    addSlider(coreLayer, coreControls, "diffusion", "Diffusion", "cloud density", violet());
-    addSlider(coreLayer, coreControls, "highCutHz", "Tone", "air / damp", spectral());
-    addSlider(coreLayer, coreControls, "lowCutHz", "Damp", "low orbit", amber());
-    addSlider(coreLayer, coreControls, "wetWidth", "Width", "stereo field", cyan());
+    addSlider(coreLayer, coreControls, "timeMs", "Time", "delay line", cyan(), false, " ms", 1.0, 0);
+    addSlider(coreLayer, coreControls, "feedback", "Feedback", "regeneration", amber(), false, "%", 100.0, 0);
+    addSlider(coreLayer, coreControls, "mix", "Mix", "dry / wet", spectral(), false, "%", 100.0, 0);
+    addSlider(coreLayer, coreControls, "diffusion", "Diffusion", "cloud density", violet(), false, "%", 100.0, 0);
+    addSlider(coreLayer, coreControls, "highCutHz", "Tone", "air / damp", spectral(), false, " Hz", 1.0, 0);
+    addSlider(coreLayer, coreControls, "lowCutHz", "Damp", "low orbit", amber(), false, " Hz", 1.0, 0);
+    addSlider(coreLayer, coreControls, "wetWidth", "Width", "stereo field", cyan(), false, "%", 100.0, 0);
     addCombo(coreLayer, coreControls, "syncMode", "Sync", "host grid");
 
-    addSlider(advancedLayer, advancedControls, "modRateHz", "Mod Rate", "slow orbit", cyan());
-    addSlider(advancedLayer, advancedControls, "modDepth", "Mod Depth", "field bend", violet());
-    addSlider(advancedLayer, advancedControls, "wobble", "Pitch Drift", "tape gravity", spectral());
-    addSlider(advancedLayer, advancedControls, "shimmerAmount", "Shimmer", "octave veil", amber());
+    addSlider(advancedLayer, advancedControls, "modRateHz", "Mod Rate", "slow orbit", cyan(), false, " Hz", 1.0, 2);
+    addSlider(advancedLayer, advancedControls, "modDepth", "Mod Depth", "field bend", violet(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedControls, "wobble", "Pitch Drift", "tape gravity", spectral(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedControls, "shimmerAmount", "Shimmer", "octave veil", amber(), false, "%", 100.0, 0);
     addCombo(advancedLayer, advancedControls, "shimmerInterval", "Octave", "interval");
-    addSlider(advancedLayer, advancedControls, "duckAmount", "Ducking", "clear centre", cyan());
+    addSlider(advancedLayer, advancedControls, "duckAmount", "Ducking", "clear centre", cyan(), false, "%", 100.0, 0);
     addToggle(advancedLayer, advancedControls, "freezeEngage", "Freeze", spectral());
     addCombo(advancedLayer, advancedControls, "qualityMode", "Oversampling", "mode");
 
-    addSlider(utilityLayer, utilityControls, "inputTrim", "Input", "trim", cyan());
-    addSlider(utilityLayer, utilityControls, "outputTrim", "Output", "trim", spectral());
+    addFader(utilityLayer, utilityControls, "inputTrim", "Input", "trim", cyan(), " dB", 1.0, 1);
+    addFader(utilityLayer, utilityControls, "outputTrim", "Output", "trim", spectral(), " dB", 1.0, 1);
     addToggle(utilityLayer, utilityControls, "killDry", "Kill Dry", amber());
     addToggle(utilityLayer, utilityControls, "atmosFdnOn", "Atmos", violet());
 
@@ -633,16 +764,16 @@ void TE2350AudioProcessorEditor::paint(juce::Graphics& g)
     g.setColour(violet().withAlpha(0.08f));
     g.fillEllipse(bounds.withSizeKeepingCentre(bounds.getWidth() * 0.92f, bounds.getHeight() * 1.10f));
 
-    for (int i = 0; i < 48; ++i)
+    for (int i = 0; i < 22; ++i)
     {
         const auto x = std::fmod(static_cast<float>(i * 97 + 29), juce::jmax(1.0f, bounds.getWidth()));
         const auto y = std::fmod(static_cast<float>(i * 53 + 41), juce::jmax(1.0f, bounds.getHeight()));
-        const auto alpha = 0.07f + 0.18f * (0.5f + 0.5f * std::sin(animationPhase * 0.25f + static_cast<float>(i)));
+        const auto alpha = 0.03f + 0.08f * (0.5f + 0.5f * std::sin(animationPhase * 0.25f + static_cast<float>(i)));
         g.setColour((i % 4 == 0 ? amber() : i % 3 == 0 ? violet() : cyan()).withAlpha(alpha));
         g.fillEllipse(x, y, i % 5 == 0 ? 1.8f : 1.1f, i % 5 == 0 ? 1.8f : 1.1f);
     }
 
-    auto header = getLocalBounds().reduced(margin).removeFromTop(60);
+    auto header = getLocalBounds().reduced(margin).removeFromTop(54);
     g.setColour(textMuted());
     g.setFont(uiFont(11.0f, juce::Font::bold));
     g.drawText("AMBIENT DELAY / REVERB  |  ORBITAL MODULATION UNIT",
@@ -709,7 +840,7 @@ void TE2350AudioProcessorEditor::resized()
     auto utilityContent = utilityPanel->getContentBounds();
     auto meterArea = utilityContent.removeFromRight(utilityContent.getWidth() / 2);
     utilityContent.removeFromRight(10);
-    layoutGrid(utilityContent, utilityControls, 2);
+    layoutGrid(utilityContent, utilityControls, 4);
 
     gravityMeter->setBounds(meterArea.removeFromRight(86).reduced(2));
     meterArea.removeFromRight(8);
@@ -724,9 +855,33 @@ juce::Slider& TE2350AudioProcessorEditor::addSlider(juce::Component& parent,
                                                     const juce::String& title,
                                                     const juce::String& subtitle,
                                                     juce::Colour accent,
-                                                    bool large)
+                                                    bool large,
+                                                    const juce::String& suffix,
+                                                    double displayScale,
+                                                    int decimalPlaces)
 {
-    auto control = std::make_unique<KnobTile>(title, subtitle, accent, large);
+    auto control = std::make_unique<KnobTile>(title, subtitle, accent, large,
+                                              suffix, displayScale, decimalPlaces);
+    auto* raw = control.get();
+    parent.addAndMakeVisible(raw);
+    sliderAttachments.push_back(std::make_unique<SliderAttachment>(processor.apvts, parameterID, raw->getSlider()));
+    group.push_back(raw);
+    ownedComponents.push_back(std::move(control));
+    return raw->getSlider();
+}
+
+juce::Slider& TE2350AudioProcessorEditor::addFader(juce::Component& parent,
+                                                   std::vector<juce::Component*>& group,
+                                                   const juce::String& parameterID,
+                                                   const juce::String& title,
+                                                   const juce::String& subtitle,
+                                                   juce::Colour accent,
+                                                   const juce::String& suffix,
+                                                   double displayScale,
+                                                   int decimalPlaces)
+{
+    auto control = std::make_unique<FaderTile>(title, subtitle, accent,
+                                               suffix, displayScale, decimalPlaces);
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
     sliderAttachments.push_back(std::make_unique<SliderAttachment>(processor.apvts, parameterID, raw->getSlider()));
@@ -859,5 +1014,4 @@ void TE2350AudioProcessorEditor::timerCallback()
 
     feedbackMeter->setLevel(juce::jlimit(0.0f, 1.0f, feedbackValue / 1.05f));
     gravityMeter->setValues(processor.getInstabilityMeterValue(), feedbackValue, animationPhase);
-    repaint();
 }
