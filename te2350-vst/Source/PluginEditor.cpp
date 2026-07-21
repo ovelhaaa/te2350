@@ -545,8 +545,8 @@ private:
 class TE2350AudioProcessorEditor::MeterStrip final : public juce::Component
 {
 public:
-    MeterStrip(juce::String labelText, juce::Colour meterColour)
-        : label(std::move(labelText)), colour(meterColour)
+    MeterStrip(juce::String labelText, juce::Colour meterColour, bool warningMode = false)
+        : label(std::move(labelText)), colour(meterColour), isWarningMeter(warningMode)
     {
     }
 
@@ -559,9 +559,15 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat().reduced(2.0f);
+        const auto displayColour = getDisplayColour();
+        auto labelArea = r.removeFromTop(13.0f).toNearestInt();
+
         g.setColour(textMuted());
         g.setFont(uiFont(10.0f, juce::Font::bold));
-        g.drawText(label.toUpperCase(), r.removeFromTop(13.0f).toNearestInt(), juce::Justification::centredLeft);
+        g.drawText(label.toUpperCase(), labelArea, juce::Justification::centredLeft);
+
+        g.setColour(isWarningMeter && level >= 0.82f ? displayColour : textMuted().withAlpha(0.88f));
+        g.drawFittedText(formatLevel(), labelArea, juce::Justification::centredRight, 1);
 
         auto track = r.reduced(0.0f, 5.0f);
         g.setColour(juce::Colour(0xff05080d));
@@ -569,18 +575,52 @@ public:
 
         auto fill = track;
         fill.setWidth(track.getWidth() * level);
-        juce::ColourGradient grad(colour.withAlpha(0.76f), track.getX(), track.getCentreY(),
-                                  colour.brighter(0.55f), track.getRight(), track.getCentreY(), false);
+        juce::ColourGradient grad(displayColour.withAlpha(0.76f), track.getX(), track.getCentreY(),
+                                  displayColour.brighter(0.55f), track.getRight(), track.getCentreY(), false);
         g.setGradientFill(grad);
         g.fillRoundedRectangle(fill, 3.0f);
+
+        if (isWarningMeter)
+        {
+            const auto warnX = track.getX() + track.getWidth() * 0.82f;
+            g.setColour(amber().withAlpha(0.52f));
+            g.drawVerticalLine(juce::roundToInt(warnX), track.getY() - 2.0f, track.getBottom() + 2.0f);
+        }
 
         g.setColour(panelLine().withAlpha(0.82f));
         g.drawRoundedRectangle(track, 3.0f, 1.0f);
     }
 
 private:
+    juce::Colour getDisplayColour() const
+    {
+        if (! isWarningMeter)
+            return colour;
+
+        if (level >= 0.92f)
+            return juce::Colour(0xffff5c5c);
+
+        if (level >= 0.82f)
+            return amber();
+
+        return spectral();
+    }
+
+    juce::String formatLevel() const
+    {
+        if (isWarningMeter)
+            return level >= 0.92f ? "LIMIT" : juce::String(juce::roundToInt(level * 100.0f)) + "%";
+
+        if (level <= 0.0001f)
+            return "-inf";
+
+        const auto db = juce::Decibels::gainToDecibels(level, -60.0f);
+        return juce::String(db, db > -10.0f ? 1 : 0) + " dB";
+    }
+
     juce::String label;
     juce::Colour colour;
+    bool isWarningMeter = false;
     float level = 0.0f;
 };
 
@@ -711,7 +751,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     gravityMeter = static_cast<GravityMeter*>(addOwned(std::make_unique<GravityMeter>()));
     inputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Input", cyan())));
     outputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Output", spectral())));
-    feedbackMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Feedback Safety", amber())));
+    feedbackMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Feedback Safety", amber(), true)));
 
     addAndMakeVisible(logoMark);
     addAndMakeVisible(macroPanel);
