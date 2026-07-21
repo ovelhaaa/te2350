@@ -37,7 +37,10 @@ void populateComboChoices(juce::ComboBox& combo, juce::RangedAudioParameter* par
 void enableDefaultReset(juce::Slider& slider, juce::RangedAudioParameter* parameter)
 {
     if (parameter != nullptr)
+    {
         slider.setDoubleClickReturnValue(true, parameter->convertFrom0to1(parameter->getDefaultValue()));
+        slider.getProperties().set("defaultProportion", parameter->getDefaultValue());
+    }
 }
 
 juce::String makeControlTooltip(const juce::String& title, const juce::String& subtitle, bool canReset)
@@ -101,7 +104,18 @@ public:
                                             static_cast<float>(width), static_cast<float>(height)).reduced(7.0f);
         const auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
         const auto centre = bounds.getCentre();
-        const auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
+        auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
+        const auto warningThreshold = slider.getProperties()["warningThresholdValue"];
+        if (! warningThreshold.isVoid())
+        {
+            const auto warningValue = static_cast<double>(warningThreshold);
+            const auto criticalValue = static_cast<double>(slider.getProperties().getWithDefault("criticalThresholdValue",
+                                                                                                  warningValue));
+            if (slider.getValue() >= criticalValue)
+                accent = juce::Colour(0xffff5c5c);
+            else if (slider.getValue() >= warningValue)
+                accent = amber();
+        }
         const auto angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
         g.setColour(juce::Colour(0xff05080d));
@@ -121,6 +135,21 @@ public:
         g.setColour(juce::Colour(0xff172538));
         g.strokePath(track, juce::PathStrokeType(5.0f, juce::PathStrokeType::curved,
                                                  juce::PathStrokeType::rounded));
+
+        const auto defaultValue = slider.getProperties()["defaultProportion"];
+        if (! defaultValue.isVoid())
+        {
+            const auto defaultPos = juce::jlimit(0.0f, 1.0f, static_cast<float>(defaultValue));
+            const auto defaultAngle = rotaryStartAngle + defaultPos * (rotaryEndAngle - rotaryStartAngle);
+            const auto inner = radius * 0.66f;
+            const auto outer = radius * 0.86f;
+            const auto p1 = centre + juce::Point<float>(std::cos(defaultAngle - juce::MathConstants<float>::halfPi) * inner,
+                                                        std::sin(defaultAngle - juce::MathConstants<float>::halfPi) * inner);
+            const auto p2 = centre + juce::Point<float>(std::cos(defaultAngle - juce::MathConstants<float>::halfPi) * outer,
+                                                        std::sin(defaultAngle - juce::MathConstants<float>::halfPi) * outer);
+            g.setColour(textMuted().withAlpha(0.55f));
+            g.drawLine({ p1, p2 }, 1.3f);
+        }
 
         juce::Path value;
         value.addCentredArc(centre.x, centre.y, radius * 0.78f, radius * 0.78f, 0.0f,
@@ -255,6 +284,15 @@ public:
             g.drawVerticalLine(juce::roundToInt(zeroPos), track.getY() - 4.0f, track.getBottom() + 4.0f);
         }
 
+        const auto defaultValue = slider.getProperties()["defaultProportion"];
+        if (! defaultValue.isVoid())
+        {
+            const auto defaultPos = track.getX()
+                + track.getWidth() * juce::jlimit(0.0f, 1.0f, static_cast<float>(defaultValue));
+            g.setColour(textMuted().withAlpha(0.50f));
+            g.drawVerticalLine(juce::roundToInt(defaultPos), track.getY() - 5.0f, track.getBottom() + 5.0f);
+        }
+
         const auto thumb = juce::Rectangle<float>(10.0f, 10.0f).withCentre({ clampedPos, track.getCentreY() });
         g.setColour(textMain());
         g.fillEllipse(thumb);
@@ -385,10 +423,16 @@ public:
         slider.setPopupDisplayEnabled(true, true, nullptr);
         slider.setMouseDragSensitivity(isMacro ? 240 : 180);
         slider.onValueChange = [this] { repaint(); };
+        slider.onDragStart = [this] { repaint(); };
+        slider.onDragEnd = [this] { repaint(); };
+        slider.addMouseListener(this, true);
         addAndMakeVisible(slider);
     }
 
     juce::Slider& getSlider() { return slider; }
+
+    void mouseEnter(const juce::MouseEvent&) override { repaint(); }
+    void mouseExit(const juce::MouseEvent&) override { repaint(); }
 
     void paint(juce::Graphics& g) override
     {
@@ -410,12 +454,16 @@ public:
         g.drawFittedText(subtitle.toUpperCase(), labelArea.removeFromTop(isMacro ? 14 : 12),
                          juce::Justification::centred, 1);
 
+        const auto engaged = isMacro || isMouseOver(true) || slider.isMouseOver(true) || slider.isMouseButtonDown(true);
+        const auto valueBgAlpha = engaged ? 0.72f : 0.30f;
+        const auto valueBorderAlpha = engaged ? 0.42f : 0.18f;
+        const auto valueTextAlpha = engaged ? 0.88f : 0.50f;
         auto value = getLocalBounds().reduced(isMacro ? 17 : 10).removeFromBottom(isMacro ? 20 : 17).toFloat();
-        g.setColour(juce::Colour(0xff05080d).withAlpha(0.72f));
+        g.setColour(juce::Colour(0xff05080d).withAlpha(valueBgAlpha));
         g.fillRoundedRectangle(value, 4.0f);
-        g.setColour(accent.withAlpha(0.42f));
+        g.setColour(accent.withAlpha(valueBorderAlpha));
         g.drawRoundedRectangle(value, 4.0f, 0.8f);
-        g.setColour(textMain().withAlpha(0.88f));
+        g.setColour(textMain().withAlpha(valueTextAlpha));
         g.setFont(uiFont(isMacro ? 11.0f : 9.5f, juce::Font::bold));
         g.drawFittedText(formatValue(), value.toNearestInt().reduced(4, 0),
                          juce::Justification::centred, 1);
@@ -1049,6 +1097,18 @@ juce::Slider& TE2350AudioProcessorEditor::addSlider(juce::Component& parent,
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
     enableDefaultReset(raw->getSlider(), processor.apvts.getParameter(parameterID));
+
+    if (parameterID == "feedback")
+    {
+        raw->getSlider().getProperties().set("warningThresholdValue", 0.86);
+        raw->getSlider().getProperties().set("criticalThresholdValue", 0.97);
+    }
+    else if (parameterID == "shimmerFeedback")
+    {
+        raw->getSlider().getProperties().set("warningThresholdValue", 0.76);
+        raw->getSlider().getProperties().set("criticalThresholdValue", 0.88);
+    }
+
     sliderAttachments.push_back(std::make_unique<SliderAttachment>(processor.apvts, parameterID, raw->getSlider()));
     group.push_back(raw);
     ownedComponents.push_back(std::move(control));
