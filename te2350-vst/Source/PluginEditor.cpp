@@ -52,6 +52,20 @@ juce::String makeControlTooltip(const juce::String& title, const juce::String& s
     return tip;
 }
 
+juce::String formatDisplayValue(double value,
+                                double displayScale,
+                                int decimalPlaces,
+                                const juce::String& suffix,
+                                bool showPositiveSign)
+{
+    const auto displayValue = value * displayScale;
+    auto text = juce::String(displayValue, decimalPlaces);
+    if (showPositiveSign && displayValue > 0.0)
+        text = "+" + text;
+
+    return text + suffix;
+}
+
 }
 
 class TE2350AudioProcessorEditor::OrbitalLookAndFeel final : public juce::LookAndFeel_V4
@@ -331,6 +345,12 @@ public:
         slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
         slider.setTooltip(tooltip);
+        slider.textFromValueFunction = [this] (double value)
+        {
+            return formatDisplayValue(value, displayScale, decimalPlaces, suffix, false);
+        };
+        slider.setPopupDisplayEnabled(true, true, nullptr);
+        slider.setMouseDragSensitivity(isMacro ? 240 : 180);
         slider.onValueChange = [this] { repaint(); };
         addAndMakeVisible(slider);
     }
@@ -381,12 +401,7 @@ public:
 private:
     juce::String formatValue() const
     {
-        const auto displayValue = slider.getValue() * displayScale;
-        auto text = juce::String(displayValue, decimalPlaces);
-        if (slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0 && displayValue > 0.0)
-            text = "+" + text;
-
-        return text + suffix;
+        return formatDisplayValue(slider.getValue(), displayScale, decimalPlaces, suffix, false);
     }
 
     juce::String title;
@@ -420,6 +435,13 @@ public:
         slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         slider.setColour(juce::Slider::rotarySliderFillColourId, accent);
         slider.setTooltip(tooltip);
+        slider.textFromValueFunction = [this] (double value)
+        {
+            const auto isBipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
+            return formatDisplayValue(value, displayScale, decimalPlaces, suffix, isBipolar);
+        };
+        slider.setPopupDisplayEnabled(true, true, nullptr);
+        slider.setMouseDragSensitivity(180);
         slider.onValueChange = [this] { repaint(); };
         addAndMakeVisible(slider);
     }
@@ -460,12 +482,8 @@ public:
 private:
     juce::String formatValue() const
     {
-        const auto displayValue = slider.getValue() * displayScale;
-        auto text = juce::String(displayValue, decimalPlaces);
-        if (slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0 && displayValue > 0.0)
-            text = "+" + text;
-
-        return text + suffix;
+        const auto isBipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
+        return formatDisplayValue(slider.getValue(), displayScale, decimalPlaces, suffix, isBipolar);
     }
 
     juce::String title;
