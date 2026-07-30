@@ -10,7 +10,11 @@ include(CTest)
 option(TE2350_FETCH_JUCE "Fetch JUCE with CMake FetchContent when TE2350_JUCE_PATH is not set" ON)
 set(TE2350_JUCE_PATH "" CACHE PATH "Path to a local JUCE checkout")
 set(TE2350_JUCE_TAG "8.0.8" CACHE STRING "JUCE tag used when TE2350_FETCH_JUCE is enabled")
-set(TE2350_MAIN_DELAY_SIZE "32768" CACHE STRING "Main TE-2350 delay size for Hardware Mode parity")
+set(TE2350_MAIN_DELAY_SIZE "524288" CACHE STRING "Desktop main delay size (power of two; 524288 covers 2 s through 192 kHz)")
+math(EXPR TE2350_MAIN_DELAY_SIZE_MASK "${TE2350_MAIN_DELAY_SIZE} & (${TE2350_MAIN_DELAY_SIZE} - 1)")
+if(TE2350_MAIN_DELAY_SIZE LESS 4 OR NOT TE2350_MAIN_DELAY_SIZE_MASK EQUAL 0)
+    message(FATAL_ERROR "TE2350_MAIN_DELAY_SIZE must be a power of two")
+endif()
 set(TE2350_PLUGIN_COPY_DIR "${CMAKE_CURRENT_BINARY_DIR}/InstalledPlugins" CACHE PATH "Writable plugin copy directory")
 
 get_filename_component(TE2350_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
@@ -116,12 +120,17 @@ if(TE2350_BUILD_GOLDEN_TESTS)
     target_include_directories(TE2350GoldenReference PRIVATE Source "${TE2350_ROOT}/include")
     target_link_libraries(TE2350GoldenReference PRIVATE te2350_core juce::juce_audio_basics)
 
+    add_executable(TE2350CoreControlTest Tests/CoreControlTest.cpp)
+    target_include_directories(TE2350CoreControlTest PRIVATE Source "${TE2350_ROOT}/include")
+    target_link_libraries(TE2350CoreControlTest PRIVATE te2350_core)
+
     set(TE2350_GOLDEN_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/GoldenReferenceOutput")
     file(MAKE_DIRECTORY "${TE2350_GOLDEN_OUTPUT_DIR}")
     add_test(NAME TE2350OfflineReferenceRender COMMAND $<TARGET_FILE:TE2350OfflineReference>)
     add_test(NAME TE2350GoldenReferenceRender COMMAND $<TARGET_FILE:TE2350GoldenReference>)
     add_test(NAME TE2350GoldenReferenceCompare
         COMMAND "${CMAKE_COMMAND}" -E compare_files output.raw plugin_reference.raw)
+    add_test(NAME TE2350CoreControlTest COMMAND $<TARGET_FILE:TE2350CoreControlTest>)
 
     set_tests_properties(TE2350OfflineReferenceRender TE2350GoldenReferenceRender TE2350GoldenReferenceCompare PROPERTIES
         WORKING_DIRECTORY "${TE2350_GOLDEN_OUTPUT_DIR}")
@@ -139,4 +148,27 @@ if(TE2350_BUILD_GOLDEN_TESTS)
         juce::juce_audio_utils
         juce::juce_dsp)
     add_test(NAME TE2350PluginSmokeTest COMMAND $<TARGET_FILE:TE2350PluginSmokeTest>)
+
+    add_executable(TE2350CalibrationTest Tests/CalibrationTest.cpp)
+    target_include_directories(TE2350CalibrationTest PRIVATE Source "${TE2350_ROOT}/include")
+    target_compile_definitions(TE2350CalibrationTest PRIVATE
+        JucePlugin_Name="TE-2350 Antigravity"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+    target_link_libraries(TE2350CalibrationTest PRIVATE
+        TE2350Antigravity
+        juce::juce_audio_utils
+        juce::juce_dsp)
+    add_test(NAME TE2350CalibrationTest COMMAND $<TARGET_FILE:TE2350CalibrationTest>)
+
+    add_executable(TE2350CalibrationRender Tests/CalibrationRender.cpp)
+    target_include_directories(TE2350CalibrationRender PRIVATE Source "${TE2350_ROOT}/include")
+    target_compile_definitions(TE2350CalibrationRender PRIVATE
+        JucePlugin_Name="TE-2350 Antigravity"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+    target_link_libraries(TE2350CalibrationRender PRIVATE
+        TE2350Antigravity
+        juce::juce_audio_utils
+        juce::juce_dsp)
 endif()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <functional>
 #include "PluginProcessor.h"
 
 class TE2350AudioProcessorEditor final : public juce::AudioProcessorEditor,
@@ -57,7 +58,8 @@ private:
                             std::vector<juce::Component*>& group,
                             const juce::String& parameterID,
                             const juce::String& title,
-                            juce::Colour accent);
+                            juce::Colour accent,
+                            std::function<bool()> isMomentary = {});
     void layoutGrid(juce::Rectangle<int> area, const std::vector<juce::Component*>& group, int columns);
     void layoutMacroControls(juce::Rectangle<int> area);
     void layoutCoreControls(juce::Rectangle<int> area);

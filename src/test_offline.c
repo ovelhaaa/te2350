@@ -5,7 +5,7 @@
 #include "../include/te2350.h"
 
 // Memory pool for offline delay, pitch, and FDN validation
-#define MEM_POOL_SIZE (320 * 1024)
+#define MEM_POOL_SIZE TE2350_REQUIRED_MEMORY_BYTES
 static q31_t memory_pool[MEM_POOL_SIZE / 4];
 
 static te2350_t pedal;

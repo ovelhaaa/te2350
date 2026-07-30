@@ -14,7 +14,7 @@ namespace
 constexpr int sampleRate = 48000;
 constexpr int seconds = 2;
 constexpr int samples = sampleRate * seconds;
-constexpr size_t memoryPoolBytes = 320 * 1024;
+constexpr size_t memoryPoolBytes = TE2350_REQUIRED_MEMORY_BYTES;
 
 void writeU16(std::FILE* file, uint16_t value)
 {

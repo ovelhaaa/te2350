@@ -35,10 +35,29 @@ void TE2350AudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     core.prepare(sampleRate, samplesPerBlock);
     macroEngine.prepare(sampleRate, 64);
     oversampling.prepare(sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+    oversampling.setStudioMode(getChoiceIndex("qualityMode") == 1);
+    setLatencySamples(oversampling.getLatencySamples());
+    bypassDryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock, false, false, true);
+    bypassRamp.resize(static_cast<size_t>(samplesPerBlock), 0.0f);
+    bypassMix.reset(sampleRate, 0.02);
+    bypassMix.setCurrentAndTargetValue(getBool("bypass") ? 1.0f : 0.0f);
 }
 
 void TE2350AudioProcessor::releaseResources()
 {
+    bypassDryBuffer.setSize(0, 0);
+    bypassRamp.clear();
+}
+
+void TE2350AudioProcessor::reset()
+{
+    core.reset();
+    macroEngine.reset();
+    oversampling.reset();
+    instabilityMeter.store(0.0f);
+    inputMeter.store(0.0f);
+    outputMeter.store(0.0f);
+    bypassMix.setCurrentAndTargetValue(getBool("bypass") ? 1.0f : 0.0f);
 }
 
 bool TE2350AudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -64,21 +83,55 @@ void TE2350AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     for (auto channel = totalInputChannels; channel < totalOutputChannels; ++channel)
         buffer.clear(channel, 0, buffer.getNumSamples());
 
-    if (getBool("bypass"))
+    if (bypassDryBuffer.getNumChannels() < buffer.getNumChannels()
+        || bypassDryBuffer.getNumSamples() < buffer.getNumSamples())
     {
-        outputMeter.store(smoothMeter(outputMeter.load(), inputLevel));
-        return;
+        bypassDryBuffer.setSize(buffer.getNumChannels(), buffer.getNumSamples(), false, false, true);
+        bypassRamp.resize(static_cast<size_t>(buffer.getNumSamples()), 0.0f);
+    }
+
+    for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+        bypassDryBuffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
+
+    bypassMix.setTargetValue(getBool("bypass") ? 1.0f : 0.0f);
+    for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+    {
+        const auto bypassAmount = bypassMix.getNextValue();
+        bypassRamp[static_cast<size_t>(sample)] = bypassAmount;
+
+        for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+            buffer.getWritePointer(channel)[sample] *= 1.0f - bypassAmount;
     }
 
     const auto bpm = getHostBpm();
     macroEngine.update(apvts, buffer.getNumSamples());
     instabilityMeter.store(macroEngine.getInstability());
-    oversampling.setStudioMode(getChoiceIndex("qualityMode") == 1, *this);
 
     core.setParameters(collectCoreParameters(bpm));
     core.processBlock(buffer);
+    oversampling.setStudioMode(getChoiceIndex("qualityMode") == 1);
+    oversampling.processEffectBlock(buffer);
+    oversampling.processDryBlock(bypassDryBuffer);
+
+    for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+    {
+        auto* output = buffer.getWritePointer(channel);
+        const auto* dry = bypassDryBuffer.getReadPointer(channel);
+
+        for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            const auto bypassAmount = bypassRamp[static_cast<size_t>(sample)];
+            output[sample] = output[sample] * (1.0f - bypassAmount)
+                           + dry[sample] * bypassAmount;
+        }
+    }
 
     outputMeter.store(smoothMeter(outputMeter.load(), measureBufferLevel(buffer)));
+}
+
+juce::AudioProcessorParameter* TE2350AudioProcessor::getBypassParameter() const
+{
+    return apvts.getParameter("bypass");
 }
 
 juce::AudioProcessorEditor* TE2350AudioProcessor::createEditor()
@@ -108,7 +161,10 @@ const juce::String TE2350AudioProcessor::getProgramName(int index)
 
 void TE2350AudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    if (auto xml = apvts.copyState().createXml())
+    auto state = apvts.copyState();
+    state.setProperty("currentProgram", currentProgram, nullptr);
+
+    if (auto xml = state.createXml())
         copyXmlToBinary(*xml, destData);
 }
 
@@ -116,7 +172,13 @@ void TE2350AudioProcessor::setStateInformation(const void* data, int sizeInBytes
 {
     if (auto xml = getXmlFromBinary(data, sizeInBytes))
         if (xml->hasTagName(apvts.state.getType()))
-            apvts.replaceState(juce::ValueTree::fromXml(*xml));
+        {
+            auto state = juce::ValueTree::fromXml(*xml);
+            currentProgram = juce::jlimit(0,
+                                         juce::jmax(0, getNumPrograms() - 1),
+                                         static_cast<int>(state.getProperty("currentProgram", 0)));
+            apvts.replaceState(state);
+        }
 }
 
 float TE2350AudioProcessor::getRawFloat(juce::StringRef parameterID, float fallback) const
@@ -183,6 +245,7 @@ te2350::CoreParameters TE2350AudioProcessor::collectCoreParameters(double bpm) c
 
     parameters.space = getRawFloat("space", fallback("space"));
     parameters.wild = getRawFloat("wild", fallback("wild"));
+    parameters.bloom = getRawFloat("bloom", fallback("bloom"));
     parameters.timeMs = macroEngine.getEffectiveValue("timeMs", fallback("timeMs"));
     parameters.timeMs = getSyncedTimeMs(getChoiceIndex("syncMode"), bpm, parameters.timeMs);
     parameters.feedback = macroEngine.getEffectiveValue("feedback", fallback("feedback"));
@@ -196,14 +259,16 @@ te2350::CoreParameters TE2350AudioProcessor::collectCoreParameters(double bpm) c
     parameters.presence = macroEngine.getEffectiveValue("presence", fallback("presence"));
     parameters.modRateHz = macroEngine.getEffectiveValue("modRateHz", fallback("modRateHz"));
     parameters.modDepth = macroEngine.getEffectiveValue("modDepth", fallback("modDepth"));
+    parameters.modShape = getChoiceIndex("modShape");
     parameters.shimmerInterval = getChoiceIndex("shimmerInterval");
     parameters.shimmerAmount = macroEngine.getEffectiveValue("shimmerAmount", fallback("shimmerAmount"));
     parameters.shimmerFeedback = macroEngine.getEffectiveValue("shimmerFeedback", fallback("shimmerFeedback"));
+    parameters.duckThresholdDb = getRawFloat("duckThreshold", fallback("duckThreshold"));
     parameters.duckAmount = macroEngine.getEffectiveValue("duckAmount", fallback("duckAmount"));
     parameters.inputTrimDb = getRawFloat("inputTrim", fallback("inputTrim"));
     parameters.outputTrimDb = getRawFloat("outputTrim", fallback("outputTrim"));
     parameters.freeze = getBool("freezeEngage");
-    parameters.atmosFdnOn = getBool("atmosFdnOn") || parameters.space >= 0.40f;
+    parameters.atmosFdnOn = getBool("atmosFdnOn");
     parameters.wetWidth = macroEngine.getEffectiveValue("wetWidth", fallback("wetWidth"));
 
     return parameters;

@@ -21,9 +21,12 @@ std::unique_ptr<juce::RangedAudioParameter> makeFloat(const juce::String& id,
                                                       const juce::String& suffix = {})
 {
     auto range = makeRange(minimum, maximum, centre);
-    juce::ignoreUnused(suffix);
+    auto attributes = juce::AudioParameterFloatAttributes();
+    if (suffix.isNotEmpty())
+        attributes = attributes.withLabel(suffix.trim());
+
     return std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID(id, 1), name, range, defaultValue);
+        juce::ParameterID(id, 1), name, range, defaultValue, attributes);
 }
 
 std::unique_ptr<juce::RangedAudioParameter> makeChoice(const juce::String& id,

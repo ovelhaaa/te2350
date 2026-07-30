@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 
 #include <atomic>
+#include <vector>
 
 #include "Core/TE2350CoreWrapper.h"
 #include "DSP/OversamplingChain.h"
@@ -17,9 +18,15 @@ public:
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
+    void reset() override;
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
     using juce::AudioProcessor::processBlock;
+    using juce::AudioProcessor::processBlockBypassed;
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override
+    {
+        processBlock(buffer, midi);
+    }
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
@@ -28,7 +35,8 @@ public:
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 20.0; }
+    double getTailLengthSeconds() const override { return 65.0; }
+    juce::AudioProcessorParameter* getBypassParameter() const override;
 
     int getNumPrograms() override;
     int getCurrentProgram() override { return currentProgram; }
@@ -55,6 +63,9 @@ private:
     te2350::TE2350CoreWrapper core;
     te2350::MacroEngine macroEngine;
     te2350::OversamplingChain oversampling;
+    juce::AudioBuffer<float> bypassDryBuffer;
+    std::vector<float> bypassRamp;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix;
     std::atomic<float> instabilityMeter { 0.0f };
     std::atomic<float> inputMeter { 0.0f };
     std::atomic<float> outputMeter { 0.0f };

@@ -15,12 +15,12 @@
 // Main delay size is configurable at compile time:
 //   16384 @ 48kHz ≈ 0.34s
 //   32768 @ 48kHz ≈ 0.68s (default)
-//   49152 @ 48kHz ≈ 1.02s (experimental: test SRAM/stack/DMA safety first)
+//   65536 @ 48kHz ≈ 1.36s (high-memory: test SRAM/stack/DMA safety first)
 // WARNING (RP2350): larger delay buffers increase SRAM pressure and can reduce
 // headroom for stack, DMA buffers, and other runtime structures. If pushed too
 // far this can increase underrun risk.
-// Allpasses: 2-3 short ones.
-// Total ~76KB + Pitch. Safe in 128KB.
+// The default complete pool is approximately 289 KiB. Delay sizes must remain
+// powers of two because the circular reader uses a bit mask.
 
 #ifndef TE_MAIN_DELAY_SIZE
 #define TE_MAIN_DELAY_SIZE 32768
@@ -35,6 +35,16 @@
 #define TE_FEEDBACK_PITCH_SIZE 2048 // Independent pitch shifter buffer for octave feedback
 #define TE_PITCH_SIZE TE_SHIMMER_PITCH_SIZE  // Backward-compatible shimmer buffer alias
 #define TE_OCTAVE_PITCH_SIZE TE_FEEDBACK_PITCH_SIZE // Backward-compatible feedback buffer alias
+#define TE2350_REQUIRED_MEMORY_WORDS (TE_MAIN_DELAY_SIZE \
+                                      + TE_AP1_SIZE \
+                                      + TE_AP2_SIZE \
+                                      + TE_AP3_SIZE \
+                                      + TE_AP4_SIZE \
+                                      + TE_SIDE_AP_SIZE \
+                                      + (TE_FDN_LINE_SIZE * 4u) \
+                                      + TE_SHIMMER_PITCH_SIZE \
+                                      + TE_FEEDBACK_PITCH_SIZE)
+#define TE2350_REQUIRED_MEMORY_BYTES (TE2350_REQUIRED_MEMORY_WORDS * sizeof(q31_t))
 
 typedef struct {
   // --- Components ---
@@ -69,6 +79,8 @@ typedef struct {
   dsp_onepole_t presence_hp;    // HP helper via src - LP(src)
   dsp_onepole_t presence_lp;    // final LP for harshness control
   q31_t presence_gain_smooth;   // optional smoothing for rail gain
+  dsp_onepole_t wet_low_cut_l;  // Post-wet low-cut, controlled by the plugin wrapper
+  dsp_onepole_t wet_low_cut_r;
 
   // Shimmer voicing (parallel branch only)
   dsp_onepole_t shimmer_hp;     // HP helper via src - LP(src)
@@ -97,17 +109,24 @@ typedef struct {
   q31_t octave_feedback_amount; // Amount 0..1
   q31_t p_feedback;
   q31_t p_tail;      // Tail macro: controls decay length independently of base feedback density
+  q31_t p_tail_feedback; // Optional RT60-calibrated feedback floor; zero keeps legacy Tail behavior
   q31_t p_time;          // Main delay time target (0..1 -> maps to ms)
+  int32_t p_time_samples_target;   // Optional exact delay target; zero keeps the legacy mapping
+  int32_t p_time_samples_smoothed;
   q31_t p_rate;   // Modulation rate
   q31_t p_depth;  // Modulation depth
+  uint8_t p_mod_shape; // 0=triangle, 1=random walk, 2=sample and hold
   q31_t p_tone;   // Damping cutoff
+  q31_t p_low_cut_coeff; // One-pole coefficient for post-wet low-cut; zero bypasses it
   q31_t p_mix;    // Dry/Wet mix (0 = 100% dry, Q31_MAX = 100% wet)
   q31_t p_shimmer;    // Pitch shift amount (0 = no shift, Q31_MAX = +1 octave)
+  q31_t p_shimmer_pitch; // Pitch shifter ratio control: 0=0.5x, 2/3=1.5x, 1=2x
   q31_t p_diffusion;  // Allpass diffusion amount (0 = off, Q31_MAX = full)
   q31_t p_chaos;      // Chaos/instability amount (0 = stable, Q31_MAX = chaotic)
   q31_t p_chaos_audible; // Cached chaos zone: 0.40..0.75 normalized to 0..1
   q31_t p_chaos_unstable; // Cached chaos zone: 0.75..1.00 normalized to 0..1
   q31_t p_ducking;    // Envelope ducking amount (0 = off, Q31_MAX = full duck)
+  q31_t p_duck_threshold; // Linear envelope threshold for ducking
   q31_t p_wobble;     // Feedback wobble amount (0 = stable, Q31_MAX = wobbly)
   q31_t p_presence;   // Presence rail gain (0 = soft, Q31_MAX = articulate)
   q31_t p_space_gravity; // Internal macro behavior (derived from existing params)
@@ -117,15 +136,23 @@ typedef struct {
   q31_t p_time_smoothed;
   q31_t p_feedback_smoothed;
   q31_t p_tail_smoothed;
+  q31_t p_tail_feedback_smoothed;
   q31_t p_mix_smoothed;
   q31_t p_tone_smoothed;
+  q31_t p_low_cut_coeff_smoothed;
   q31_t p_diffusion_smoothed;
   q31_t p_presence_smoothed;
+  q31_t p_shimmer_pitch_smoothed;
+  q31_t p_duck_threshold_smoothed;
   q31_t p_space_gravity_smoothed;
   uint8_t fdn_param_counter; // Low-rate FDN parameter refresh divider
   
   // Internal State
   uint32_t chaos_seed;
+  uint32_t mod_shape_phase;
+  uint32_t mod_shape_phase_inc;
+  uint32_t mod_hold_seed;
+  q31_t mod_hold_value;
   float sample_rate; // Operating sample rate
   int32_t sample_rate_i; // Rounded sample rate for audio-rate integer helpers
   int32_t main_mod_short_limit; // Cached short-delay modulation protection threshold
@@ -142,7 +169,7 @@ typedef struct {
 
   // Time mapping LUT for perceptual control response
   #define TE_TIME_LUT_SIZE 128
-  uint16_t time_lut[TE_TIME_LUT_SIZE];
+  uint32_t time_lut[TE_TIME_LUT_SIZE];
 
   // Multi-tap cloud parameters
   #define TE_NUM_EARLY_TAPS 6
@@ -179,13 +206,19 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r);
 // Getters
 q31_t te2350_get_envelope(te2350_t *ctx);
 q31_t te2350_get_modulator(te2350_t *ctx);
+q31_t te2350_get_dry_mix_gain(te2350_t *ctx);
 
 // Parameter Setters
 void te2350_set_feedback(te2350_t *ctx, q31_t feedback); // 0..~0.95
 void te2350_set_tail(te2350_t *ctx, q31_t tail);         // 0..1
+void te2350_set_tail_feedback(te2350_t *ctx, q31_t feedback); // Optional calibrated decay floor
 void te2350_set_time(te2350_t *ctx, q31_t time);         // 0..1
+void te2350_set_time_samples(te2350_t *ctx, int32_t samples); // Exact sample target, clamped to the delay line
 void te2350_set_mod(te2350_t *ctx, q31_t rate, q31_t depth);
+void te2350_set_mod_shape(te2350_t *ctx, int shape);
+void te2350_set_mod_rate_hz(te2350_t *ctx, float rate_hz);
 void te2350_set_tone(te2350_t *ctx, q31_t tone);
+void te2350_set_low_cut_coeff(te2350_t *ctx, q31_t coeff);
 void te2350_set_mix(te2350_t *ctx, q31_t mix);           // 0..1 (dry..wet)
 void te2350_set_freeze(te2350_t *ctx, bool freeze);      // Enable/disable freeze
 void te2350_set_fdn_enabled(te2350_t *ctx, bool enabled); // Enable/disable atmospheric FDN mode
@@ -199,9 +232,11 @@ void te2350_set_melody_decay(te2350_t *ctx, q31_t decay);
 void te2350_set_octave_feedback_enabled(te2350_t *ctx, bool enabled);
 void te2350_set_octave_feedback_amount(te2350_t *ctx, q31_t amount);
 void te2350_set_shimmer(te2350_t *ctx, q31_t shimmer);   // 0..1 (pitch shift amount)
+void te2350_set_shimmer_interval(te2350_t *ctx, int interval); // 0=-1 oct, 1=5th, 2=+1 oct
 void te2350_set_diffusion(te2350_t *ctx, q31_t diffusion); // 0..1 (allpass diffusion)
 void te2350_set_chaos(te2350_t *ctx, q31_t chaos);       // 0..1 (modulation chaos)
 void te2350_set_ducking(te2350_t *ctx, q31_t ducking);   // 0..1 (envelope ducking)
+void te2350_set_duck_threshold(te2350_t *ctx, q31_t threshold); // Linear amplitude 0..1
 void te2350_set_wobble(te2350_t *ctx, q31_t wobble);     // 0..1 (feedback wobble)
 void te2350_set_presence(te2350_t *ctx, q31_t presence); // 0..1 (presence rail blend)
 void te2350_set_infinite_lite(te2350_t *ctx, bool enabled); // Optional high sustain mode

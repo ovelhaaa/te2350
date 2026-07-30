@@ -634,6 +634,40 @@ private:
 class TE2350AudioProcessorEditor::ToggleTile final : public juce::Component
 {
 public:
+    class ModeAwareToggleButton final : public juce::ToggleButton
+    {
+    public:
+        void setMomentaryPredicate(std::function<bool()> predicate)
+        {
+            isMomentary = std::move(predicate);
+        }
+
+        void mouseDown(const juce::MouseEvent& event) override
+        {
+            if (isMomentary && isMomentary())
+            {
+                setToggleState(true, juce::sendNotificationSync);
+                return;
+            }
+
+            juce::ToggleButton::mouseDown(event);
+        }
+
+        void mouseUp(const juce::MouseEvent& event) override
+        {
+            if (isMomentary && isMomentary())
+            {
+                setToggleState(false, juce::sendNotificationSync);
+                return;
+            }
+
+            juce::ToggleButton::mouseUp(event);
+        }
+
+    private:
+        std::function<bool()> isMomentary;
+    };
+
     ToggleTile(juce::String titleText, juce::Colour accentColour)
         : title(std::move(titleText)), accent(accentColour)
     {
@@ -645,6 +679,10 @@ public:
     }
 
     juce::Button& getButton() { return button; }
+    void setMomentaryPredicate(std::function<bool()> predicate)
+    {
+        button.setMomentaryPredicate(std::move(predicate));
+    }
 
     void paint(juce::Graphics& g) override
     {
@@ -676,7 +714,7 @@ private:
 
     juce::String title;
     juce::Colour accent;
-    juce::ToggleButton button;
+    ModeAwareToggleButton button;
 };
 
 class TE2350AudioProcessorEditor::MeterStrip final : public juce::Component
@@ -978,14 +1016,35 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     addCombo(advancedLayer, advancedTextureControls, "shimmerInterval", "Octave", "interval");
     addSlider(advancedLayer, advancedTextureControls, "duckAmount", "Ducking", "clear centre", cyan(), false, "%", 100.0, 0);
     addSlider(advancedLayer, advancedTextureControls, "duckThreshold", "Duck Thr", "trigger level", cyan(), false, " dB", 1.0, 1);
-    addToggle(advancedLayer, advancedTextureControls, "freezeEngage", "Freeze", spectral());
-    addCombo(advancedLayer, advancedTextureControls, "freezeMode", "Freeze Mode", "gesture");
-    addCombo(advancedLayer, advancedTextureControls, "qualityMode", "Oversampling", "mode");
+    addToggle(advancedLayer, advancedTextureControls, "freezeEngage", "Freeze", spectral(),
+              [this]
+              {
+                  if (const auto* mode = processor.apvts.getRawParameterValue("freezeMode"))
+                      return mode->load() < 0.5f;
+                  return false;
+              });
+    auto& freezeMode = addCombo(advancedLayer, advancedTextureControls,
+                                "freezeMode", "Freeze Mode", "hold / latch");
+    freezeMode.onChange = [this]
+    {
+        const auto* mode = processor.apvts.getRawParameterValue("freezeMode");
+        if (mode == nullptr || mode->load() >= 0.5f)
+            return;
+
+        if (auto* freeze = processor.apvts.getParameter("freezeEngage");
+            freeze != nullptr && freeze->getValue() >= 0.5f)
+        {
+            freeze->beginChangeGesture();
+            freeze->setValueNotifyingHost(0.0f);
+            freeze->endChangeGesture();
+        }
+    };
 
     addFader(utilityLayer, utilityControls, "inputTrim", "Input", "trim", cyan(), " dB", 1.0, 1);
     addFader(utilityLayer, utilityControls, "outputTrim", "Output", "trim", spectral(), " dB", 1.0, 1);
     addToggle(utilityLayer, utilityControls, "killDry", "Kill Dry", amber());
     addToggle(utilityLayer, utilityControls, "atmosFdnOn", "Atmos", violet());
+    addCombo(utilityLayer, utilityControls, "qualityMode", "Engine", "fixed / 2x");
 
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
@@ -1170,10 +1229,12 @@ juce::Button& TE2350AudioProcessorEditor::addToggle(juce::Component& parent,
                                                     std::vector<juce::Component*>& group,
                                                     const juce::String& parameterID,
                                                     const juce::String& title,
-                                                    juce::Colour accent)
+                                                    juce::Colour accent,
+                                                    std::function<bool()> isMomentary)
 {
     auto control = std::make_unique<ToggleTile>(title, accent);
     auto* raw = control.get();
+    raw->setMomentaryPredicate(std::move(isMomentary));
     parent.addAndMakeVisible(raw);
     buttonAttachments.push_back(std::make_unique<ButtonAttachment>(processor.apvts, parameterID, raw->getButton()));
     group.push_back(raw);

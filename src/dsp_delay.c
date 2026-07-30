@@ -170,6 +170,34 @@ q31_t dsp_delay_read_hermite(const dsp_delay_t *delay, q16_16_t delay_q16) {
   return (q31_t)result;
 }
 
+q31_t dsp_delay_read_hermite_wide(const dsp_delay_t *delay, uint64_t delay_q16) {
+  size_t d_int = (size_t)(delay_q16 >> 16);
+  int32_t frac = (int32_t)(delay_q16 & 0xFFFFu);
+
+  size_t idx_0  = (delay->write_idx - d_int - 1) & delay->mask;
+  size_t idx_m1 = (idx_0 + 1) & delay->mask;
+  size_t idx_1  = (idx_0 - 1) & delay->mask;
+  size_t idx_2  = (idx_0 - 2) & delay->mask;
+
+  int64_t xm1 = delay->buffer[idx_m1];
+  int64_t x0  = delay->buffer[idx_0];
+  int64_t x1  = delay->buffer[idx_1];
+  int64_t x2  = delay->buffer[idx_2];
+  int64_t t = frac;
+  int64_t c0 = x0;
+  int64_t c1 = (x1 - xm1) >> 2;
+  int64_t c2 = xm1 - ((5 * x0) >> 1) + (x1 << 1) - (x2 >> 1);
+  int64_t c3 = ((x2 - xm1) >> 2) + (x0 - x1);
+  int64_t t2 = (t * t) >> 16;
+  int64_t t3 = (t2 * t) >> 16;
+  int64_t result = c0 + ((c1 * t) >> 16) + ((c2 * t2) >> 16) + ((c3 * t3) >> 16);
+
+  result -= result >> 4;
+  if (result > Q31_MAX) result = Q31_MAX;
+  if (result < Q31_MIN) result = Q31_MIN;
+  return (q31_t)result;
+}
+
 // AJUSTE 4: Linear + Hermite híbrido (barato e lindo)
 // Para pitch shifter: 70% Hermite + 30% Linear
 // Reduz warbling e "digital shimmer"

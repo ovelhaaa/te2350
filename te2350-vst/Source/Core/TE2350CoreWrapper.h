@@ -15,6 +15,7 @@ struct CoreParameters
 {
     float space = 0.30f;
     float wild = 0.0f;
+    float bloom = 0.20f;
     float timeMs = 420.0f;
     float feedback = 0.45f;
     float mix = 0.35f;
@@ -27,9 +28,11 @@ struct CoreParameters
     float presence = 0.50f;
     float modRateHz = 0.15f;
     float modDepth = 0.10f;
+    int modShape = 1;
     int shimmerInterval = 2;
     float shimmerAmount = 0.0f;
     float shimmerFeedback = 0.30f;
+    float duckThresholdDb = -24.0f;
     float duckAmount = 0.10f;
     float inputTrimDb = 0.0f;
     float outputTrimDb = 0.0f;
@@ -59,8 +62,9 @@ private:
     std::vector<q31_t> memoryPool;
     double currentSampleRate = 48000.0;
     int maxBlockSize = 0;
-    float inputGain = 1.0f;
-    float outputGain = 1.0f;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> inputGain;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> outputGain;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> wetWidth;
     bool ready = false;
 };
 }

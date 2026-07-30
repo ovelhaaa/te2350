@@ -22,7 +22,11 @@ include(pico_sdk_import.cmake)
 project(te2350_effect C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
-set(TE_MAIN_DELAY_SIZE_SAMPLES 32768 CACHE STRING "Main delay line size in samples (16384, 32768 default, 49152 experimental)")
+set(TE_MAIN_DELAY_SIZE_SAMPLES 32768 CACHE STRING "Main delay line size in samples (power of two; 32768 default, 65536 high-memory)")
+math(EXPR TE_MAIN_DELAY_SIZE_MASK "${TE_MAIN_DELAY_SIZE_SAMPLES} & (${TE_MAIN_DELAY_SIZE_SAMPLES} - 1)")
+if(TE_MAIN_DELAY_SIZE_SAMPLES LESS 4 OR NOT TE_MAIN_DELAY_SIZE_MASK EQUAL 0)
+    message(FATAL_ERROR "TE_MAIN_DELAY_SIZE_SAMPLES must be a power of two")
+endif()
 
 # Initialize the SDK
 pico_sdk_init()

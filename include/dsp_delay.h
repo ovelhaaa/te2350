@@ -80,6 +80,15 @@ q31_t dsp_delay_read(const dsp_delay_t *delay, size_t delay_samples);
 q31_t dsp_delay_read_hermite(const dsp_delay_t *delay, q16_16_t delay_samples_q16);
 
 /**
+ * @brief Hermite read with a wide Q16 delay value.
+ *
+ * This desktop-oriented variant supports integer delays beyond the 16-bit
+ * range while preserving the same interpolation and sound as the compact
+ * hardware path.
+ */
+q31_t dsp_delay_read_hermite_wide(const dsp_delay_t *delay, uint64_t delay_samples_q16);
+
+/**
  * @brief Hybrid Linear+Hermite interpolation (for pitch shifter).
  *
  * Blends 70% Hermite + 30% Linear to reduce warbling and digital shimmer.

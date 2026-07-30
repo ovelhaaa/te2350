@@ -4,7 +4,7 @@
 #include "../../include/te2350.h"
 #include "../../include/dsp_math.h"
 
-#define MEM_POOL_SIZE (320 * 1024)
+#define MEM_POOL_SIZE TE2350_REQUIRED_MEMORY_BYTES
 static q31_t memory_pool[MEM_POOL_SIZE / 4];
 static te2350_t pedal;
 
