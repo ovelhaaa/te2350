@@ -81,6 +81,7 @@ target_sources(TE2350Antigravity PRIVATE
     Source/Params/ParameterLayout.cpp
     Source/Params/MacroEngine.cpp
     Source/Presets/FactoryPresets.cpp
+    Source/Presets/UserPresetManager.cpp
     Source/DSP/OversamplingChain.cpp
 )
 
@@ -211,4 +212,16 @@ if(TE2350_BUILD_GOLDEN_TESTS)
     add_test(NAME TE2350UIRenderTest
         COMMAND $<TARGET_FILE:TE2350UIRender>
             "${CMAKE_CURRENT_BINARY_DIR}/UIRenders")
+
+    add_executable(TE2350PresetWorkflowTest Tests/PresetWorkflowTest.cpp)
+    target_include_directories(TE2350PresetWorkflowTest PRIVATE Source "${TE2350_ROOT}/include")
+    target_compile_definitions(TE2350PresetWorkflowTest PRIVATE
+        JucePlugin_Name="TE-2350 Antigravity"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+    target_link_libraries(TE2350PresetWorkflowTest PRIVATE
+        TE2350Antigravity
+        juce::juce_audio_utils
+        juce::juce_dsp)
+    add_test(NAME TE2350PresetWorkflowTest COMMAND $<TARGET_FILE:TE2350PresetWorkflowTest>)
 endif()

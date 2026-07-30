@@ -7,6 +7,8 @@ namespace
 {
 constexpr int margin = 16;
 constexpr int gridGap = 8;
+constexpr int userPresetIDBase = 1000;
+constexpr int embeddedUserPresetID = 9000;
 
 juce::Colour night()      { return juce::Colour(0xff06080e); }
 juce::Colour panel()      { return juce::Colour(0xff0d1420); }
@@ -982,7 +984,9 @@ public:
 };
 
 TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& processorRef)
-    : AudioProcessorEditor(&processorRef), processor(processorRef)
+    : AudioProcessorEditor(&processorRef),
+      processor(processorRef),
+      userPresetManager(processorRef.apvts)
 {
     orbitalLookAndFeel = new OrbitalLookAndFeel();
     setLookAndFeel(orbitalLookAndFeel);
@@ -1032,22 +1036,30 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     utilityPanel->addAndMakeVisible(outputMeter);
     utilityPanel->addAndMakeVisible(feedbackMeter);
 
-    presetSelector.addItemList(te2350::getFactoryPresetNames(), 1);
-    presetSelector.setSelectedId(processor.getCurrentProgram() + 1, juce::dontSendNotification);
     presetSelector.onChange = [this]
     {
-        const auto selected = presetSelector.getSelectedId() - 1;
-        if (selected >= 0)
+        if (rebuildingPresetSelector)
+            return;
+
+        const auto selectedID = presetSelector.getSelectedId();
+        if (selectedID > 0 && selectedID < userPresetIDBase)
         {
-            processor.setCurrentProgram(selected);
+            selectedUserPreset = -1;
+            processor.setCurrentProgram(selectedID - 1);
+            observedProgramIndex = processor.getCurrentProgram();
             loadedPresetSnapshot = processor.apvts.copyState();
             presetDirty = false;
+            rebuildPresetSelector();
             updatePresetStatus();
         }
+        else if (selectedID >= userPresetIDBase && selectedID < embeddedUserPresetID)
+        {
+            loadUserPreset(selectedID - userPresetIDBase);
+        }
     };
-    presetSelector.setName("Factory preset");
-    presetSelector.setTitle("Factory preset");
-    presetSelector.setDescription("Load one of the seven calibrated TE-2350 starting points.");
+    presetSelector.setName("Preset browser");
+    presetSelector.setTitle("Preset browser");
+    presetSelector.setDescription("Browse categorized factory presets and presets saved by the user.");
     presetSelector.setComponentID("preset-selector");
     presetSelector.setWantsKeyboardFocus(true);
     addAndMakeVisible(presetSelector);
@@ -1058,6 +1070,16 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     presetCaption.setJustificationType(juce::Justification::centredLeft);
     presetCaption.setAccessible(false);
     addAndMakeVisible(presetCaption);
+
+    presetActionsButton.setColour(juce::TextButton::buttonOnColourId, violet());
+    presetActionsButton.setComponentID("preset-actions");
+    presetActionsButton.setName("Preset actions");
+    presetActionsButton.setTitle("Preset actions");
+    presetActionsButton.setDescription("Save or delete user presets, undo, redo, and choose mutation depth.");
+    presetActionsButton.setTooltip("Preset actions, Undo/Redo, and mutation depth.");
+    presetActionsButton.setWantsKeyboardFocus(true);
+    presetActionsButton.onClick = [this] { showPresetActionsMenu(); };
+    addAndMakeVisible(presetActionsButton);
 
     for (auto* button : { &abButton, &resetButton, &advancedToggle })
     {
@@ -1093,7 +1115,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     addAndMakeVisible(bypassButton);
     buttonAttachments.push_back(std::make_unique<ButtonAttachment>(processor.apvts, "bypass", bypassButton));
 
-    presetSelector.setTooltip("Load a factory preset.");
+    presetSelector.setTooltip("Browse factory and user presets.");
     advancedToggle.setTooltip("Open the detailed sound-design view.");
     abButton.setTooltip("A/B: save the current side, then recall the other temporary snapshot.");
     resetButton.setTooltip("Reset all parameters to their default values.");
@@ -1182,6 +1204,21 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
                       return mode->load() < 0.5f;
                   return false;
               });
+    mutateButton.setColour(juce::TextButton::buttonOnColourId, violet());
+    mutateButton.setComponentID("mutate-button");
+    mutateButton.setName("Mutate");
+    mutateButton.setTitle("Mutate");
+    mutateButton.setDescription("Create a protected musical variation while preserving timing, mix, I/O, engine, and bypass.");
+    mutateButton.setTooltip("Create a 20% musical variation. Timing, Mix, I/O, Engine, Bypass, and Freeze stay locked.");
+    mutateButton.setWantsKeyboardFocus(true);
+    mutateButton.onClick = [this]
+    {
+        processor.mutateParameters(0.20f);
+        presetDirty = true;
+        updatePresetStatus();
+    };
+    macroLayer.addAndMakeVisible(mutateButton);
+    macroPerformanceControls.push_back(&mutateButton);
 
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
@@ -1191,6 +1228,8 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     advancedPanel->setVisible(advancedExpanded);
 
     updateDependentControls();
+    observedProgramIndex = processor.getCurrentProgram();
+    rebuildPresetSelector();
     updatePresetStatus();
 
     setResizeLimits(960, 680, 1280, 820);
@@ -1261,7 +1300,10 @@ void TE2350AudioProcessorEditor::resized()
     headerRight.removeFromRight(8);
     auto presetArea = headerRight.removeFromRight(190).reduced(2, 3);
     presetCaption.setBounds(presetArea.removeFromTop(12));
+    auto presetActionArea = presetArea.removeFromRight(28);
+    presetArea.removeFromRight(4);
     presetSelector.setBounds(presetArea.reduced(0, 1));
+    presetActionsButton.setBounds(presetActionArea.reduced(0, 1));
 
     area.removeFromTop(12);
     const auto utilityHeight = juce::jlimit(116, 136, area.getHeight() / 5);
@@ -1467,7 +1509,8 @@ void TE2350AudioProcessorEditor::layoutMacroControls(juce::Rectangle<int> area)
     {
         auto performanceArea = area.removeFromBottom(48);
         area.removeFromBottom(8);
-        macroPerformanceControls.front()->setBounds(performanceArea.reduced(1));
+        layoutGrid(performanceArea, macroPerformanceControls,
+                   static_cast<int>(macroPerformanceControls.size()));
     }
 
     const auto gap = 9;
@@ -1482,12 +1525,14 @@ void TE2350AudioProcessorEditor::layoutMacroControls(juce::Rectangle<int> area)
 
 void TE2350AudioProcessorEditor::resetParametersToDefault()
 {
+    processor.beginUndoTransaction("Reset parameters");
     for (auto* parameter : processor.getParameters())
     {
         parameter->beginChangeGesture();
         parameter->setValueNotifyingHost(parameter->getDefaultValue());
         parameter->endChangeGesture();
     }
+    processor.apvts.copyState();
 
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
@@ -1523,6 +1568,254 @@ void TE2350AudioProcessorEditor::applySnapshot(const juce::ValueTree& snapshot)
         processor.apvts.replaceState(snapshot.createCopy());
 }
 
+void TE2350AudioProcessorEditor::rebuildPresetSelector()
+{
+    const juce::ScopedValueSetter<bool> rebuilding(rebuildingPresetSelector, true);
+    presetSelector.clear(juce::dontSendNotification);
+
+    const auto& descriptors = te2350::getFactoryPresetDescriptors();
+    const juce::StringArray categories {
+        "FOUNDATIONS", "RHYTHMIC", "MOTION", "SHIMMER", "DEEP SPACE", "EXPERIMENTAL"
+    };
+
+    for (const auto& category : categories)
+    {
+        auto categoryHasItems = false;
+        for (const auto& descriptor : descriptors)
+            categoryHasItems = categoryHasItems || descriptor.category == category;
+
+        if (!categoryHasItems)
+            continue;
+
+        presetSelector.addSectionHeading(category);
+        for (int index = 0; index < static_cast<int>(descriptors.size()); ++index)
+            if (descriptors[static_cast<size_t>(index)].category == category)
+                presetSelector.addItem(descriptors[static_cast<size_t>(index)].name, index + 1);
+    }
+
+    const auto& userPresets = userPresetManager.refresh();
+    if (!userPresets.empty())
+    {
+        presetSelector.addSeparator();
+        presetSelector.addSectionHeading("USER PRESETS");
+        for (int index = 0; index < static_cast<int>(userPresets.size()); ++index)
+            presetSelector.addItem(userPresets[static_cast<size_t>(index)].name,
+                                   userPresetIDBase + index);
+    }
+
+    if (processor.isActivePresetUser())
+    {
+        selectedUserPreset = -1;
+        for (int index = 0; index < static_cast<int>(userPresets.size()); ++index)
+        {
+            if (userPresets[static_cast<size_t>(index)].name.equalsIgnoreCase(
+                    processor.getActivePresetName()))
+            {
+                selectedUserPreset = index;
+                break;
+            }
+        }
+
+        if (selectedUserPreset >= 0)
+        {
+            presetSelector.setSelectedId(userPresetIDBase + selectedUserPreset,
+                                         juce::dontSendNotification);
+            presetSelector.setTooltip(
+                "User preset: " + userPresets[static_cast<size_t>(selectedUserPreset)].name);
+        }
+        else
+        {
+            presetSelector.addSeparator();
+            presetSelector.addItem(processor.getActivePresetName() + " (Embedded)",
+                                   embeddedUserPresetID);
+            presetSelector.setSelectedId(embeddedUserPresetID, juce::dontSendNotification);
+            presetSelector.setTooltip(
+                "This user preset is embedded in the project but is not present in the local library.");
+        }
+    }
+    else
+    {
+        selectedUserPreset = -1;
+        const auto programIndex = juce::jlimit(
+            0, juce::jmax(0, static_cast<int>(descriptors.size()) - 1),
+            processor.getCurrentProgram());
+        presetSelector.setSelectedId(programIndex + 1, juce::dontSendNotification);
+        if (juce::isPositiveAndBelow(programIndex, static_cast<int>(descriptors.size())))
+            presetSelector.setTooltip(
+                descriptors[static_cast<size_t>(programIndex)].description);
+    }
+}
+
+void TE2350AudioProcessorEditor::showPresetActionsMenu()
+{
+    juce::PopupMenu menu;
+    menu.addItem(1, "Save current sound as user preset...");
+    menu.addItem(2, "Delete selected user preset...",
+                 selectedUserPreset >= 0);
+    menu.addSeparator();
+
+    auto undoLabel = juce::String("Undo");
+    if (processor.getUndoDescription().isNotEmpty())
+        undoLabel << " " << processor.getUndoDescription();
+    auto redoLabel = juce::String("Redo");
+    if (processor.getRedoDescription().isNotEmpty())
+        redoLabel << " " << processor.getRedoDescription();
+    menu.addItem(3, undoLabel, processor.canUndo());
+    menu.addItem(4, redoLabel, processor.canRedo());
+    menu.addSeparator();
+
+    juce::PopupMenu mutationMenu;
+    mutationMenu.addItem(10, "Gentle  ·  10%");
+    mutationMenu.addItem(11, "Musical  ·  20%");
+    mutationMenu.addItem(12, "Deep  ·  35%");
+    menu.addSubMenu("Mutate current sound", mutationMenu);
+
+    auto safeThis = juce::Component::SafePointer<TE2350AudioProcessorEditor>(this);
+    menu.showMenuAsync(
+        juce::PopupMenu::Options().withTargetComponent(&presetActionsButton),
+        [safeThis] (int result)
+        {
+            if (safeThis == nullptr || result == 0)
+                return;
+
+            if (result == 1)
+                safeThis->promptToSaveUserPreset();
+            else if (result == 2)
+                safeThis->confirmDeleteUserPreset();
+            else if (result == 3)
+                safeThis->processor.undo();
+            else if (result == 4)
+                safeThis->processor.redo();
+            else if (result >= 10 && result <= 12)
+            {
+                constexpr float depths[] { 0.10f, 0.20f, 0.35f };
+                safeThis->processor.mutateParameters(depths[result - 10]);
+                safeThis->presetDirty = true;
+                safeThis->updatePresetStatus();
+            }
+        });
+}
+
+void TE2350AudioProcessorEditor::promptToSaveUserPreset()
+{
+    savePresetDialog = std::make_unique<juce::AlertWindow>(
+        "Save User Preset",
+        "Give this sound a memorable name. Saving an existing name replaces that preset.",
+        juce::MessageBoxIconType::NoIcon,
+        this);
+    savePresetDialog->addTextEditor(
+        "presetName",
+        processor.getActivePresetName() + (presetDirty ? " Variation" : juce::String()),
+        "Preset name");
+    savePresetDialog->addButton("SAVE", 1, juce::KeyPress(juce::KeyPress::returnKey));
+    savePresetDialog->addButton("CANCEL", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+
+    auto safeThis = juce::Component::SafePointer<TE2350AudioProcessorEditor>(this);
+    savePresetDialog->enterModalState(
+        true,
+        juce::ModalCallbackFunction::create(
+            [safeThis] (int result)
+            {
+                if (safeThis == nullptr)
+                    return;
+
+                if (safeThis->savePresetDialog == nullptr)
+                    return;
+
+                auto& dialog = *safeThis->savePresetDialog;
+                dialog.exitModalState(result);
+                dialog.setVisible(false);
+                const auto name = dialog.getTextEditorContents("presetName");
+
+                if (result != 1)
+                    return;
+
+                const auto saveResult = safeThis->userPresetManager.save(name);
+                if (saveResult.failed())
+                {
+                    safeThis->showPresetError(saveResult.getErrorMessage());
+                    return;
+                }
+
+                safeThis->processor.setActiveUserPreset(name.trim().substring(0, 48));
+                safeThis->loadedPresetSnapshot = safeThis->processor.apvts.copyState();
+                safeThis->presetDirty = false;
+                safeThis->rebuildPresetSelector();
+                safeThis->updatePresetStatus();
+            }),
+        false);
+}
+
+void TE2350AudioProcessorEditor::confirmDeleteUserPreset()
+{
+    const auto& presets = userPresetManager.getPresets();
+    if (!juce::isPositiveAndBelow(selectedUserPreset, static_cast<int>(presets.size())))
+        return;
+
+    const auto presetName = presets[static_cast<size_t>(selectedUserPreset)].name;
+    const auto presetIndex = selectedUserPreset;
+    auto safeThis = juce::Component::SafePointer<TE2350AudioProcessorEditor>(this);
+    juce::AlertWindow::showOkCancelBox(
+        juce::MessageBoxIconType::WarningIcon,
+        "Delete User Preset",
+        "Delete \"" + presetName + "\" from the local preset library?\n\n"
+        "The current sound will remain loaded in this project.",
+        "DELETE",
+        "CANCEL",
+        this,
+        juce::ModalCallbackFunction::create(
+            [safeThis, presetIndex] (int result)
+            {
+                if (safeThis == nullptr || result == 0)
+                    return;
+
+                const auto removeResult = safeThis->userPresetManager.remove(presetIndex);
+                if (removeResult.failed())
+                {
+                    safeThis->showPresetError(removeResult.getErrorMessage());
+                    return;
+                }
+
+                safeThis->selectedUserPreset = -1;
+                safeThis->rebuildPresetSelector();
+                safeThis->updatePresetStatus();
+            }));
+}
+
+void TE2350AudioProcessorEditor::loadUserPreset(int index)
+{
+    const auto& presets = userPresetManager.getPresets();
+    if (!juce::isPositiveAndBelow(index, static_cast<int>(presets.size())))
+        return;
+
+    const auto presetName = presets[static_cast<size_t>(index)].name;
+    processor.beginUndoTransaction("Load " + presetName);
+    const auto result = userPresetManager.load(index);
+    if (result.failed())
+    {
+        showPresetError(result.getErrorMessage());
+        rebuildPresetSelector();
+        return;
+    }
+
+    processor.setActiveUserPreset(presetName);
+    selectedUserPreset = index;
+    loadedPresetSnapshot = processor.apvts.copyState();
+    presetDirty = false;
+    rebuildPresetSelector();
+    updatePresetStatus();
+}
+
+void TE2350AudioProcessorEditor::showPresetError(const juce::String& message)
+{
+    juce::AlertWindow::showMessageBoxAsync(
+        juce::MessageBoxIconType::WarningIcon,
+        "Preset Error",
+        message,
+        "OK",
+        this);
+}
+
 bool TE2350AudioProcessorEditor::hasPresetChanges() const
 {
     if (! loadedPresetSnapshot.isValid())
@@ -1546,10 +1839,43 @@ bool TE2350AudioProcessorEditor::hasPresetChanges() const
 
 void TE2350AudioProcessorEditor::updatePresetStatus()
 {
-    presetCaption.setText(presetDirty ? "FACTORY PRESET  •  MODIFIED" : "FACTORY PRESET",
-                          juce::dontSendNotification);
+    auto label = processor.isActivePresetUser() ? juce::String("USER PRESET")
+                                                : juce::String("FACTORY PRESET");
+    if (!processor.isActivePresetUser())
+    {
+        const auto& descriptors = te2350::getFactoryPresetDescriptors();
+        const auto program = processor.getCurrentProgram();
+        if (juce::isPositiveAndBelow(program, static_cast<int>(descriptors.size())))
+            label << "  ·  " << descriptors[static_cast<size_t>(program)].category;
+    }
+    if (presetDirty)
+        label << "  •  MODIFIED";
+
+    presetCaption.setText(label, juce::dontSendNotification);
     presetCaption.setColour(juce::Label::textColourId,
                             (presetDirty ? amber() : textMuted()).withAlpha(0.92f));
+}
+
+bool TE2350AudioProcessorEditor::keyPressed(const juce::KeyPress& key)
+{
+    const auto commandDown = key.getModifiers().isCommandDown();
+    const auto character = juce::CharacterFunctions::toLowerCase(key.getTextCharacter());
+    if (commandDown && character == 'z')
+    {
+        if (key.getModifiers().isShiftDown())
+            processor.redo();
+        else
+            processor.undo();
+        return true;
+    }
+
+    if (commandDown && character == 'y')
+    {
+        processor.redo();
+        return true;
+    }
+
+    return juce::AudioProcessorEditor::keyPressed(key);
 }
 
 void TE2350AudioProcessorEditor::setControlAvailable(juce::Component* component, bool available)
@@ -1599,10 +1925,15 @@ void TE2350AudioProcessorEditor::timerCallback()
     feedbackMeter->setLevel(juce::jlimit(0.0f, 1.0f, feedbackValue / 1.05f));
     gravityMeter->setValues(processor.getInstabilityMeterValue(), feedbackValue, animationPhase);
 
-    const auto programID = processor.getCurrentProgram() + 1;
-    if (presetSelector.getSelectedId() != programID)
+    const auto programIndex = processor.getCurrentProgram();
+    const auto selectorRepresentsUserPreset =
+        presetSelector.getSelectedId() >= userPresetIDBase;
+    if (observedProgramIndex != programIndex
+        || selectorRepresentsUserPreset != processor.isActivePresetUser())
     {
-        presetSelector.setSelectedId(programID, juce::dontSendNotification);
+        observedProgramIndex = programIndex;
+        selectedUserPreset = -1;
+        rebuildPresetSelector();
         loadedPresetSnapshot = processor.apvts.copyState();
         presetDirty = false;
         updatePresetStatus();

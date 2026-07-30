@@ -12,6 +12,8 @@
 
 class TE2350AudioProcessor final : public juce::AudioProcessor
 {
+    juce::UndoManager undoManager;
+
 public:
     TE2350AudioProcessor();
     ~TE2350AudioProcessor() override = default;
@@ -47,6 +49,18 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
+    void beginUndoTransaction(const juce::String& name);
+    bool canUndo() const { return undoManager.canUndo(); }
+    bool canRedo() const { return undoManager.canRedo(); }
+    juce::String getUndoDescription() const { return undoManager.getUndoDescription(); }
+    juce::String getRedoDescription() const { return undoManager.getRedoDescription(); }
+    bool undo();
+    bool redo();
+    void mutateParameters(float amount, juce::uint32 seed = 0);
+    void setActiveUserPreset(const juce::String& name);
+    const juce::String& getActivePresetName() const noexcept { return activePresetName; }
+    bool isActivePresetUser() const noexcept { return activePresetIsUser; }
+
     juce::AudioProcessorValueTreeState apvts;
     float getInstabilityMeterValue() const { return instabilityMeter.load(); }
     float getInputMeterValue() const { return inputMeter.load(); }
@@ -71,6 +85,8 @@ private:
     std::atomic<float> inputMeter { 0.0f };
     std::atomic<float> outputMeter { 0.0f };
     juce::ValueTree defaultState;
+    juce::String activePresetName;
+    bool activePresetIsUser = false;
     int currentProgram = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TE2350AudioProcessor)

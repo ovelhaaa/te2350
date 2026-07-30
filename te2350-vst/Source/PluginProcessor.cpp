@@ -2,9 +2,11 @@
 #include "PluginEditor.h"
 #include "Presets/FactoryPresets.h"
 
+#include <array>
+
 namespace
 {
-constexpr int currentStateVersion = 2;
+constexpr int currentStateVersion = 3;
 
 float measureBufferLevel(const juce::AudioBuffer<float>& buffer)
 {
@@ -28,9 +30,13 @@ TE2350AudioProcessor::TE2350AudioProcessor()
     : AudioProcessor(BusesProperties()
                          .withInput("Input", juce::AudioChannelSet::stereo(), true)
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts(*this, nullptr, "PARAMETERS", te2350::createParameterLayout())
+      apvts(*this, &undoManager, "PARAMETERS", te2350::createParameterLayout())
 {
     defaultState = apvts.copyState();
+    te2350::applyFactoryPreset(apvts, currentProgram);
+    apvts.copyState();
+    undoManager.clearUndoHistory();
+    activePresetName = getProgramName(currentProgram);
 }
 
 void TE2350AudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -171,8 +177,12 @@ void TE2350AudioProcessor::setCurrentProgram(int index)
     if (!juce::isPositiveAndBelow(index, getNumPrograms()))
         return;
 
+    beginUndoTransaction("Load " + getProgramName(index));
     currentProgram = index;
     te2350::applyFactoryPreset(apvts, index);
+    apvts.copyState();
+    activePresetName = getProgramName(index);
+    activePresetIsUser = false;
 }
 
 const juce::String TE2350AudioProcessor::getProgramName(int index)
@@ -186,6 +196,8 @@ void TE2350AudioProcessor::getStateInformation(juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     state.setProperty("currentProgram", currentProgram, nullptr);
     state.setProperty("stateVersion", currentStateVersion, nullptr);
+    state.setProperty("activePresetName", activePresetName, nullptr);
+    state.setProperty("activePresetIsUser", activePresetIsUser, nullptr);
 
     if (auto xml = state.createXml())
         copyXmlToBinary(*xml, destData);
@@ -200,8 +212,96 @@ void TE2350AudioProcessor::setStateInformation(const void* data, int sizeInBytes
             currentProgram = juce::jlimit(0,
                                          juce::jmax(0, getNumPrograms() - 1),
                                          static_cast<int>(incomingState.getProperty("currentProgram", 0)));
+            activePresetName = incomingState.getProperty(
+                "activePresetName",
+                getProgramName(currentProgram)).toString();
+            activePresetIsUser = static_cast<bool>(
+                incomingState.getProperty("activePresetIsUser", false));
+            if (activePresetName.trim().isEmpty())
+            {
+                activePresetName = getProgramName(currentProgram);
+                activePresetIsUser = false;
+            }
             apvts.replaceState(migrateState(incomingState));
         }
+}
+
+void TE2350AudioProcessor::beginUndoTransaction(const juce::String& name)
+{
+    apvts.copyState();
+    undoManager.beginNewTransaction(name);
+}
+
+bool TE2350AudioProcessor::undo()
+{
+    return undoManager.undo();
+}
+
+bool TE2350AudioProcessor::redo()
+{
+    return undoManager.redo();
+}
+
+void TE2350AudioProcessor::mutateParameters(float amount, juce::uint32 seed)
+{
+    struct MutationRule
+    {
+        const char* parameterID;
+        float scale;
+        float maximumPlainValue;
+    };
+
+    constexpr std::array<MutationRule, 17> rules {{
+        { "space", 1.00f, 1.00f },
+        { "wild", 0.65f, 0.86f },
+        { "bloom", 0.82f, 0.92f },
+        { "feedback", 0.58f, 0.92f },
+        { "lowCutHz", 0.48f, 1000.0f },
+        { "highCutHz", 0.48f, 18000.0f },
+        { "diffusion", 0.78f, 1.00f },
+        { "chaos", 0.72f, 0.90f },
+        { "wobble", 0.72f, 0.90f },
+        { "presence", 0.60f, 1.00f },
+        { "modRateHz", 0.52f, 2.00f },
+        { "modDepth", 0.68f, 0.90f },
+        { "shimmerAmount", 0.54f, 0.72f },
+        { "shimmerFeedback", 0.46f, 0.80f },
+        { "duckThreshold", 0.42f, 0.0f },
+        { "duckAmount", 0.58f, 0.82f },
+        { "wetWidth", 0.52f, 1.00f }
+    }};
+
+    amount = juce::jlimit(0.0f, 1.0f, amount);
+    if (amount <= 0.0f)
+        return;
+
+    juce::Random random(seed == 0 ? juce::Random::getSystemRandom().nextInt()
+                                  : static_cast<juce::int64>(seed));
+    beginUndoTransaction("Mutate");
+    for (const auto& rule : rules)
+    {
+        auto* parameter = apvts.getParameter(rule.parameterID);
+        if (parameter == nullptr)
+            continue;
+
+        const auto movement = (random.nextFloat() * 2.0f - 1.0f) * amount * rule.scale;
+        auto maximum = 1.0f;
+        if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter))
+            maximum = ranged->convertTo0to1(rule.maximumPlainValue);
+
+        parameter->beginChangeGesture();
+        parameter->setValueNotifyingHost(
+            juce::jlimit(0.0f, juce::jlimit(0.0f, 1.0f, maximum),
+                         parameter->getValue() + movement));
+        parameter->endChangeGesture();
+    }
+    apvts.copyState();
+}
+
+void TE2350AudioProcessor::setActiveUserPreset(const juce::String& name)
+{
+    activePresetName = name.trim();
+    activePresetIsUser = true;
 }
 
 juce::ValueTree TE2350AudioProcessor::migrateState(const juce::ValueTree& incomingState) const

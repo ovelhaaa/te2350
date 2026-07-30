@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include <functional>
 #include "PluginProcessor.h"
+#include "Presets/UserPresetManager.h"
 
 class TE2350AudioProcessorEditor final : public juce::AudioProcessorEditor,
                                          private juce::Timer
@@ -67,13 +68,21 @@ private:
     void resetParametersToDefault();
     void toggleAB();
     void applySnapshot(const juce::ValueTree& snapshot);
+    void rebuildPresetSelector();
+    void showPresetActionsMenu();
+    void promptToSaveUserPreset();
+    void confirmDeleteUserPreset();
+    void loadUserPreset(int index);
+    void showPresetError(const juce::String& message);
     bool hasPresetChanges() const;
     void updatePresetStatus();
     void updateDependentControls();
     static void setControlAvailable(juce::Component* component, bool available);
+    bool keyPressed(const juce::KeyPress& key) override;
     void timerCallback() override;
 
     TE2350AudioProcessor& processor;
+    te2350::UserPresetManager userPresetManager;
     OrbitalLookAndFeel* orbitalLookAndFeel = nullptr;
 
     SectionPanel* macroPanel = nullptr;
@@ -97,11 +106,14 @@ private:
 
     juce::ComboBox presetSelector;
     juce::Label presetCaption;
+    juce::TextButton presetActionsButton { "..." };
     juce::TextButton abButton { "A/B  A" };
     juce::TextButton resetButton { "RESET" };
     juce::TextButton advancedToggle { "SCULPT" };
     juce::ToggleButton bypassButton { "BYPASS" };
+    juce::TextButton mutateButton { "MUTATE" };
     juce::TooltipWindow tooltipWindow { this, 700 };
+    std::unique_ptr<juce::AlertWindow> savePresetDialog;
 
     std::vector<std::unique_ptr<juce::Component>> ownedComponents;
     std::vector<juce::Component*> macroControls;
@@ -125,6 +137,9 @@ private:
     bool showingSnapshotA = true;
     bool advancedExpanded = false;
     bool presetDirty = false;
+    bool rebuildingPresetSelector = false;
+    int selectedUserPreset = -1;
+    int observedProgramIndex = 0;
     float animationPhase = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TE2350AudioProcessorEditor)

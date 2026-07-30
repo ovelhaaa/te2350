@@ -290,9 +290,9 @@ bool verifyStateMigration()
     }
 
     auto legacyState = juce::ValueTree::fromXml(*currentXml);
-    if (static_cast<int>(legacyState.getProperty("stateVersion", 0)) != 2)
+    if (static_cast<int>(legacyState.getProperty("stateVersion", 0)) != 3)
     {
-        std::fprintf(stderr, "saved state did not contain stateVersion=2\n");
+        std::fprintf(stderr, "saved state did not contain stateVersion=3\n");
         return false;
     }
 
