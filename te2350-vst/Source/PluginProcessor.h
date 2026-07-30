@@ -59,6 +59,7 @@ private:
     double getHostBpm() const;
     float getSyncedTimeMs(int syncMode, double bpm, float freeTimeMs) const;
     te2350::CoreParameters collectCoreParameters(double bpm) const;
+    juce::ValueTree migrateState(const juce::ValueTree& incomingState) const;
 
     te2350::TE2350CoreWrapper core;
     te2350::MacroEngine macroEngine;
@@ -69,6 +70,7 @@ private:
     std::atomic<float> instabilityMeter { 0.0f };
     std::atomic<float> inputMeter { 0.0f };
     std::atomic<float> outputMeter { 0.0f };
+    juce::ValueTree defaultState;
     int currentProgram = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TE2350AudioProcessor)

@@ -19,7 +19,7 @@ private:
     static void delayBlock(juce::AudioBuffer<float>& buffer,
                            juce::dsp::DelayLine<float>& delay,
                            int numSamples);
-    void processStudioColour(juce::AudioBuffer<float>& buffer);
+    void processStudioColour(juce::AudioBuffer<float>& buffer, int numSamples);
 
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
     juce::dsp::DelayLine<float> hardwareDelay;

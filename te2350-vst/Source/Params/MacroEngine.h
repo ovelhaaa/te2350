@@ -1,7 +1,6 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include <unordered_map>
 #include <vector>
 
 namespace te2350
@@ -43,18 +42,27 @@ public:
     static std::vector<MacroDefinition> createFactoryDefinitions();
 
 private:
-    using ValueMap = std::unordered_map<std::string, float>;
+    struct ParameterValue
+    {
+        juce::String id;
+        float defaultValue = 0.0f;
+        float current = 0.0f;
+        float target = 0.0f;
+    };
 
     static float mapTarget(const MacroTarget& target, float macroValue);
     static float clampForParameter(juce::StringRef parameterID, float value);
     static float readStateValue(const juce::AudioProcessorValueTreeState& state, juce::StringRef parameterID, float fallback);
 
+    ParameterValue* findValue(juce::StringRef parameterID);
+    const ParameterValue* findValue(juce::StringRef parameterID) const;
     void calculateTargets(const juce::AudioProcessorValueTreeState& state);
 
     std::vector<MacroDefinition> definitions;
-    ValueMap currentValues;
-    ValueMap targetValues;
-    ValueMap macroValues;
+    std::vector<ParameterValue> values;
+    float spaceMacro = 0.0f;
+    float wildMacro = 0.0f;
+    float bloomMacro = 0.0f;
     double sampleRate = 48000.0;
     int controlBlockSize = 64;
     int samplesUntilNextControlUpdate = 0;

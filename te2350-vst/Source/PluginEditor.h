@@ -67,6 +67,10 @@ private:
     void resetParametersToDefault();
     void toggleAB();
     void applySnapshot(const juce::ValueTree& snapshot);
+    bool hasPresetChanges() const;
+    void updatePresetStatus();
+    void updateDependentControls();
+    static void setControlAvailable(juce::Component* component, bool available);
     void timerCallback() override;
 
     TE2350AudioProcessor& processor;
@@ -92,9 +96,10 @@ private:
     juce::Component utilityLayer;
 
     juce::ComboBox presetSelector;
-    juce::TextButton abButton { "A" };
+    juce::Label presetCaption;
+    juce::TextButton abButton { "A/B  A" };
     juce::TextButton resetButton { "RESET" };
-    juce::TextButton advancedToggle { "EDIT" };
+    juce::TextButton advancedToggle { "SCULPT" };
     juce::ToggleButton bypassButton { "BYPASS" };
     juce::TooltipWindow tooltipWindow { this, 700 };
 
@@ -105,14 +110,21 @@ private:
     std::vector<juce::Component*> advancedMotionControls;
     std::vector<juce::Component*> advancedTextureControls;
     std::vector<juce::Component*> utilityControls;
+    std::vector<juce::Component*> macroPerformanceControls;
     std::vector<std::unique_ptr<SliderAttachment>> sliderAttachments;
     std::vector<std::unique_ptr<ComboAttachment>> comboAttachments;
     std::vector<std::unique_ptr<ButtonAttachment>> buttonAttachments;
 
     juce::ValueTree snapshotA;
     juce::ValueTree snapshotB;
+    juce::ValueTree loadedPresetSnapshot;
+    juce::Component* timeControl = nullptr;
+    juce::Component* shimmerFeedbackControl = nullptr;
+    juce::Component* shimmerIntervalControl = nullptr;
+    juce::Component* duckThresholdControl = nullptr;
     bool showingSnapshotA = true;
     bool advancedExpanded = false;
+    bool presetDirty = false;
     float animationPhase = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TE2350AudioProcessorEditor)

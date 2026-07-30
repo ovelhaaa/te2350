@@ -8,6 +8,10 @@ namespace te2350
 MacroEngine::MacroEngine()
     : definitions(createFactoryDefinitions())
 {
+    const auto& specs = getParameterSpecs();
+    values.reserve(specs.size());
+    for (const auto& spec : specs)
+        values.push_back({ spec.id, spec.defaultValue, spec.defaultValue, spec.defaultValue });
 }
 
 void MacroEngine::prepare(double newSampleRate, int newControlBlockSize)
@@ -20,19 +24,15 @@ void MacroEngine::prepare(double newSampleRate, int newControlBlockSize)
 
 void MacroEngine::reset()
 {
-    currentValues.clear();
-    targetValues.clear();
-    macroValues.clear();
-
-    for (const auto& spec : getParameterSpecs())
+    for (auto& value : values)
     {
-        currentValues[spec.id.toStdString()] = spec.defaultValue;
-        targetValues[spec.id.toStdString()] = spec.defaultValue;
+        value.current = value.defaultValue;
+        value.target = value.defaultValue;
     }
 
-    macroValues["space"] = getParameterDefault("space");
-    macroValues["wild"] = getParameterDefault("wild");
-    macroValues["bloom"] = getParameterDefault("bloom");
+    spaceMacro = getParameterDefault("space");
+    wildMacro = getParameterDefault("wild");
+    bloomMacro = getParameterDefault("bloom");
 }
 
 void MacroEngine::update(const juce::AudioProcessorValueTreeState& state, int numSamples)
@@ -47,26 +47,28 @@ void MacroEngine::update(const juce::AudioProcessorValueTreeState& state, int nu
 
     const auto smoothing = static_cast<float>(1.0 - std::exp(-static_cast<double>(juce::jmax(1, numSamples)) / (0.008 * sampleRate)));
 
-    for (auto& [id, current] : currentValues)
-    {
-        const auto targetIt = targetValues.find(id);
-        if (targetIt == targetValues.end())
-            continue;
-
-        current += (targetIt->second - current) * smoothing;
-    }
+    for (auto& value : values)
+        value.current += (value.target - value.current) * smoothing;
 }
 
 float MacroEngine::getEffectiveValue(juce::StringRef parameterID, float fallback) const
 {
-    const auto found = currentValues.find(juce::String(parameterID).toStdString());
-    return found != currentValues.end() ? found->second : fallback;
+    if (const auto* value = findValue(parameterID))
+        return value->current;
+
+    return fallback;
 }
 
 float MacroEngine::getMacroValue(juce::StringRef macroID) const
 {
-    const auto found = macroValues.find(juce::String(macroID).toStdString());
-    return found != macroValues.end() ? found->second : 0.0f;
+    if (macroID == juce::StringRef("space"))
+        return spaceMacro;
+    if (macroID == juce::StringRef("wild"))
+        return wildMacro;
+    if (macroID == juce::StringRef("bloom"))
+        return bloomMacro;
+
+    return 0.0f;
 }
 
 float MacroEngine::getInstability() const
@@ -146,22 +148,38 @@ float MacroEngine::readStateValue(const juce::AudioProcessorValueTreeState& stat
                                   juce::StringRef parameterID,
                                   float fallback)
 {
-    if (const auto* raw = state.getRawParameterValue(juce::String(parameterID)))
+    if (const auto* raw = state.getRawParameterValue(parameterID))
         return raw->load();
 
     return fallback;
 }
 
+MacroEngine::ParameterValue* MacroEngine::findValue(juce::StringRef parameterID)
+{
+    for (auto& value : values)
+        if (value.id == parameterID)
+            return &value;
+
+    return nullptr;
+}
+
+const MacroEngine::ParameterValue* MacroEngine::findValue(juce::StringRef parameterID) const
+{
+    for (const auto& value : values)
+        if (value.id == parameterID)
+            return &value;
+
+    return nullptr;
+}
+
 void MacroEngine::calculateTargets(const juce::AudioProcessorValueTreeState& state)
 {
-    macroValues["space"] = readStateValue(state, "space", 0.0f);
-    macroValues["wild"] = readStateValue(state, "wild", 0.0f);
-    macroValues["bloom"] = readStateValue(state, "bloom", 0.0f);
+    spaceMacro = readStateValue(state, "space", 0.0f);
+    wildMacro = readStateValue(state, "wild", 0.0f);
+    bloomMacro = readStateValue(state, "bloom", 0.0f);
 
-    targetValues.clear();
-
-    for (const auto& spec : getParameterSpecs())
-        targetValues[spec.id.toStdString()] = readStateValue(state, spec.id, spec.defaultValue);
+    for (auto& value : values)
+        value.target = readStateValue(state, value.id, value.defaultValue);
 
     for (const auto& definition : definitions)
     {
@@ -169,15 +187,16 @@ void MacroEngine::calculateTargets(const juce::AudioProcessorValueTreeState& sta
 
         for (const auto& target : definition.targets)
         {
-            const auto id = target.paramID.toStdString();
             const auto mapped = mapTarget(target, macroValue);
             const auto offset = mapped - target.valueAt0;
-            targetValues[id] = clampForParameter(target.paramID, targetValues[id] + offset);
+            if (auto* value = findValue(target.paramID))
+                value->target = clampForParameter(target.paramID, value->target + offset);
         }
     }
 
     const auto wild = getMacroValue("wild");
     const auto wildFeedbackCeiling = 0.95f + wild * 0.10f;
-    targetValues["feedback"] = juce::jmin(targetValues["feedback"], wildFeedbackCeiling);
+    if (auto* feedback = findValue("feedback"))
+        feedback->target = juce::jmin(feedback->target, wildFeedbackCeiling);
 }
 }

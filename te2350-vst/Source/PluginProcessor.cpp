@@ -4,6 +4,8 @@
 
 namespace
 {
+constexpr int currentStateVersion = 2;
+
 float measureBufferLevel(const juce::AudioBuffer<float>& buffer)
 {
     if (buffer.getNumSamples() <= 0 || buffer.getNumChannels() <= 0)
@@ -28,17 +30,19 @@ TE2350AudioProcessor::TE2350AudioProcessor()
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "PARAMETERS", te2350::createParameterLayout())
 {
+    defaultState = apvts.copyState();
 }
 
 void TE2350AudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    core.prepare(sampleRate, samplesPerBlock);
+    const auto preparedBlockSize = juce::jmax(1, samplesPerBlock);
+    core.prepare(sampleRate, preparedBlockSize);
     macroEngine.prepare(sampleRate, 64);
-    oversampling.prepare(sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+    oversampling.prepare(sampleRate, preparedBlockSize, getTotalNumOutputChannels());
     oversampling.setStudioMode(getChoiceIndex("qualityMode") == 1);
     setLatencySamples(oversampling.getLatencySamples());
-    bypassDryBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock, false, false, true);
-    bypassRamp.resize(static_cast<size_t>(samplesPerBlock), 0.0f);
+    bypassDryBuffer.setSize(getTotalNumOutputChannels(), preparedBlockSize, false, false, true);
+    bypassRamp.resize(static_cast<size_t>(preparedBlockSize), 0.0f);
     bypassMix.reset(sampleRate, 0.02);
     bypassMix.setCurrentAndTargetValue(getBool("bypass") ? 1.0f : 0.0f);
 }
@@ -83,46 +87,64 @@ void TE2350AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     for (auto channel = totalInputChannels; channel < totalOutputChannels; ++channel)
         buffer.clear(channel, 0, buffer.getNumSamples());
 
-    if (bypassDryBuffer.getNumChannels() < buffer.getNumChannels()
-        || bypassDryBuffer.getNumSamples() < buffer.getNumSamples())
+    const auto chunkCapacity = juce::jmin(
+        bypassDryBuffer.getNumSamples(),
+        static_cast<int>(bypassRamp.size()));
+    if (chunkCapacity <= 0 || bypassDryBuffer.getNumChannels() < buffer.getNumChannels())
     {
-        bypassDryBuffer.setSize(buffer.getNumChannels(), buffer.getNumSamples(), false, false, true);
-        bypassRamp.resize(static_cast<size_t>(buffer.getNumSamples()), 0.0f);
-    }
-
-    for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
-        bypassDryBuffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
-
-    bypassMix.setTargetValue(getBool("bypass") ? 1.0f : 0.0f);
-    for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
-    {
-        const auto bypassAmount = bypassMix.getNextValue();
-        bypassRamp[static_cast<size_t>(sample)] = bypassAmount;
-
-        for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
-            buffer.getWritePointer(channel)[sample] *= 1.0f - bypassAmount;
+        jassertfalse;
+        buffer.clear();
+        outputMeter.store(0.0f);
+        return;
     }
 
     const auto bpm = getHostBpm();
-    macroEngine.update(apvts, buffer.getNumSamples());
-    instabilityMeter.store(macroEngine.getInstability());
-
-    core.setParameters(collectCoreParameters(bpm));
-    core.processBlock(buffer);
-    oversampling.setStudioMode(getChoiceIndex("qualityMode") == 1);
-    oversampling.processEffectBlock(buffer);
-    oversampling.processDryBlock(bypassDryBuffer);
-
-    for (auto channel = 0; channel < buffer.getNumChannels(); ++channel)
+    for (auto offset = 0; offset < buffer.getNumSamples(); offset += chunkCapacity)
     {
-        auto* output = buffer.getWritePointer(channel);
-        const auto* dry = bypassDryBuffer.getReadPointer(channel);
+        const auto numSamples = juce::jmin(chunkCapacity, buffer.getNumSamples() - offset);
+        juce::AudioBuffer<float> effectBlock(
+            buffer.getArrayOfWritePointers(),
+            buffer.getNumChannels(),
+            offset,
+            numSamples);
+        juce::AudioBuffer<float> dryBlock(
+            bypassDryBuffer.getArrayOfWritePointers(),
+            buffer.getNumChannels(),
+            numSamples);
 
-        for (auto sample = 0; sample < buffer.getNumSamples(); ++sample)
+        for (auto channel = 0; channel < effectBlock.getNumChannels(); ++channel)
+            dryBlock.copyFrom(channel, 0, effectBlock, channel, 0, numSamples);
+
+        bypassMix.setTargetValue(getBool("bypass") ? 1.0f : 0.0f);
+        for (auto sample = 0; sample < numSamples; ++sample)
         {
-            const auto bypassAmount = bypassRamp[static_cast<size_t>(sample)];
-            output[sample] = output[sample] * (1.0f - bypassAmount)
-                           + dry[sample] * bypassAmount;
+            const auto bypassAmount = bypassMix.getNextValue();
+            bypassRamp[static_cast<size_t>(sample)] = bypassAmount;
+
+            for (auto channel = 0; channel < effectBlock.getNumChannels(); ++channel)
+                effectBlock.getWritePointer(channel)[sample] *= 1.0f - bypassAmount;
+        }
+
+        macroEngine.update(apvts, numSamples);
+        instabilityMeter.store(macroEngine.getInstability());
+
+        core.setParameters(collectCoreParameters(bpm));
+        core.processBlock(effectBlock);
+        oversampling.setStudioMode(getChoiceIndex("qualityMode") == 1);
+        oversampling.processEffectBlock(effectBlock);
+        oversampling.processDryBlock(dryBlock);
+
+        for (auto channel = 0; channel < effectBlock.getNumChannels(); ++channel)
+        {
+            auto* output = effectBlock.getWritePointer(channel);
+            const auto* dry = dryBlock.getReadPointer(channel);
+
+            for (auto sample = 0; sample < numSamples; ++sample)
+            {
+                const auto bypassAmount = bypassRamp[static_cast<size_t>(sample)];
+                output[sample] = output[sample] * (1.0f - bypassAmount)
+                               + dry[sample] * bypassAmount;
+            }
         }
     }
 
@@ -163,6 +185,7 @@ void TE2350AudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty("currentProgram", currentProgram, nullptr);
+    state.setProperty("stateVersion", currentStateVersion, nullptr);
 
     if (auto xml = state.createXml())
         copyXmlToBinary(*xml, destData);
@@ -173,17 +196,50 @@ void TE2350AudioProcessor::setStateInformation(const void* data, int sizeInBytes
     if (auto xml = getXmlFromBinary(data, sizeInBytes))
         if (xml->hasTagName(apvts.state.getType()))
         {
-            auto state = juce::ValueTree::fromXml(*xml);
+            const auto incomingState = juce::ValueTree::fromXml(*xml);
             currentProgram = juce::jlimit(0,
                                          juce::jmax(0, getNumPrograms() - 1),
-                                         static_cast<int>(state.getProperty("currentProgram", 0)));
-            apvts.replaceState(state);
+                                         static_cast<int>(incomingState.getProperty("currentProgram", 0)));
+            apvts.replaceState(migrateState(incomingState));
         }
+}
+
+juce::ValueTree TE2350AudioProcessor::migrateState(const juce::ValueTree& incomingState) const
+{
+    auto migrated = defaultState.createCopy();
+
+    for (int property = 0; property < incomingState.getNumProperties(); ++property)
+    {
+        const auto propertyName = incomingState.getPropertyName(property);
+        migrated.setProperty(propertyName, incomingState.getProperty(propertyName), nullptr);
+    }
+
+    for (const auto& incomingParameter : incomingState)
+    {
+        const auto parameterID = incomingParameter.getProperty("id").toString();
+        if (parameterID.isEmpty() || !incomingParameter.hasProperty("value"))
+            continue;
+
+        for (auto migratedParameter : migrated)
+        {
+            if (migratedParameter.getProperty("id").toString() == parameterID)
+            {
+                migratedParameter.setProperty(
+                    "value",
+                    incomingParameter.getProperty("value"),
+                    nullptr);
+                break;
+            }
+        }
+    }
+
+    migrated.setProperty("stateVersion", currentStateVersion, nullptr);
+    return migrated;
 }
 
 float TE2350AudioProcessor::getRawFloat(juce::StringRef parameterID, float fallback) const
 {
-    if (const auto* raw = apvts.getRawParameterValue(juce::String(parameterID)))
+    if (const auto* raw = apvts.getRawParameterValue(parameterID))
         return raw->load();
 
     return fallback;

@@ -58,6 +58,26 @@ The build enables VST3 on every platform and AU on Apple platforms.
   no longer acquire hidden octave coloration.
 - Factory-preset output trims were calibrated against the same musical render;
   active RMS is within 0.5 dB across all seven presets without peak clipping.
+- Host blocks larger than the size passed to `prepareToPlay` are processed in
+  bounded chunks. Fixed latency, Studio coloration, bypass ramps, and delay
+  state remain continuous across chunk boundaries without resizing buffers in
+  the audio callback.
+- Macro control values use preallocated indexed storage. Together with chunked
+  bypass scratch space, the warmed audio callback performs zero tracked C++
+  allocations in the compatibility regression.
+- State chunks include `stateVersion=2`. Loading an older or partial state
+  merges known parameter values into a complete default tree, so parameters
+  introduced after that state was saved receive deterministic defaults.
+- The editor separates the performance-focused `PERFORM` view from the
+  detailed `SCULPT` view. Horizontal macro cards keep Space, Wild, and Bloom
+  readable at the 960x680 minimum size, and Freeze is available directly from
+  the performance deck.
+- The system strip exposes Input/Output trim, Kill Dry, Atmos, Engine, live
+  meters, and the gravity display. Preset edits are marked as modified, A/B
+  clearly identifies the active side, and controls that are inactive because
+  of Sync or dependent effect amounts are visually dimmed.
+- Sliders, selectors, and switches provide accessible names, descriptions,
+  keyboard focus, tooltips, and visible focus treatment.
 - `Source/Assets/te2350_logo_custom.svg` is available to C++ as BinaryData
   (`te2350_logo_custom_svg`) once the plugin target is built.
 
@@ -87,3 +107,33 @@ To generate the deterministic musical reference and all factory-preset WAVs:
 cmake --build build/te2350-vst --target TE2350CalibrationRender
 build/te2350-vst/TE2350CalibrationRender build/te2350-vst/CalibrationRenders
 ```
+
+The host-compatibility regression covers fixed latency in oversized buffers,
+variable block sizes from 1 to 4096 samples, Hardware/Studio transitions,
+bypass, mono/stereo, 44.1-192 kHz operation, legacy-state migration, callback
+allocations, and an extreme-settings real-time benchmark:
+
+```bash
+cmake --build build/te2350-vst --target TE2350HostCompatibilityTest
+ctest --test-dir build/te2350-vst -R TE2350HostCompatibilityTest --output-on-failure
+```
+
+The external load test scans and instantiates the built bundle through JUCE's
+VST3 host API, then checks metadata, audio processing, state round-trip,
+latency, and tail reporting:
+
+```bash
+cmake --build build/te2350-vst --target TE2350VST3LoadTest
+ctest --test-dir build/te2350-vst -R TE2350VST3LoadTest --output-on-failure
+```
+
+To render deterministic PNG references of the Perform and Sculpt layouts at
+the minimum, default, and maximum editor sizes:
+
+```bash
+cmake --build build/te2350-vst --target TE2350UIRender
+build/te2350-vst/TE2350UIRender build/te2350-vst/UIRenders
+```
+
+`TE2350UIRenderTest` also checks the initial panel hierarchy, the I/O control
+layout, and the Perform/Sculpt view transition.

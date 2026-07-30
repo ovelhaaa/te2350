@@ -192,6 +192,7 @@ public:
     {
         auto r = button.getLocalBounds().toFloat().reduced(0.5f);
         const auto active = button.getToggleState();
+        highlighted = highlighted || button.hasKeyboardFocus(true);
         const auto controlAccent = button.findColour(juce::TextButton::buttonOnColourId);
         const auto accent = active ? controlAccent : cyan();
         const auto base = active ? accent.withAlpha(0.86f) : juce::Colour(0xff0b111b);
@@ -406,7 +407,8 @@ public:
     KnobTile(juce::String titleText,
              juce::String subtitleText,
              juce::Colour accentColour,
-             bool macro,
+             bool large,
+             bool macroCard,
              juce::String suffixText,
              double scale,
              int decimals)
@@ -416,22 +418,30 @@ public:
           displayScale(scale),
           decimalPlaces(decimals),
           accent(accentColour),
-          isMacro(macro)
+          isLarge(large),
+          useMacroCard(macroCard)
     {
         const auto tooltip = makeControlTooltip(title, subtitle, true);
+        setName(title + " control");
+        setTitle(title);
+        setDescription(subtitle);
         slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
         slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         slider.setColour(juce::Slider::rotarySliderFillColourId, accent);
         slider.setColour(juce::Slider::textBoxTextColourId, textMain());
         slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+        slider.setName(title);
+        slider.setTitle(title);
+        slider.setDescription(subtitle + ". Double-click to reset.");
+        slider.setWantsKeyboardFocus(true);
         slider.setTooltip(tooltip);
         slider.textFromValueFunction = [this] (double value)
         {
             return formatDisplayValue(value, displayScale, decimalPlaces, suffix, false);
         };
         slider.setPopupDisplayEnabled(true, true, nullptr);
-        slider.setMouseDragSensitivity(isMacro ? 240 : 180);
+        slider.setMouseDragSensitivity(isLarge ? 240 : 180);
         slider.onValueChange = [this] { repaint(); };
         slider.onDragStart = [this] { repaint(); };
         slider.onDragEnd = [this] { repaint(); };
@@ -446,49 +456,89 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        auto r = getLocalBounds().toFloat().reduced(isMacro ? 3.0f : 4.0f);
-        g.setColour(juce::Colour(0xff080d16).withAlpha(isMacro ? 0.64f : 0.38f));
+        auto r = getLocalBounds().toFloat().reduced(isLarge ? 3.0f : 4.0f);
+        const auto focused = slider.hasKeyboardFocus(true);
+        g.setColour(juce::Colour(0xff080d16).withAlpha(isLarge ? 0.64f : 0.38f));
         g.fillRoundedRectangle(r, 7.0f);
-        g.setColour(accent.withAlpha(isMacro ? 0.58f : 0.28f));
-        g.drawRoundedRectangle(r, 7.0f, isMacro ? 1.2f : 0.9f);
+        g.setColour(accent.withAlpha(focused ? 0.92f : isLarge ? 0.58f : 0.28f));
+        g.drawRoundedRectangle(r, 7.0f, focused ? 1.6f : isLarge ? 1.2f : 0.9f);
 
-        auto labelArea = getLocalBounds().reduced(isMacro ? 10 : 7);
+        if (useMacroCard)
+        {
+            auto content = getLocalBounds().reduced(13, 9);
+            const auto knobColumn = juce::jlimit(78, 96, content.getWidth() / 3);
+            auto textArea = content.withTrimmedRight(knobColumn + 6);
+
+            g.setColour(textMain());
+            g.setFont(uiFont(18.0f, juce::Font::bold));
+            g.drawFittedText(title.toUpperCase(), textArea.removeFromTop(28),
+                             juce::Justification::centredLeft, 1);
+
+            g.setColour(textMuted());
+            g.setFont(uiFont(9.0f));
+            g.drawFittedText(subtitle.toUpperCase(), textArea.removeFromTop(13),
+                             juce::Justification::centredLeft, 1);
+
+            auto value = textArea.removeFromBottom(20).toFloat();
+            g.setColour(juce::Colour(0xff05080d).withAlpha(0.72f));
+            g.fillRoundedRectangle(value, 4.0f);
+            g.setColour(accent.withAlpha(focused ? 0.72f : 0.42f));
+            g.drawRoundedRectangle(value, 4.0f, focused ? 1.2f : 0.8f);
+            g.setColour(textMain().withAlpha(0.96f));
+            g.setFont(uiFont(10.5f, juce::Font::bold));
+            g.drawFittedText(formatValue(), value.toNearestInt().reduced(4, 0),
+                             juce::Justification::centred, 1);
+            return;
+        }
+
+        auto labelArea = getLocalBounds().reduced(isLarge ? 10 : 7);
 
         g.setColour(textMain());
-        g.setFont(uiFont(isMacro ? 18.5f : 11.5f, juce::Font::bold));
-        g.drawFittedText(title.toUpperCase(), labelArea.removeFromTop(isMacro ? 25 : 17),
+        g.setFont(uiFont(isLarge ? 18.5f : 11.5f, juce::Font::bold));
+        g.drawFittedText(title.toUpperCase(), labelArea.removeFromTop(isLarge ? 25 : 17),
                          juce::Justification::centred, 1);
 
         g.setColour(textMuted());
-        g.setFont(uiFont(isMacro ? 10.0f : 9.0f, juce::Font::plain));
-        g.drawFittedText(subtitle.toUpperCase(), labelArea.removeFromTop(isMacro ? 14 : 12),
+        g.setFont(uiFont(isLarge ? 10.0f : 9.0f, juce::Font::plain));
+        g.drawFittedText(subtitle.toUpperCase(), labelArea.removeFromTop(isLarge ? 14 : 12),
                          juce::Justification::centred, 1);
 
-        const auto engaged = isMacro || isMouseOver(true) || slider.isMouseOver(true) || slider.isMouseButtonDown(true);
+        const auto engaged = isLarge || focused || isMouseOver(true)
+                          || slider.isMouseOver(true) || slider.isMouseButtonDown(true);
         const auto valueBgAlpha = engaged ? 0.72f : 0.30f;
         const auto valueBorderAlpha = engaged ? 0.42f : 0.18f;
-        const auto valueTextAlpha = engaged ? 0.88f : 0.50f;
-        auto value = getLocalBounds().reduced(isMacro ? 17 : 10).removeFromBottom(isMacro ? 20 : 17).toFloat();
+        const auto valueTextAlpha = engaged ? 0.96f : 0.78f;
+        auto value = getLocalBounds().reduced(isLarge ? 17 : 10)
+                    .removeFromBottom(isLarge ? 20 : 17).toFloat();
         g.setColour(juce::Colour(0xff05080d).withAlpha(valueBgAlpha));
         g.fillRoundedRectangle(value, 4.0f);
         g.setColour(accent.withAlpha(valueBorderAlpha));
         g.drawRoundedRectangle(value, 4.0f, 0.8f);
         g.setColour(textMain().withAlpha(valueTextAlpha));
-        g.setFont(uiFont(isMacro ? 11.0f : 9.5f, juce::Font::bold));
+        g.setFont(uiFont(isLarge ? 11.0f : 9.5f, juce::Font::bold));
         g.drawFittedText(formatValue(), value.toNearestInt().reduced(4, 0),
                          juce::Justification::centred, 1);
     }
 
     void resized() override
     {
-        auto area = getLocalBounds().reduced(isMacro ? 8 : 5);
-        area.removeFromTop(isMacro ? 43 : 31);
-        area.removeFromBottom(isMacro ? 23 : 20);
+        if (useMacroCard)
+        {
+            auto area = getLocalBounds().reduced(8);
+            const auto knobColumn = juce::jlimit(78, 96, area.getWidth() / 3);
+            auto knobArea = area.removeFromRight(knobColumn);
+            const auto side = juce::jmin(84, juce::jmin(knobArea.getWidth(), knobArea.getHeight()));
+            slider.setBounds(juce::Rectangle<int>(side, side).withCentre(knobArea.getCentre()));
+            return;
+        }
 
-        const auto maxSide = isMacro ? 118 : 62;
-        const auto side = juce::jlimit(isMacro ? 72 : 34,
-                                       maxSide,
-                                       juce::jmin(area.getWidth(), area.getHeight()));
+        auto area = getLocalBounds().reduced(isLarge ? 8 : 5);
+        area.removeFromTop(isLarge ? 43 : 31);
+        area.removeFromBottom(isLarge ? 23 : 20);
+
+        const auto maxSide = isLarge ? 118 : 62;
+        const auto availableSide = juce::jmin(area.getWidth(), area.getHeight());
+        const auto side = juce::jmin(maxSide, juce::jmax(24, availableSide));
         slider.setBounds(juce::Rectangle<int>(side, side).withCentre(area.getCentre()));
     }
 
@@ -504,7 +554,8 @@ private:
     double displayScale = 1.0;
     int decimalPlaces = 1;
     juce::Colour accent;
-    bool isMacro = false;
+    bool isLarge = false;
+    bool useMacroCard = false;
     juce::Slider slider;
 };
 
@@ -525,9 +576,16 @@ public:
           accent(accentColour)
     {
         const auto tooltip = makeControlTooltip(title, subtitle, true);
+        setName(title + " control");
+        setTitle(title);
+        setDescription(subtitle);
         slider.setSliderStyle(juce::Slider::LinearHorizontal);
         slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
         slider.setColour(juce::Slider::rotarySliderFillColourId, accent);
+        slider.setName(title);
+        slider.setTitle(title);
+        slider.setDescription(subtitle + ". Double-click to reset.");
+        slider.setWantsKeyboardFocus(true);
         slider.setTooltip(tooltip);
         slider.textFromValueFunction = [this] (double value)
         {
@@ -545,10 +603,11 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat().reduced(4.0f);
+        const auto focused = slider.hasKeyboardFocus(true);
         g.setColour(juce::Colour(0xff080d16).withAlpha(0.32f));
         g.fillRoundedRectangle(r, 7.0f);
-        g.setColour(accent.withAlpha(0.26f));
-        g.drawRoundedRectangle(r, 7.0f, 0.9f);
+        g.setColour(accent.withAlpha(focused ? 0.90f : 0.26f));
+        g.drawRoundedRectangle(r, 7.0f, focused ? 1.5f : 0.9f);
 
         auto top = getLocalBounds().reduced(8, 5).removeFromTop(17);
         g.setColour(textMain());
@@ -595,6 +654,13 @@ public:
     ComboTile(juce::String titleText, juce::String subtitleText)
         : title(std::move(titleText)), subtitle(std::move(subtitleText))
     {
+        setName(title + " selector");
+        setTitle(title);
+        setDescription(subtitle);
+        combo.setName(title);
+        combo.setTitle(title);
+        combo.setDescription(subtitle);
+        combo.setWantsKeyboardFocus(true);
         combo.setTooltip(makeControlTooltip(title, subtitle, false));
         addAndMakeVisible(combo);
     }
@@ -604,10 +670,11 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto r = getLocalBounds().toFloat().reduced(4.0f);
+        const auto focused = combo.hasKeyboardFocus(true);
         g.setColour(juce::Colour(0xff080d16).withAlpha(0.36f));
         g.fillRoundedRectangle(r, 7.0f);
-        g.setColour(panelLine().withAlpha(0.54f));
-        g.drawRoundedRectangle(r, 7.0f, 0.9f);
+        g.setColour((focused ? cyan() : panelLine()).withAlpha(focused ? 0.90f : 0.54f));
+        g.drawRoundedRectangle(r, 7.0f, focused ? 1.5f : 0.9f);
 
         g.setColour(textMain());
         g.setFont(uiFont(11.0f, juce::Font::bold));
@@ -671,6 +738,13 @@ public:
     ToggleTile(juce::String titleText, juce::Colour accentColour)
         : title(std::move(titleText)), accent(accentColour)
     {
+        setName(title + " switch");
+        setTitle(title);
+        setDescription("Toggle " + title.toLowerCase());
+        button.setName(title);
+        button.setTitle(title);
+        button.setDescription("Toggle " + title.toLowerCase());
+        button.setWantsKeyboardFocus(true);
         button.setTooltip(makeControlTooltip(title, juce::String("Toggle ") + title.toLowerCase(), false));
         button.setColour(juce::TextButton::buttonOnColourId, accent);
         button.onStateChange = [this] { updateButtonText(); repaint(); };
@@ -688,10 +762,12 @@ public:
     {
         auto r = getLocalBounds().toFloat().reduced(4.0f);
         const auto active = button.getToggleState();
+        const auto focused = button.hasKeyboardFocus(true);
         g.setColour(juce::Colour(0xff080d16).withAlpha(0.35f));
         g.fillRoundedRectangle(r, 7.0f);
-        g.setColour((active ? accent : accent.withAlpha(0.30f)).withAlpha(active ? 0.72f : 0.30f));
-        g.drawRoundedRectangle(r, 7.0f, active ? 1.2f : 0.9f);
+        g.setColour((active || focused ? accent : accent.withAlpha(0.30f))
+                        .withAlpha(focused ? 0.92f : active ? 0.72f : 0.30f));
+        g.drawRoundedRectangle(r, 7.0f, focused ? 1.5f : active ? 1.2f : 0.9f);
 
         g.setColour(textMain());
         g.setFont(uiFont(11.0f, juce::Font::bold));
@@ -920,9 +996,9 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
 
     logoMark = static_cast<LogoMark*>(addOwned(std::make_unique<LogoMark>()));
     macroPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Macros", "Performance")));
-    corePanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Delay / Reverb", "Main")));
-    advancedPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Advanced", "Edit")));
-    utilityPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("I/O", "Levels")));
+    corePanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Delay / Reverb", "Perform")));
+    advancedPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Advanced", "Sculpt")));
+    utilityPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("I/O", "System")));
     gravityMeter = static_cast<GravityMeter*>(addOwned(std::make_unique<GravityMeter>()));
     inputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Input", cyan())));
     outputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Output", spectral())));
@@ -931,6 +1007,11 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     coreColorLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Color", spectral())));
     advancedMotionLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Motion", violet())));
     advancedTextureLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Texture", amber())));
+
+    macroPanel->setComponentID("panel-macros");
+    corePanel->setComponentID("panel-perform");
+    advancedPanel->setComponentID("panel-sculpt");
+    utilityPanel->setComponentID("panel-system");
 
     addAndMakeVisible(logoMark);
     addAndMakeVisible(macroPanel);
@@ -957,26 +1038,64 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     {
         const auto selected = presetSelector.getSelectedId() - 1;
         if (selected >= 0)
+        {
             processor.setCurrentProgram(selected);
+            loadedPresetSnapshot = processor.apvts.copyState();
+            presetDirty = false;
+            updatePresetStatus();
+        }
     };
+    presetSelector.setName("Factory preset");
+    presetSelector.setTitle("Factory preset");
+    presetSelector.setDescription("Load one of the seven calibrated TE-2350 starting points.");
+    presetSelector.setComponentID("preset-selector");
+    presetSelector.setWantsKeyboardFocus(true);
     addAndMakeVisible(presetSelector);
+
+    presetCaption.setText("FACTORY PRESET", juce::dontSendNotification);
+    presetCaption.setFont(uiFont(9.0f, juce::Font::bold));
+    presetCaption.setColour(juce::Label::textColourId, textMuted().withAlpha(0.92f));
+    presetCaption.setJustificationType(juce::Justification::centredLeft);
+    presetCaption.setAccessible(false);
+    addAndMakeVisible(presetCaption);
 
     for (auto* button : { &abButton, &resetButton, &advancedToggle })
     {
         button->setClickingTogglesState(false);
+        button->setWantsKeyboardFocus(true);
         addAndMakeVisible(button);
     }
 
     advancedToggle.setColour(juce::TextButton::buttonOnColourId, violet());
+    advancedToggle.setComponentID("view-toggle");
+    advancedToggle.setName("Sculpt view");
+    advancedToggle.setTitle("Sculpt view");
+    advancedToggle.setDescription("Switch between the performance and detailed sound-design views.");
+
+    abButton.setColour(juce::TextButton::buttonOnColourId, violet());
+    abButton.setComponentID("snapshot-toggle");
+    abButton.setName("A/B snapshot");
+    abButton.setTitle("A/B snapshot");
+    abButton.setDescription("Compare two temporary parameter snapshots.");
+
+    resetButton.setComponentID("reset-button");
+    resetButton.setName("Reset parameters");
+    resetButton.setTitle("Reset parameters");
+    resetButton.setDescription("Restore every parameter to its declared default value.");
 
     bypassButton.setButtonText("BYPASS");
     bypassButton.setColour(juce::TextButton::buttonOnColourId, spectral());
+    bypassButton.setComponentID("bypass-button");
+    bypassButton.setName("Bypass");
+    bypassButton.setTitle("Bypass");
+    bypassButton.setDescription("Crossfade to the latency-aligned dry signal.");
+    bypassButton.setWantsKeyboardFocus(true);
     addAndMakeVisible(bypassButton);
     buttonAttachments.push_back(std::make_unique<ButtonAttachment>(processor.apvts, "bypass", bypassButton));
 
     presetSelector.setTooltip("Load a factory preset.");
-    advancedToggle.setTooltip("Switch to the advanced edit view.");
-    abButton.setTooltip("Compare snapshot A and snapshot B.");
+    advancedToggle.setTooltip("Open the detailed sound-design view.");
+    abButton.setTooltip("A/B: save the current side, then recall the other temporary snapshot.");
     resetButton.setTooltip("Reset all parameters to their default values.");
     bypassButton.setTooltip("Bypass the effect.");
 
@@ -985,10 +1104,10 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     advancedToggle.onClick = [this]
     {
         advancedExpanded = ! advancedExpanded;
-        advancedToggle.setButtonText(advancedExpanded ? "MAIN" : "EDIT");
+        advancedToggle.setButtonText(advancedExpanded ? "PERFORM" : "SCULPT");
         advancedToggle.setToggleState(advancedExpanded, juce::dontSendNotification);
-        advancedToggle.setTooltip(advancedExpanded ? "Return to the main performance view."
-                                                   : "Switch to the advanced edit view.");
+        advancedToggle.setTooltip(advancedExpanded ? "Return to the performance view."
+                                                   : "Open the detailed sound-design view.");
         resized();
     };
 
@@ -996,7 +1115,9 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     addSlider(macroLayer, macroControls, "wild", "Wild", "instability", violet(), true, "%", 100.0, 0);
     addSlider(macroLayer, macroControls, "bloom", "Bloom", "tail / expand", amber(), true, "%", 100.0, 0);
 
-    addSlider(coreLayer, corePrimaryControls, "timeMs", "Time", "delay line", cyan(), true, " ms", 1.0, 0);
+    auto& timeSlider = addSlider(coreLayer, corePrimaryControls,
+                                 "timeMs", "Time", "delay line", cyan(), true, " ms", 1.0, 0);
+    timeControl = timeSlider.getParentComponent();
     addSlider(coreLayer, corePrimaryControls, "feedback", "Feedback", "regeneration", amber(), true, "%", 100.0, 0);
     addSlider(coreLayer, corePrimaryControls, "mix", "Mix", "dry / wet", spectral(), true, "%", 100.0, 0);
     addSlider(coreLayer, coreSecondaryControls, "diffusion", "Diffusion", "cloud density", violet(), false, "%", 100.0, 0);
@@ -1012,10 +1133,18 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     addSlider(advancedLayer, advancedMotionControls, "presence", "Presence", "front detail", spectral(), false, "%", 100.0, 0);
     addSlider(advancedLayer, advancedMotionControls, "wobble", "Pitch Drift", "tape gravity", spectral(), false, "%", 100.0, 0);
     addSlider(advancedLayer, advancedTextureControls, "shimmerAmount", "Shimmer", "octave veil", amber(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedTextureControls, "shimmerFeedback", "Shimmer FB", "recirculate", amber(), false, "%", 100.0, 0);
-    addCombo(advancedLayer, advancedTextureControls, "shimmerInterval", "Octave", "interval");
+    auto& shimmerFeedback = addSlider(advancedLayer, advancedTextureControls,
+                                      "shimmerFeedback", "Shimmer FB", "recirculate",
+                                      amber(), false, "%", 100.0, 0);
+    shimmerFeedbackControl = shimmerFeedback.getParentComponent();
+    auto& shimmerInterval = addCombo(advancedLayer, advancedTextureControls,
+                                     "shimmerInterval", "Octave", "interval");
+    shimmerIntervalControl = shimmerInterval.getParentComponent();
     addSlider(advancedLayer, advancedTextureControls, "duckAmount", "Ducking", "clear centre", cyan(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedTextureControls, "duckThreshold", "Duck Thr", "trigger level", cyan(), false, " dB", 1.0, 1);
+    auto& duckThreshold = addSlider(advancedLayer, advancedTextureControls,
+                                    "duckThreshold", "Duck Thr", "trigger level",
+                                    cyan(), false, " dB", 1.0, 1);
+    duckThresholdControl = duckThreshold.getParentComponent();
     addToggle(advancedLayer, advancedTextureControls, "freezeEngage", "Freeze", spectral(),
               [this]
               {
@@ -1046,13 +1175,25 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     addToggle(utilityLayer, utilityControls, "atmosFdnOn", "Atmos", violet());
     addCombo(utilityLayer, utilityControls, "qualityMode", "Engine", "fixed / 2x");
 
+    addToggle(macroLayer, macroPerformanceControls, "freezeEngage", "Freeze", spectral(),
+              [this]
+              {
+                  if (const auto* mode = processor.apvts.getRawParameterValue("freezeMode"))
+                      return mode->load() < 0.5f;
+                  return false;
+              });
+
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
+    loadedPresetSnapshot = snapshotA.createCopy();
 
     corePanel->setVisible(! advancedExpanded);
     advancedPanel->setVisible(advancedExpanded);
 
-    setResizeLimits(920, 620, 1280, 820);
+    updateDependentControls();
+    updatePresetStatus();
+
+    setResizeLimits(960, 680, 1280, 820);
     setResizable(true, true);
     setSize(1040, 680);
     startTimerHz(30);
@@ -1094,8 +1235,11 @@ void TE2350AudioProcessorEditor::paint(juce::Graphics& g)
 
     g.setColour(textMain());
     g.setFont(uiFont(27.0f, juce::Font::bold));
-    g.drawText("TE-2350 ANTIGRAVITY", header.withTrimmedLeft(76).withTrimmedRight(452),
-               juce::Justification::centredLeft);
+    g.drawFittedText("TE-2350 ANTIGRAVITY",
+                     header.withTrimmedLeft(76).withTrimmedRight(480),
+                     juce::Justification::centredLeft,
+                     1,
+                     0.86f);
 
     g.setColour(cyan().withAlpha(0.58f));
     g.drawHorizontalLine(header.getBottom() + 4, static_cast<float>(margin), static_cast<float>(getWidth() - margin));
@@ -1109,13 +1253,15 @@ void TE2350AudioProcessorEditor::resized()
     logoMark->setBounds(header.removeFromLeft(52).reduced(2));
     header.removeFromLeft(12);
 
-    auto headerRight = header.removeFromRight(442);
+    auto headerRight = header.removeFromRight(480);
     bypassButton.setBounds(headerRight.removeFromRight(74).reduced(3, 10));
-    resetButton.setBounds(headerRight.removeFromRight(66).reduced(3, 10));
-    abButton.setBounds(headerRight.removeFromRight(48).reduced(3, 10));
-    advancedToggle.setBounds(headerRight.removeFromRight(62).reduced(3, 10));
+    resetButton.setBounds(headerRight.removeFromRight(64).reduced(3, 10));
+    abButton.setBounds(headerRight.removeFromRight(66).reduced(3, 10));
+    advancedToggle.setBounds(headerRight.removeFromRight(78).reduced(3, 10));
     headerRight.removeFromRight(8);
-    presetSelector.setBounds(headerRight.removeFromRight(184).reduced(2, 10));
+    auto presetArea = headerRight.removeFromRight(190).reduced(2, 3);
+    presetCaption.setBounds(presetArea.removeFromTop(12));
+    presetSelector.setBounds(presetArea.reduced(0, 1));
 
     area.removeFromTop(12);
     const auto utilityHeight = juce::jlimit(116, 136, area.getHeight() / 5);
@@ -1143,11 +1289,14 @@ void TE2350AudioProcessorEditor::resized()
     layoutAdvancedControls(advancedLayer.getLocalBounds());
 
     auto utilityContent = utilityPanel->getContentBounds();
-    auto meterArea = utilityContent.removeFromRight(utilityContent.getWidth() / 2);
+    auto meterArea = utilityContent.removeFromRight(
+        juce::jlimit(370, 445, static_cast<int>(utilityContent.getWidth() * 0.43f)));
     utilityContent.removeFromRight(10);
-    layoutGrid(utilityContent, utilityControls, chooseColumns(utilityContent, static_cast<int>(utilityControls.size()), 112, 4));
+    utilityLayer.setBounds(utilityContent);
+    layoutGrid(utilityLayer.getLocalBounds(), utilityControls,
+               static_cast<int>(utilityControls.size()));
 
-    gravityMeter->setBounds(meterArea.removeFromRight(86).reduced(2));
+    gravityMeter->setBounds(meterArea.removeFromRight(76).reduced(2));
     meterArea.removeFromRight(8);
     inputMeter->setBounds(meterArea.removeFromTop(meterArea.getHeight() / 3).reduced(0, 1));
     outputMeter->setBounds(meterArea.removeFromTop(meterArea.getHeight() / 2).reduced(0, 1));
@@ -1166,6 +1315,7 @@ juce::Slider& TE2350AudioProcessorEditor::addSlider(juce::Component& parent,
                                                     int decimalPlaces)
 {
     auto control = std::make_unique<KnobTile>(title, subtitle, accent, large,
+                                              &parent == &macroLayer,
                                               suffix, displayScale, decimalPlaces);
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
@@ -1282,7 +1432,7 @@ void TE2350AudioProcessorEditor::layoutCoreControls(juce::Rectangle<int> area)
 
     layoutGrid(primaryArea, corePrimaryControls, chooseColumns(primaryArea, static_cast<int>(corePrimaryControls.size()), 150, 3));
 
-    const auto secondaryColumns = chooseColumns(area, static_cast<int>(coreSecondaryControls.size()), 116, 5);
+    const auto secondaryColumns = chooseColumns(area, static_cast<int>(coreSecondaryControls.size()), 96, 5);
     layoutGrid(area, coreSecondaryControls, secondaryColumns);
 }
 
@@ -1302,7 +1452,7 @@ void TE2350AudioProcessorEditor::layoutAdvancedControls(juce::Rectangle<int> are
     area.removeFromTop(4);
 
     const auto motionColumns = chooseColumns(motionArea, static_cast<int>(advancedMotionControls.size()), 104, 6);
-    const auto textureColumns = chooseColumns(area, static_cast<int>(advancedTextureControls.size()), 112, 4);
+    const auto textureColumns = chooseColumns(area, static_cast<int>(advancedTextureControls.size()), 72, 7);
 
     layoutGrid(motionArea, advancedMotionControls, motionColumns);
     layoutGrid(area, advancedTextureControls, textureColumns);
@@ -1312,6 +1462,13 @@ void TE2350AudioProcessorEditor::layoutMacroControls(juce::Rectangle<int> area)
 {
     if (macroControls.empty())
         return;
+
+    if (! macroPerformanceControls.empty())
+    {
+        auto performanceArea = area.removeFromBottom(48);
+        area.removeFromBottom(8);
+        macroPerformanceControls.front()->setBounds(performanceArea.reduced(1));
+    }
 
     const auto gap = 9;
     const auto cellH = (area.getHeight() - gap * 2) / 3;
@@ -1335,7 +1492,10 @@ void TE2350AudioProcessorEditor::resetParametersToDefault()
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
     showingSnapshotA = true;
-    abButton.setButtonText("A");
+    abButton.setButtonText("A/B  A");
+    abButton.setToggleState(false, juce::dontSendNotification);
+    presetDirty = hasPresetChanges();
+    updatePresetStatus();
 }
 
 void TE2350AudioProcessorEditor::toggleAB()
@@ -1344,22 +1504,83 @@ void TE2350AudioProcessorEditor::toggleAB()
     {
         snapshotA = processor.apvts.copyState();
         applySnapshot(snapshotB);
-        abButton.setButtonText("B");
+        abButton.setButtonText("A/B  B");
     }
     else
     {
         snapshotB = processor.apvts.copyState();
         applySnapshot(snapshotA);
-        abButton.setButtonText("A");
+        abButton.setButtonText("A/B  A");
     }
 
     showingSnapshotA = ! showingSnapshotA;
+    abButton.setToggleState(! showingSnapshotA, juce::dontSendNotification);
 }
 
 void TE2350AudioProcessorEditor::applySnapshot(const juce::ValueTree& snapshot)
 {
     if (snapshot.isValid())
         processor.apvts.replaceState(snapshot.createCopy());
+}
+
+bool TE2350AudioProcessorEditor::hasPresetChanges() const
+{
+    if (! loadedPresetSnapshot.isValid())
+        return true;
+
+    for (const auto& parameterState : loadedPresetSnapshot)
+    {
+        const auto parameterID = parameterState.getProperty("id").toString();
+        const auto* raw = processor.apvts.getRawParameterValue(parameterID);
+        if (raw == nullptr || ! parameterState.hasProperty("value"))
+            continue;
+
+        const auto savedValue = static_cast<float>(
+            static_cast<double>(parameterState.getProperty("value")));
+        if (std::fabs(raw->load() - savedValue) > 0.0001f)
+            return true;
+    }
+
+    return false;
+}
+
+void TE2350AudioProcessorEditor::updatePresetStatus()
+{
+    presetCaption.setText(presetDirty ? "FACTORY PRESET  •  MODIFIED" : "FACTORY PRESET",
+                          juce::dontSendNotification);
+    presetCaption.setColour(juce::Label::textColourId,
+                            (presetDirty ? amber() : textMuted()).withAlpha(0.92f));
+}
+
+void TE2350AudioProcessorEditor::setControlAvailable(juce::Component* component, bool available)
+{
+    if (component == nullptr)
+        return;
+
+    component->setEnabled(available);
+    component->setAlpha(available ? 1.0f : 0.38f);
+}
+
+void TE2350AudioProcessorEditor::updateDependentControls()
+{
+    const auto read = [this] (juce::StringRef parameterID)
+    {
+        if (const auto* raw = processor.apvts.getRawParameterValue(parameterID))
+            return raw->load();
+        return 0.0f;
+    };
+
+    const auto syncIsFree = read("syncMode") < 0.5f;
+    const auto effectiveShimmer = read("shimmerAmount")
+                                + read("space") * 0.32f
+                                + read("bloom") * 0.18f;
+    const auto bloom = read("bloom");
+    const auto effectiveDucking = read("duckAmount") + bloom * bloom * 0.45f;
+
+    setControlAvailable(timeControl, syncIsFree);
+    setControlAvailable(shimmerFeedbackControl, effectiveShimmer > 0.001f);
+    setControlAvailable(shimmerIntervalControl, effectiveShimmer > 0.001f);
+    setControlAvailable(duckThresholdControl, effectiveDucking > 0.001f);
 }
 
 void TE2350AudioProcessorEditor::timerCallback()
@@ -1377,4 +1598,24 @@ void TE2350AudioProcessorEditor::timerCallback()
 
     feedbackMeter->setLevel(juce::jlimit(0.0f, 1.0f, feedbackValue / 1.05f));
     gravityMeter->setValues(processor.getInstabilityMeterValue(), feedbackValue, animationPhase);
+
+    const auto programID = processor.getCurrentProgram() + 1;
+    if (presetSelector.getSelectedId() != programID)
+    {
+        presetSelector.setSelectedId(programID, juce::dontSendNotification);
+        loadedPresetSnapshot = processor.apvts.copyState();
+        presetDirty = false;
+        updatePresetStatus();
+    }
+    else
+    {
+        const auto changed = hasPresetChanges();
+        if (changed != presetDirty)
+        {
+            presetDirty = changed;
+            updatePresetStatus();
+        }
+    }
+
+    updateDependentControls();
 }

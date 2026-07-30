@@ -67,31 +67,33 @@ void OversamplingChain::processEffectBlock(juce::AudioBuffer<float>& buffer)
         return;
 
     jassert(buffer.getNumChannels() <= preparedChannels);
-    jassert(buffer.getNumSamples() <= preparedBlockSize);
 
     const auto channels = juce::jmin(buffer.getNumChannels(), preparedChannels);
-    const auto samples = juce::jmin(buffer.getNumSamples(), preparedBlockSize);
-    for (auto channel = 0; channel < channels; ++channel)
+    for (auto offset = 0; offset < buffer.getNumSamples(); offset += preparedBlockSize)
     {
-        hardwareBuffer.copyFrom(channel, 0, buffer, channel, 0, samples);
-        studioBuffer.copyFrom(channel, 0, buffer, channel, 0, samples);
-    }
-
-    delayBlock(hardwareBuffer, hardwareDelay, samples);
-
-    const auto needsStudioPath = studioMode || studioMix.isSmoothing()
-                              || studioMix.getCurrentValue() > 0.0001f;
-    if (needsStudioPath)
-        processStudioColour(studioBuffer);
-
-    for (auto sample = 0; sample < samples; ++sample)
-    {
-        const auto mix = studioMix.getNextValue();
+        const auto samples = juce::jmin(preparedBlockSize, buffer.getNumSamples() - offset);
         for (auto channel = 0; channel < channels; ++channel)
         {
-            const auto fixed = hardwareBuffer.getSample(channel, sample);
-            const auto studio = needsStudioPath ? studioBuffer.getSample(channel, sample) : fixed;
-            buffer.setSample(channel, sample, fixed + (studio - fixed) * mix);
+            hardwareBuffer.copyFrom(channel, 0, buffer, channel, offset, samples);
+            studioBuffer.copyFrom(channel, 0, buffer, channel, offset, samples);
+        }
+
+        delayBlock(hardwareBuffer, hardwareDelay, samples);
+
+        const auto needsStudioPath = studioMode || studioMix.isSmoothing()
+                                  || studioMix.getCurrentValue() > 0.0001f;
+        if (needsStudioPath)
+            processStudioColour(studioBuffer, samples);
+
+        for (auto sample = 0; sample < samples; ++sample)
+        {
+            const auto mix = studioMix.getNextValue();
+            for (auto channel = 0; channel < channels; ++channel)
+            {
+                const auto fixed = hardwareBuffer.getSample(channel, sample);
+                const auto studio = needsStudioPath ? studioBuffer.getSample(channel, sample) : fixed;
+                buffer.setSample(channel, offset + sample, fixed + (studio - fixed) * mix);
+            }
         }
     }
 }
@@ -118,12 +120,12 @@ void OversamplingChain::delayBlock(juce::AudioBuffer<float>& buffer,
     }
 }
 
-void OversamplingChain::processStudioColour(juce::AudioBuffer<float>& buffer)
+void OversamplingChain::processStudioColour(juce::AudioBuffer<float>& buffer, int numSamples)
 {
-    const auto numSamples = static_cast<size_t>(
-        juce::jmin(buffer.getNumSamples(), preparedBlockSize));
+    const auto numSamplesToProcess = static_cast<size_t>(
+        juce::jlimit(0, juce::jmin(buffer.getNumSamples(), preparedBlockSize), numSamples));
     juce::dsp::AudioBlock<const float> inputBlock(buffer);
-    auto oversampled = oversampler->processSamplesUp(inputBlock.getSubBlock(0, numSamples));
+    auto oversampled = oversampler->processSamplesUp(inputBlock.getSubBlock(0, numSamplesToProcess));
 
     constexpr auto drive = 0.60f;
     constexpr auto makeup = 1.01f / drive;
@@ -135,7 +137,7 @@ void OversamplingChain::processStudioColour(juce::AudioBuffer<float>& buffer)
     }
 
     juce::dsp::AudioBlock<float> outputBlock(buffer);
-    auto destination = outputBlock.getSubBlock(0, numSamples);
+    auto destination = outputBlock.getSubBlock(0, numSamplesToProcess);
     oversampler->processSamplesDown(destination);
 }
 }

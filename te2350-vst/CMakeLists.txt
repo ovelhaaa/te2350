@@ -171,4 +171,44 @@ if(TE2350_BUILD_GOLDEN_TESTS)
         TE2350Antigravity
         juce::juce_audio_utils
         juce::juce_dsp)
+
+    add_executable(TE2350HostCompatibilityTest Tests/HostCompatibilityTest.cpp)
+    target_include_directories(TE2350HostCompatibilityTest PRIVATE Source "${TE2350_ROOT}/include")
+    target_compile_definitions(TE2350HostCompatibilityTest PRIVATE
+        JucePlugin_Name="TE-2350 Antigravity"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+    target_link_libraries(TE2350HostCompatibilityTest PRIVATE
+        TE2350Antigravity
+        juce::juce_audio_utils
+        juce::juce_dsp)
+    add_test(NAME TE2350HostCompatibilityTest COMMAND $<TARGET_FILE:TE2350HostCompatibilityTest>)
+
+    add_executable(TE2350VST3LoadTest Tests/VST3LoadTest.cpp)
+    target_include_directories(TE2350VST3LoadTest PRIVATE Source)
+    target_compile_definitions(TE2350VST3LoadTest PRIVATE
+        JUCE_PLUGINHOST_VST3=1
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+    target_link_libraries(TE2350VST3LoadTest PRIVATE
+        juce::juce_audio_utils
+        juce::juce_dsp)
+    add_dependencies(TE2350VST3LoadTest TE2350Antigravity_VST3)
+    add_test(NAME TE2350VST3LoadTest
+        COMMAND $<TARGET_FILE:TE2350VST3LoadTest>
+            "${CMAKE_CURRENT_BINARY_DIR}/TE2350Antigravity_artefacts/VST3/TE-2350 Antigravity.vst3")
+
+    add_executable(TE2350UIRender Tests/UIRender.cpp)
+    target_include_directories(TE2350UIRender PRIVATE Source "${TE2350_ROOT}/include")
+    target_compile_definitions(TE2350UIRender PRIVATE
+        JucePlugin_Name="TE-2350 Antigravity"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+    target_link_libraries(TE2350UIRender PRIVATE
+        TE2350Antigravity
+        juce::juce_audio_utils
+        juce::juce_dsp)
+    add_test(NAME TE2350UIRenderTest
+        COMMAND $<TARGET_FILE:TE2350UIRender>
+            "${CMAKE_CURRENT_BINARY_DIR}/UIRenders")
 endif()
