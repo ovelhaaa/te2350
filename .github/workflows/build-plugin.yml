@@ -91,6 +91,9 @@ jobs:
       - name: Run CTest validation
         run: ctest --test-dir "${{ env.BUILD_DIR }}" --build-config Release --output-on-failure
 
+      - name: Build release-candidate package
+        run: cmake --build "${{ env.BUILD_DIR }}" --config Release --target TE2350PackageBeta
+
       - name: Download pluginval
         shell: pwsh
         env:
@@ -142,6 +145,9 @@ jobs:
       - name: Validate plugin bundles with pluginval
         shell: pwsh
         run: |
+          $reportDirectory = Join-Path "${{ env.BUILD_DIR }}" "PluginvalReports"
+          New-Item -ItemType Directory -Force $reportDirectory | Out-Null
+
           $plugins = @(Get-ChildItem "${{ env.BUILD_DIR }}" -Recurse -Directory -Filter "*.vst3" |
             Where-Object { $_.Name -like "*Antigravity*" })
 
@@ -169,7 +175,21 @@ jobs:
 
           foreach ($plugin in $plugins) {
             Write-Host "Validating $($plugin.FullName)"
-            & "$env:PLUGINVAL" --strictness-level 5 --validate-in-process --validate "$($plugin.FullName)"
+            $reportName = (($plugin.Name -replace '[^A-Za-z0-9._-]', '_') + ".txt")
+            & "$env:PLUGINVAL" `
+              --strictness-level 5 `
+              --sample-rates 44100,48000,96000,192000 `
+              --block-sizes 1,16,64,127,512,1024,4096 `
+              --random-seed 2350 `
+              --timeout-ms 60000 `
+              --output-dir "$reportDirectory" `
+              --output-filename "$reportName" `
+              --verbose `
+              --validate "$($plugin.FullName)"
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "pluginval failed for $($plugin.FullName) with exit code $LASTEXITCODE"
+            }
           }
 
       - name: Upload plugin bundles
@@ -182,6 +202,9 @@ jobs:
             ${{ env.BUILD_DIR }}/**/*Antigravity*.component/**
             ${{ env.BUILD_DIR }}/**/*Antigravity*.app/**
             ${{ env.BUILD_DIR }}/**/*Antigravity*.exe
+            ${{ env.BUILD_DIR }}/Packages/*.zip
+            ${{ env.BUILD_DIR }}/Packages/*.sha256
+            ${{ env.BUILD_DIR }}/PluginvalReports/**
 
       - name: Upload golden-reference output
         uses: actions/upload-artifact@v4

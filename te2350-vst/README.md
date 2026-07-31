@@ -5,20 +5,38 @@ core. The plugin links the existing portable C files from the repository root;
 it does not copy or fork `te2350.c`, `dsp_delay.c`, `dsp_filters.c`,
 `dsp_modulation.c`, `dsp_pitch.c`, or `dsp_fdn.c`.
 
+The current desktop release candidate is **0.2.0-rc1**. The plug-in binary
+reports semantic version `0.2.0`; `rc1` identifies the distribution package.
+
 ## Build
 
 ```bash
-cmake -S te2350-vst -B build/te2350-vst -DTE2350_JUCE_PATH=/path/to/JUCE
+cmake -S te2350-vst -B build/te2350-vst -DCMAKE_BUILD_TYPE=Release -DTE2350_JUCE_PATH=/path/to/JUCE
 cmake --build build/te2350-vst --config Release
 ```
 
 If `TE2350_JUCE_PATH` is not set, CMake can fetch JUCE with FetchContent:
 
 ```bash
-cmake -S te2350-vst -B build/te2350-vst -DTE2350_FETCH_JUCE=ON
+cmake -S te2350-vst -B build/te2350-vst -DCMAKE_BUILD_TYPE=Release -DTE2350_FETCH_JUCE=ON
 ```
 
+For single-configuration generators such as Ninja, `CMAKE_BUILD_TYPE=Release`
+selects optimization and `NDEBUG`; `--config Release` alone is only meaningful
+to multi-configuration generators. If no build type is supplied, this project
+now defaults single-configuration builds to Release.
+
 The build enables VST3 on every platform and AU on Apple platforms.
+
+To create the local VST3 release-candidate archive after configuring the build:
+
+```bash
+cmake --build build/te2350-vst --config Release --target TE2350PackageBeta
+```
+
+The archive, build manifest, and SHA-256 checksum are written to
+`build/te2350-vst/Packages`. Installation instructions are included in the
+archive.
 
 ## Current Scope
 
@@ -56,8 +74,16 @@ The build enables VST3 on every platform and AU on Apple platforms.
   momentary (active only while pressed) or latched.
 - Shimmer feedback is dormant while Shimmer Amount is zero, so neutral presets
   no longer acquire hidden octave coloration.
-- Factory-preset output trims were calibrated against the same musical render;
-  active RMS is within 0.5 dB across all seven presets without peak clipping.
+- The factory library contains 13 categorized presets. The six additions cover
+  rhythmic slap/eighth-note delays, tape motion, octave shimmer, Freeze pads,
+  and dark downward-octave ambience. Calibration renders peak between 0.26 and
+  0.40 without clipping, with active RMS spanning approximately 2.2 dB.
+- User presets use versioned `.te2350preset` files, atomic replacement, and
+  malformed-file rejection. Their identity is embedded in host state, so a
+  project retains its sound when the original local preset file is unavailable.
+- Protected Mutate actions vary the sound at three depths while leaving Time,
+  Sync, Mix, I/O, Engine, Bypass, Freeze, and Kill Dry unchanged. Preset loads,
+  mutations, and parameter resets support Undo/Redo.
 - Host blocks larger than the size passed to `prepareToPlay` are processed in
   bounded chunks. Fixed latency, Studio coloration, bypass ramps, and delay
   state remain continuous across chunk boundaries without resizing buffers in
@@ -65,7 +91,7 @@ The build enables VST3 on every platform and AU on Apple platforms.
 - Macro control values use preallocated indexed storage. Together with chunked
   bypass scratch space, the warmed audio callback performs zero tracked C++
   allocations in the compatibility regression.
-- State chunks include `stateVersion=2`. Loading an older or partial state
+- State chunks include `stateVersion=3`. Loading an older or partial state
   merges known parameter values into a complete default tree, so parameters
   introduced after that state was saved receive deterministic defaults.
 - The editor separates the performance-focused `PERFORM` view from the
@@ -137,3 +163,25 @@ build/te2350-vst/TE2350UIRender build/te2350-vst/UIRenders
 
 `TE2350UIRenderTest` also checks the initial panel hierarchy, the I/O control
 layout, and the Perform/Sculpt view transition.
+
+The preset workflow regression covers the categorized factory catalog, user
+preset save/load/delete, malformed and partial files, embedded project state,
+protected mutation, and Undo/Redo:
+
+```bash
+cmake --build build/te2350-vst --target TE2350PresetWorkflowTest
+ctest --test-dir build/te2350-vst -R TE2350PresetWorkflowTest --output-on-failure
+```
+
+The release-readiness regression sweeps every one of the 30 automatable
+parameters through endpoints and continuous changes, switches all 13 factory
+programs under load, exercises mono/stereo processing from 44.1 to 192 kHz,
+and verifies sample-identical audio after host-state recall:
+
+```bash
+cmake --build build/te2350-vst --target TE2350ReleaseReadinessTest
+ctest --test-dir build/te2350-vst -R TE2350ReleaseReadinessTest --output-on-failure
+```
+
+CI additionally runs `pluginval` at strictness level 5 against each generated
+VST3/AU bundle before uploading artifacts.

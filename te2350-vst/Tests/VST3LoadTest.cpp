@@ -47,13 +47,15 @@ int main(int argc, char* argv[])
     }
 
     if (description.name != "TE-2350 Antigravity"
+        || description.version != TE2350_EXPECTED_PLUGIN_VERSION
         || instance->getTotalNumInputChannels() != 2
         || instance->getTotalNumOutputChannels() != 2
         || instance->getParameters().size() < 30)
     {
         std::fprintf(stderr,
-                     "unexpected VST3 metadata: name=%s in=%d out=%d params=%d\n",
+                     "unexpected VST3 metadata: name=%s version=%s in=%d out=%d params=%d\n",
                      description.name.toRawUTF8(),
+                     description.version.toRawUTF8(),
                      instance->getTotalNumInputChannels(),
                      instance->getTotalNumOutputChannels(),
                      instance->getParameters().size());
