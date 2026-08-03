@@ -232,7 +232,7 @@ if(TE2350_BUILD_GOLDEN_TESTS)
     add_dependencies(TE2350VST3LoadTest TE2350Antigravity_VST3)
     add_test(NAME TE2350VST3LoadTest
         COMMAND $<TARGET_FILE:TE2350VST3LoadTest>
-            "${CMAKE_CURRENT_BINARY_DIR}/TE2350Antigravity_artefacts/VST3/TE-2350 Antigravity.vst3")
+            "$<GENEX_EVAL:$<TARGET_PROPERTY:TE2350Antigravity_VST3,JUCE_PLUGIN_ARTEFACT_FILE>>")
 
     add_executable(TE2350UIRender Tests/UIRender.cpp)
     target_include_directories(TE2350UIRender PRIVATE Source "${TE2350_ROOT}/include")
