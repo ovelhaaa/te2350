@@ -148,14 +148,15 @@ jobs:
           $reportDirectory = Join-Path "${{ env.BUILD_DIR }}" "PluginvalReports"
           New-Item -ItemType Directory -Force $reportDirectory | Out-Null
 
-          $plugins = @(Get-ChildItem "${{ env.BUILD_DIR }}" -Recurse -Directory -Filter "*.vst3" |
+          $artefactsDirectory = Join-Path (Join-Path "${{ env.BUILD_DIR }}" "TE2350Antigravity_artefacts") "Release"
+          $plugins = @(Get-ChildItem $artefactsDirectory -Recurse -Directory -Filter "*.vst3" |
             Where-Object { $_.Name -like "*Antigravity*" })
 
           if ($env:RUNNER_OS -eq "macOS") {
             $componentInstallDir = Join-Path $HOME "Library/Audio/Plug-Ins/Components"
             New-Item -ItemType Directory -Force $componentInstallDir | Out-Null
 
-            $components = @(Get-ChildItem "${{ env.BUILD_DIR }}" -Recurse -Directory -Filter "*.component" |
+            $components = @(Get-ChildItem $artefactsDirectory -Recurse -Directory -Filter "*.component" |
               Where-Object { $_.Name -like "*Antigravity*" })
 
             foreach ($component in $components) {
@@ -185,7 +186,7 @@ jobs:
               --output-dir "$reportDirectory" `
               --output-filename "$reportName" `
               --verbose `
-              --validate "$($plugin.FullName)"
+              --validate "$($plugin.FullName)" | Out-Host
 
             if ($LASTEXITCODE -ne 0) {
               throw "pluginval failed for $($plugin.FullName) with exit code $LASTEXITCODE"
