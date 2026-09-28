@@ -115,9 +115,9 @@ int main()
             return;
         }
 
-        te2350_set_mix(&pedal, FLOAT_TO_Q31(1.0f));
-        te2350_set_time(&pedal, FLOAT_TO_Q31(0.1f));
-        te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.8f));
+        te2350_set_mix(&pedal, float_to_q31_safe(1.0f));
+        te2350_set_time(&pedal, float_to_q31_safe(0.1f));
+        te2350_set_feedback(&pedal, float_to_q31_safe(0.8f));
 
         for (int i=0; i<100; i++) {
             q31_t out_l, out_r;
@@ -173,11 +173,11 @@ int main()
         // Test Low Cut
         std::fill(memory_pool.begin(), memory_pool.end(), 0);
         te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate);
-        te2350_set_mix(&pedal, FLOAT_TO_Q31(1.0f));
-        te2350_set_time(&pedal, FLOAT_TO_Q31(0.1f));
-        te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.0f));
+        te2350_set_mix(&pedal, float_to_q31_safe(1.0f));
+        te2350_set_time(&pedal, float_to_q31_safe(0.1f));
+        te2350_set_feedback(&pedal, float_to_q31_safe(0.0f));
 
-        te2350_set_low_cut_coeff(&pedal, FLOAT_TO_Q31(0.0f)); // Wide open
+        te2350_set_low_cut_coeff(&pedal, float_to_q31_safe(0.0f)); // Wide open
         float peakWideOpen = 0.0f;
         q31_t out_l, out_r;
         for (int i=0; i<48000; i++) {
@@ -218,9 +218,9 @@ int main()
         }
         std::fill(memory_pool.begin(), memory_pool.end(), 0);
         te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate);
-        te2350_set_mix(&pedal, FLOAT_TO_Q31(1.0f));
-        te2350_set_time(&pedal, FLOAT_TO_Q31(0.1f));
-        te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.8f));
+        te2350_set_mix(&pedal, float_to_q31_safe(1.0f));
+        te2350_set_time(&pedal, float_to_q31_safe(0.1f));
+        te2350_set_feedback(&pedal, float_to_q31_safe(0.8f));
 
         te2350_set_ducking(&pedal, 0);
         float peakNoDuck = 0.0f;
@@ -245,11 +245,11 @@ int main()
 
         std::fill(memory_pool.begin(), memory_pool.end(), 0);
         te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate);
-        te2350_set_mix(&pedal, FLOAT_TO_Q31(1.0f));
-        te2350_set_time(&pedal, FLOAT_TO_Q31(0.1f));
-        te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.8f));
+        te2350_set_mix(&pedal, float_to_q31_safe(1.0f));
+        te2350_set_time(&pedal, float_to_q31_safe(0.1f));
+        te2350_set_feedback(&pedal, float_to_q31_safe(0.8f));
 
-        te2350_set_ducking(&pedal, FLOAT_TO_Q31(1.0f)); // Max ducking
+        te2350_set_ducking(&pedal, float_to_q31_safe(1.0f)); // Max ducking
         te2350_set_duck_threshold(&pedal, 0); // Threshold 0 to ALWAYS duck
         float peakDuck = 0.0f;
 
@@ -277,9 +277,9 @@ int main()
         dsp_perlin_init(&perlin, 12345);
 
         q31_t v0 = dsp_perlin_1d(&perlin, 0);
-        q31_t v25 = dsp_perlin_1d(&perlin, FLOAT_TO_Q31(0.25f));
-        q31_t v50 = dsp_perlin_1d(&perlin, FLOAT_TO_Q31(0.50f));
-        q31_t v75 = dsp_perlin_1d(&perlin, FLOAT_TO_Q31(0.75f));
+        q31_t v25 = dsp_perlin_1d(&perlin, float_to_q31_safe(0.25f));
+        q31_t v50 = dsp_perlin_1d(&perlin, float_to_q31_safe(0.50f));
+        q31_t v75 = dsp_perlin_1d(&perlin, float_to_q31_safe(0.75f));
         q31_t v1 = dsp_perlin_1d(&perlin, Q31_MAX);
 
         std::cout << "  Perlin Test: " << v0 << ", " << v25 << ", " << v50 << ", " << v75 << ", " << v1 << std::endl;
