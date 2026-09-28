@@ -1,4 +1,5 @@
 #include "../include/dsp_pitch.h"
+#include "dsp_pitch_lut.h"
 
 #define DSP_PITCH_MAX_WINDOW_SIZE 65535u
 
@@ -32,33 +33,36 @@ static uint32_t dsp_pitch_phase_inc_for_window(size_t window_size) {
 }
 
 void dsp_pitch_set_window_size(dsp_pitch_shifter_t *ps, size_t window_size) {
-  ps->window_size = dsp_pitch_clamp_window_size(ps, window_size);
+  size_t clamped = dsp_pitch_clamp_window_size(ps, window_size);
+  if (clamped == ps->window_size) return;
+  ps->window_size = clamped;
   ps->window_phase_inc = dsp_pitch_phase_inc_for_window(ps->window_size);
-  ps->read_pos_a = 0;
-  ps->read_pos_b = (q16_16_t)((uint32_t)(ps->window_size / 2u) << 16);
-  ps->crossfade = 0;
 }
 
 void dsp_pitch_init(dsp_pitch_shifter_t *ps, q31_t *buffer, size_t size) {
   dsp_delay_init(&ps->delay, buffer, size);
 
   ps->pitch_inc = 1 << 16;  // 1.0 in Q16.16 (no pitch shift initially)
+  ps->window_size = 0;
   dsp_pitch_set_window_size(ps, size);
+  ps->read_pos_a = 0;
+  ps->read_pos_b = (q16_16_t)((uint32_t)(ps->window_size / 2u) << 16);
+  ps->crossfade = 0;
 }
 
 q31_t dsp_pitch_ratio_from_octave_amount(q31_t octave_amount) {
-  if (octave_amount < 0) {
-    octave_amount = 0;
+  if (octave_amount <= 0) {
+    return (q31_t)(Q31_MAX / 3);
   }
-  if (octave_amount > Q31_MAX) {
-    octave_amount = Q31_MAX;
+  if (octave_amount >= Q31_MAX) {
+    return Q31_MAX;
   }
 
   // dsp_pitch_process uses 0..Q31_MAX to represent 0.5x..2.0x. A musical
   // octave amount uses 0..Q31_MAX to represent 1.0x..2.0x, so:
   // internal = (ratio - 0.5) / 1.5 = 1/3 + (2/3 * octave_amount).
-  return q31_add_sat(FLOAT_TO_Q31(0.33333334f),
-                     q31_mul(octave_amount, FLOAT_TO_Q31(0.6666667f)));
+  const int64_t numerator = (int64_t)Q31_MAX + 2LL * (int64_t)octave_amount;
+  return (q31_t)(numerator / 3LL);
 }
 
 q31_t dsp_pitch_process(dsp_pitch_shifter_t *ps, q31_t in, q31_t pitch_ratio_q31) {
@@ -85,14 +89,24 @@ q31_t dsp_pitch_process(dsp_pitch_shifter_t *ps, q31_t in, q31_t pitch_ratio_q31
     window_phase_inc = dsp_pitch_phase_inc_for_window(window_size);
   }
 
+  // Delay increment is 1.0 - pitch_ratio.
+  // When pitch_ratio > 1 (pitch up), delay decreases so we read faster.
+  // When pitch_ratio < 1 (pitch down), delay increases so we read slower.
+  int64_t delay_inc = (1LL << 16) - (int64_t)ps->pitch_inc;
+
   // Advance and wrap read heads inside the configured crossfade window. Keeping
   // this window independent from the underlying buffer allows long, smooth
   // shimmer windows and short, transient-friendly feedback-octave windows.
-  uint32_t window_q16 = (uint32_t)window_size << 16;
-  uint64_t read_pos_a = (uint64_t)ps->read_pos_a + ps->pitch_inc;
-  uint64_t read_pos_b = (uint64_t)ps->read_pos_b + ps->pitch_inc;
+  int64_t window_q16 = (int64_t)window_size << 16;
+  int64_t read_pos_a = (int64_t)ps->read_pos_a + delay_inc;
+  int64_t read_pos_b = (int64_t)ps->read_pos_b + delay_inc;
+
+  while (read_pos_a < 0) read_pos_a += window_q16;
   while (read_pos_a >= window_q16) read_pos_a -= window_q16;
+
+  while (read_pos_b < 0) read_pos_b += window_q16;
   while (read_pos_b >= window_q16) read_pos_b -= window_q16;
+
   ps->read_pos_a = (q16_16_t)read_pos_a;
   ps->read_pos_b = (q16_16_t)read_pos_b;
 
@@ -108,6 +122,8 @@ q31_t dsp_pitch_process(dsp_pitch_shifter_t *ps, q31_t in, q31_t pitch_ratio_q31
   q31_t phase_a = (phase_temp > (uint64_t)Q31_MAX) ? Q31_MAX : (q31_t)phase_temp;
   ps->crossfade = phase_a;
 
+  // Use equal-power crossfade instead of linear/triangular.
+  // We can treat phase_a as a triangle to index a quarter-sine LUT.
   q31_t tri_a;
   if (phase_a < (Q31_MAX >> 1)) {
     tri_a = phase_a << 1;
@@ -115,10 +131,14 @@ q31_t dsp_pitch_process(dsp_pitch_shifter_t *ps, q31_t in, q31_t pitch_ratio_q31
     tri_a = q31_sub_sat(Q31_MAX, phase_a) << 1;
   }
 
-  // B is offset by half the window, so its triangle is inverted.
-  q31_t tri_b = q31_sub_sat(Q31_MAX, tri_a);
+  q31_t fade_a = lookup_equal_power(tri_a);
+  q31_t fade_b = lookup_equal_power(q31_sub_sat(Q31_MAX, tri_a));
 
-  // Mix: out = a * tri_a + b * tri_b. Complementary weights keep nominal gain
-  // steady while avoiding hard read-head switches.
-  return q31_add_sat(q31_mul(sample_a, tri_a), q31_mul(sample_b, tri_b));
+  // A small calibration trim to prevent correlated signals from gaining +3dB at the center.
+  // 0.94 is a good compromise for mixed correlation.
+  fade_a = q31_mul(fade_a, FLOAT_TO_Q31(0.94f));
+  fade_b = q31_mul(fade_b, FLOAT_TO_Q31(0.94f));
+
+  // Mix: out = a * fade_a + b * fade_b. Equal power weights keep energy steady.
+  return q31_add_sat(q31_mul(sample_a, fade_a), q31_mul(sample_b, fade_b));
 }
