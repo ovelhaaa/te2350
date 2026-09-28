@@ -9,8 +9,6 @@ extern "C" {
 }
 
 #define MEM_POOL_SIZE TE2350_REQUIRED_MEMORY_BYTES
-static q31_t memory_pool[MEM_POOL_SIZE / 4];
-static te2350_t pedal;
 
 double findPeakFrequency(const std::vector<float>& signal, double sampleRate)
 {
@@ -108,8 +106,10 @@ int main()
     };
 
     auto runSpilloverTest = [&]() {
-        std::fill(std::begin(memory_pool), std::end(memory_pool), 0);
-        if (!te2350_init(&pedal, memory_pool, MEM_POOL_SIZE, sampleRate)) {
+        std::vector<q31_t> memory_pool(MEM_POOL_SIZE / 4, 0);
+        te2350_t pedal;
+        std::fill(memory_pool.begin(), memory_pool.end(), 0);
+        if (!te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate)) {
             std::cerr << "Effect Init FAILED" << std::endl;
             return;
         }
@@ -162,9 +162,11 @@ int main()
     };
 
     auto runFilterTest = [&]() {
+        std::vector<q31_t> memory_pool(MEM_POOL_SIZE / 4, 0);
+        te2350_t pedal;
         // Test Low Cut
-        std::fill(std::begin(memory_pool), std::end(memory_pool), 0);
-        te2350_init(&pedal, memory_pool, MEM_POOL_SIZE, sampleRate);
+        std::fill(memory_pool.begin(), memory_pool.end(), 0);
+        te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate);
         te2350_set_mix(&pedal, FLOAT_TO_Q31(1.0f));
         te2350_set_time(&pedal, FLOAT_TO_Q31(0.1f));
         te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.0f));
@@ -195,8 +197,10 @@ int main()
     };
 
     auto runDuckingTest = [&]() {
-        std::fill(std::begin(memory_pool), std::end(memory_pool), 0);
-        te2350_init(&pedal, memory_pool, MEM_POOL_SIZE, sampleRate);
+        std::vector<q31_t> memory_pool(MEM_POOL_SIZE / 4, 0);
+        te2350_t pedal;
+        std::fill(memory_pool.begin(), memory_pool.end(), 0);
+        te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate);
         te2350_set_mix(&pedal, FLOAT_TO_Q31(1.0f));
         te2350_set_time(&pedal, FLOAT_TO_Q31(0.1f));
         te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.8f));
@@ -216,8 +220,8 @@ int main()
             peakNoDuck = std::max(peakNoDuck, std::abs(Q31_TO_FLOAT(out_l)));
         }
 
-        std::fill(std::begin(memory_pool), std::end(memory_pool), 0);
-        te2350_init(&pedal, memory_pool, MEM_POOL_SIZE, sampleRate);
+        std::fill(memory_pool.begin(), memory_pool.end(), 0);
+        te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate);
         te2350_set_mix(&pedal, FLOAT_TO_Q31(1.0f));
         te2350_set_time(&pedal, FLOAT_TO_Q31(0.1f));
         te2350_set_feedback(&pedal, FLOAT_TO_Q31(0.8f));
