@@ -111,6 +111,7 @@ int main()
         std::fill(memory_pool.begin(), memory_pool.end(), 0);
         if (!te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate)) {
             std::cerr << "Effect Init FAILED" << std::endl;
+            allPassed = false;
             return;
         }
 
@@ -154,7 +155,7 @@ int main()
         }
 
         if (newPeak <= 0.0000001f) {
-            std::cerr << "  FAILED Spillover Test: Tail died during bypass processing." << std::endl;
+            std::cerr << "  FAILED Spillover Test: Tail died during core processing." << std::endl;
             allPassed = false;
         } else {
             std::cout << "  Spillover Test: PASSED" << std::endl;
@@ -164,6 +165,11 @@ int main()
     auto runFilterTest = [&]() {
         std::vector<q31_t> memory_pool(MEM_POOL_SIZE / 4, 0);
         te2350_t pedal;
+        if (!te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate)) {
+            std::cerr << "Effect Init FAILED" << std::endl;
+            allPassed = false;
+            return;
+        }
         // Test Low Cut
         std::fill(memory_pool.begin(), memory_pool.end(), 0);
         te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate);
@@ -180,6 +186,12 @@ int main()
             if (i > 40000) peakWideOpen = std::max(peakWideOpen, std::abs(Q31_TO_FLOAT(out_l)));
         }
 
+        if (peakWideOpen <= 1e-4f) {
+            std::cerr << "  FAILED Low Cut Test: Baseline signal is silent." << std::endl;
+            allPassed = false;
+            return;
+        }
+
         te2350_set_low_cut_coeff(&pedal, float_to_q31_safe(0.063f));
         float peakCut = 0.0f;
         for (int i=0; i<48000; i++) {
@@ -188,7 +200,7 @@ int main()
             if (i > 40000) peakCut = std::max(peakCut, std::abs(Q31_TO_FLOAT(out_l)));
         }
 
-        if (peakCut > peakWideOpen * 1.5f) {
+        if (peakCut > peakWideOpen * 0.8f) {
             std::cerr << "  FAILED Low Cut Test: Low cut did not sufficiently attenuate 50Hz. Cut Peak=" << peakCut << " Open Peak=" << peakWideOpen << std::endl;
             allPassed = false;
         } else {
@@ -199,6 +211,11 @@ int main()
     auto runDuckingTest = [&]() {
         std::vector<q31_t> memory_pool(MEM_POOL_SIZE / 4, 0);
         te2350_t pedal;
+        if (!te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate)) {
+            std::cerr << "Effect Init FAILED" << std::endl;
+            allPassed = false;
+            return;
+        }
         std::fill(memory_pool.begin(), memory_pool.end(), 0);
         te2350_init(&pedal, memory_pool.data(), MEM_POOL_SIZE, sampleRate);
         te2350_set_mix(&pedal, FLOAT_TO_Q31(1.0f));
@@ -218,6 +235,12 @@ int main()
             float val = std::sin(2.0f * 3.1415926535f * 440.0f * (float)i / (float)sampleRate);
             te2350_process(&pedal, float_to_q31_safe(val * 0.5f), &out_l, &out_r);
             peakNoDuck = std::max(peakNoDuck, std::abs(Q31_TO_FLOAT(out_l)));
+        }
+
+        if (peakNoDuck <= 1e-4f) {
+            std::cerr << "  FAILED Ducking Test: Baseline signal is silent." << std::endl;
+            allPassed = false;
+            return;
         }
 
         std::fill(memory_pool.begin(), memory_pool.end(), 0);
@@ -241,7 +264,7 @@ int main()
             peakDuck = std::max(peakDuck, std::abs(Q31_TO_FLOAT(out_l)));
         }
 
-        if (peakDuck > peakNoDuck * 1.5f) {
+        if (peakDuck > peakNoDuck * 0.95f) {
             std::cerr << "  FAILED Ducking Test: Signal was not properly ducked. Peak=" << peakDuck << " vs " << peakNoDuck << std::endl;
             allPassed = false;
         } else {

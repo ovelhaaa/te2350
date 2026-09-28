@@ -37,6 +37,12 @@ void dsp_pitch_set_window_size(dsp_pitch_shifter_t *ps, size_t window_size) {
   if (clamped == ps->window_size) return;
   ps->window_size = clamped;
   ps->window_phase_inc = dsp_pitch_phase_inc_for_window(ps->window_size);
+
+  // Maintain read-head 180-degree offset when window size changes
+  ps->read_pos_b = ps->read_pos_a + ((ps->window_size << 16) / 2);
+  if (ps->read_pos_b >= (ps->delay.mask << 16)) {
+    ps->read_pos_b -= (ps->delay.mask << 16);
+  }
 }
 
 void dsp_pitch_init(dsp_pitch_shifter_t *ps, q31_t *buffer, size_t size) {
@@ -136,8 +142,11 @@ q31_t dsp_pitch_process(dsp_pitch_shifter_t *ps, q31_t in, q31_t pitch_ratio_q31
 
   // A small calibration trim to prevent correlated signals from gaining +3dB at the center.
   // 0.94 is a good compromise for mixed correlation.
-  fade_a = q31_mul(fade_a, FLOAT_TO_Q31(0.94f));
-  fade_b = q31_mul(fade_b, FLOAT_TO_Q31(0.94f));
+  // A mix rule combining sum scale and power scale depending on correlation.
+  // Given a max sample_a/sample_b of 1.0, worst case sum is fade_a + fade_b.
+  // At 50% crossfade, sine LUT fade_a = fade_b = 0.707. Sum = 1.414. We must scale down by 1/1.414 = 0.707f to guarantee no clipping.
+  fade_a = q31_mul(fade_a, FLOAT_TO_Q31(0.707106f));
+  fade_b = q31_mul(fade_b, FLOAT_TO_Q31(0.707106f));
 
   // Mix: out = a * fade_a + b * fade_b. Equal power weights keep energy steady.
   return q31_add_sat(q31_mul(sample_a, fade_a), q31_mul(sample_b, fade_b));
