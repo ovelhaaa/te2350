@@ -35,6 +35,7 @@ typedef struct {
   q31_t input_gain;
   q31_t mod_depth_samples_q16;
   q31_t wet_gain;
+  q31_t freeze_mix; // Internal crossfade: captures the existing field without new input.
 } dsp_fdn4_t;
 
 /**

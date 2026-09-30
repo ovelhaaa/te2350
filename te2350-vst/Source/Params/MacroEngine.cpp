@@ -190,7 +190,12 @@ void MacroEngine::calculateTargets(const juce::AudioProcessorValueTreeState& sta
             const auto mapped = mapTarget(target, macroValue);
             const auto offset = mapped - target.valueAt0;
             if (auto* value = findValue(target.paramID))
-                value->target = clampForParameter(target.paramID, value->target + offset);
+            {
+                // Bloom uses remaining duck headroom so 0..100% stays useful.
+                const auto contribution = target.paramID == juce::StringRef("duckAmount")
+                    ? offset * (1.0f - value->target) : offset;
+                value->target = clampForParameter(target.paramID, value->target + contribution);
+            }
         }
     }
 

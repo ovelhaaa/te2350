@@ -64,6 +64,7 @@ void dsp_fdn4_init(dsp_fdn4_t *fdn,
   fdn->input_gain = FLOAT_TO_Q31(0.30f);
   fdn->mod_depth_samples_q16 = 2 << 16;
   fdn->wet_gain = FLOAT_TO_Q31(0.45f);
+  fdn->freeze_mix = 0;
 
   // Prime-spaced base taps at 48 kHz. They are intentionally incommensurate
   // and fit in an 8192-sample line while leaving guard samples for modulation.
@@ -129,11 +130,14 @@ void dsp_fdn4_process(dsp_fdn4_t *fdn, q31_t input, q31_t *out_l, q31_t *out_r) 
   if (!fdn || !out_l || !out_r) return;
 
   q31_t y[DSP_FDN4_LINES];
+  q31_t moving_depth = fdn->freeze_mix > 0
+      ? q31_mul(fdn->mod_depth_samples_q16, q31_sub_sat(Q31_MAX, fdn->freeze_mix))
+      : fdn->mod_depth_samples_q16;
 
   for (int i = 0; i < DSP_FDN4_LINES; ++i) {
     fdn->mod_phase[i] += fdn->mod_inc[i];
     q31_t tri = tri_q31(fdn->mod_phase[i]);
-    int32_t mod_q16 = (int32_t)q31_mul(tri, fdn->mod_depth_samples_q16);
+    int32_t mod_q16 = (int32_t)q31_mul(tri, moving_depth);
     q16_16_t delay_q16 = (q16_16_t)((int32_t)fdn->base_delay_q16[i] + mod_q16);
     y[i] = dsp_delay_read_frac(&fdn->delay[i], delay_q16);
     fdn->last_read[i] = y[i];
@@ -154,13 +158,26 @@ void dsp_fdn4_process(dsp_fdn4_t *fdn, q31_t input, q31_t *out_l, q31_t *out_r) 
       FLOAT_TO_Q31(0.50f), FLOAT_TO_Q31(0.37f), -FLOAT_TO_Q31(0.42f), FLOAT_TO_Q31(0.29f)};
 
   q31_t input_drive = q31_mul(input, fdn->input_gain);
+  q31_t hold = 0, freeze_gain = fdn->feedback;
+  if (fdn->freeze_mix > 0) {
+    input_drive = q31_mul(input_drive, q31_sub_sat(Q31_MAX, fdn->freeze_mix));
+    hold = q31_mul(fdn->freeze_mix, FLOAT_TO_Q31(.999f));
+    freeze_gain = q31_add_sat(q31_mul(fdn->feedback, q31_sub_sat(Q31_MAX, fdn->freeze_mix)),
+                               q31_mul(FLOAT_TO_Q31(.9999f), fdn->freeze_mix));
+  }
 
   for (int i = 0; i < DSP_FDN4_LINES; ++i) {
     q31_t low_ref = dsp_onepole_lp(&fdn->floor_lp[i], mixed[i]);
     q31_t hp = q31_sub_sat(mixed[i], low_ref);
     q31_t absorbed = dsp_onepole_lp(&fdn->air_lp[i], hp);
     q31_t warm = dsp_soft_saturate_gentle(absorbed);
-    q31_t fb = q31_mul(warm, fdn->feedback);
+    // Normalized Hadamard is already energy-preserving. Freeze avoids the
+    // ordinary absorption losses, retaining 0.1% coloration per circulation
+    // and a bounded sub-unity gain. Filters keep tracking for a smooth exit.
+    q31_t voiced = warm;
+    if (fdn->freeze_mix > 0)
+      voiced = q31_add_sat(q31_mul(warm, q31_sub_sat(Q31_MAX, hold)), q31_mul(mixed[i], hold));
+    q31_t fb = q31_mul(voiced, freeze_gain);
     q31_t feed = q31_mul(input_drive, inject[i]);
     dsp_delay_write(&fdn->delay[i], q31_add_sat(feed, fb));
   }

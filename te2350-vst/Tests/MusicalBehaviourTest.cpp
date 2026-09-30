@@ -3,6 +3,36 @@
 #include <iostream>
 #include <algorithm>
 #include "PluginProcessor.h"
+#include "M8Behaviour.h"
+
+bool verifyM8BloomDucking()
+{
+    TE2350AudioProcessor processor;
+    processor.prepareToPlay(48000.0, 128);
+    juce::AudioBuffer<float> block(2,128);
+    juce::MidiBuffer midi;
+    const auto set=[&](const char* id,float value) {
+        auto* p=processor.apvts.getParameter(id);
+        p->setValueNotifyingHost(p->convertTo0to1(value));
+    };
+    // Plugin-side preset/state coverage remains in the existing dedicated tests.
+    // Exercise the macro's headroom equation over the entire user range.
+    for(float bloom:{0.f,.25f,.5f,.75f,1.f}) {
+        float previous=-1;
+        for(float duck:{0.f,.25f,.5f,.75f,1.f}) {
+            set("bloom",bloom);set("duckAmount",duck);
+            for(int n=0;n<80;++n) {block.clear();processor.processBlock(block,midi);}
+            // Use the MacroEngine itself below for observable effective values.
+            te2350::MacroEngine macros;macros.prepare(48000,128);
+            for(int n=0;n<80;++n) macros.update(processor.apvts,128);
+            const float actual=macros.getEffectiveValue("duckAmount");
+            if(actual+.001f<duck || actual>1.001f || actual<=previous+.02f) return false;
+            previous=actual;
+        }
+    }
+    std::cout<<"M8 Bloom duck headroom PASSED\n";
+    return true;
+}
 
 // Compare the actual plugin against continuously running wet and aligned dry
 // references. Excitation during bypass catches input starvation, not just resets.
@@ -135,7 +165,8 @@ double getAMDepth(const std::vector<float>& signal, int windowSize) {
 int main()
 {
     juce::ScopedJuceInitialiser_GUI juceInitialiser;
-    bool allPassed = true;
+    bool allPassed = verifyM8Behaviour();
+    allPassed = verifyM8BloomDucking() && allPassed;
     for (float quality : { 0.0f, 1.0f })
         for (bool hostCallback : { false, true })
             for (bool spillover : { false, true })

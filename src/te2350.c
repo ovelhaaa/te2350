@@ -272,6 +272,19 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
   dsp_onepole_init(&ctx->wet_low_cut_r, 0);
   dsp_onepole_init(&ctx->shimmer_hp, FLOAT_TO_Q31(0.050f));  // trim low body in shimmer lane
   dsp_onepole_init(&ctx->shimmer_lp, TE_SHIMMER_LP_COEFF);  // brighter shimmer rail; clip below tames edge
+  dsp_onepole_init(&ctx->shimmer_loop_lp, 0);
+  dsp_onepole_init(&ctx->shimmer_loop_hp, 0);
+  dsp_onepole_init(&ctx->octave_loop_lp, 0);
+  dsp_onepole_init(&ctx->octave_loop_hp, 0);
+  ctx->pitch_loop_trim = Q31_MAX;
+  ctx->pitch_loop_strength = 0;
+  ctx->pitch_control_counter = 0;
+  ctx->pitch_control_smooth = float_to_q31_safe(1.0f / (1.0f + .012f * sample_rate / 64.0f));
+  ctx->duck_reduction_state = 0;
+  // Time constants: 0.6 ms attack, bounded 65..180 ms release.
+  ctx->duck_attack_coeff = float_to_q31_safe(1.0f / (1.0f + .0006f * sample_rate));
+  ctx->duck_release_fast = float_to_q31_safe(1.0f / (1.0f + .065f * sample_rate));
+  ctx->duck_release_slow = float_to_q31_safe(1.0f / (1.0f + .180f * sample_rate));
 
   dsp_melody_init(&ctx->melody);
   dsp_melody_set_volume(&ctx->melody, FLOAT_TO_Q31(0.18f));
@@ -711,6 +724,7 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t fdn_l = 0;
   q31_t fdn_r = 0;
   if (ctx->fdn_enabled) {
+    ctx->fdn.freeze_mix = ctx->freeze_crossfade;
     if (ctx->fdn_param_counter == 0) {
       q31_t tone_for_fdn = ctx->p_tone_smoothed;
       // Tail-dependent air LP compensation: longer tails get slightly softer highs.
@@ -836,7 +850,8 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   width = q31_sub_sat(width, q31_mul(transient_hint, FLOAT_TO_Q31(0.08f)));
   if (width > FLOAT_TO_Q31(0.94f)) width = FLOAT_TO_Q31(0.94f);
 
-  q31_t duck_detector = env_level;
+  // Threshold-gated peak path and sustain response share the existing hints.
+  q31_t duck_detector = q31_add_sat(env_level, transient_hint);
   q31_t duck_threshold = ctx->p_duck_threshold_smoothed;
   if (duck_threshold > 0) {
     if (duck_detector <= duck_threshold) {
@@ -849,8 +864,17 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   }
 
   q31_t amp_env = duck_detector > (Q31_MAX >> 2) ? Q31_MAX : duck_detector << 2;
-  q31_t duck_reduction = q31_mul(amp_env, ctx->p_ducking);
-  q31_t final_duck_gain = q31_sub_sat(Q31_MAX, duck_reduction);
+  q31_t transient_weight = env_level > 0
+      ? (q31_t)(((int64_t)transient_hint * Q31_MAX) /
+                ((int64_t)env_level + transient_hint)) : (transient_hint > 0 ? Q31_MAX : 0);
+  q31_t response = q31_add_sat(FLOAT_TO_Q31(.48f),
+                               q31_mul(transient_weight, FLOAT_TO_Q31(.40f)));
+  q31_t duck_target = q31_mul(q31_mul(amp_env, response), ctx->p_ducking);
+  q31_t duck_coeff = duck_target > ctx->duck_reduction_state
+      ? ctx->duck_attack_coeff
+      : q31_lerp(ctx->duck_release_fast, ctx->duck_release_slow, ctx->duck_reduction_state);
+  SMOOTH_PARAM(duck_target, ctx->duck_reduction_state, duck_coeff);
+  q31_t final_duck_gain = q31_sub_sat(Q31_MAX, ctx->duck_reduction_state);
 
   q31_t wet_width = q31_mul(wet_side, width);
   q31_t wet_l = q31_add_sat(q31_mul(wet_mid, FLOAT_TO_Q31(0.72f)),
@@ -1149,6 +1173,40 @@ static q31_t feedback_condition(te2350_t *ctx,
                                 q31_t env_level,
                                 q31_t effective_feedback) {
   update_tone_filter(ctx);
+  // Control rate (one update / 64 samples): interval-aware damping of BOTH
+  // recirculated pitch voices. No change to their direct wet contributions.
+  if (ctx->pitch_control_counter == 0) {
+    q31_t regen = ctx->octave_feedback_enabled ? ctx->octave_feedback_amount : 0;
+    regen = q31_lerp(ctx->p_feedback_smoothed, regen, FLOAT_TO_Q31(.75f));
+    q31_t strength = q31_mul(regen, regen);
+    strength = q31_add_sat(strength, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(.12f)));
+    ctx->pitch_loop_strength = q31_lerp(ctx->pitch_loop_strength, strength, ctx->pitch_control_smooth);
+    q31_t up = ctx->p_shimmer_pitch_smoothed;
+    q31_t lp48 = q31_lerp(FLOAT_TO_Q31(.72f), FLOAT_TO_Q31(.34f), up);
+    q31_t hp48 = q31_lerp(FLOAT_TO_Q31(.025f), FLOAT_TO_Q31(.004f), up);
+    // Rational sample-rate transform at control rate; no transcendental calls.
+    float lp_alpha = Q31_TO_FLOAT(lp48), hp_alpha = Q31_TO_FLOAT(hp48);
+    float lp_k = lp_alpha / (1.0f-lp_alpha) * (48000.0f/ctx->sample_rate);
+    float hp_k = hp_alpha / (1.0f-hp_alpha) * (48000.0f/ctx->sample_rate);
+    q31_t lp_coeff = float_to_q31_safe(lp_k / (1.0f+lp_k));
+    q31_t hp_coeff = float_to_q31_safe(hp_k / (1.0f+hp_k));
+    ctx->shimmer_loop_lp.coeff = ctx->octave_loop_lp.coeff =
+        q31_lerp(ctx->shimmer_loop_lp.coeff, lp_coeff, ctx->pitch_control_smooth);
+    ctx->shimmer_loop_hp.coeff = ctx->octave_loop_hp.coeff =
+        q31_lerp(ctx->shimmer_loop_hp.coeff, hp_coeff, ctx->pitch_control_smooth);
+    q31_t trim = q31_add_sat(FLOAT_TO_Q31(.12f), q31_mul(ctx->p_shimmer, FLOAT_TO_Q31(.08f)));
+    trim = q31_add_sat(trim, q31_mul(ctx->p_tail_smoothed, FLOAT_TO_Q31(.06f)));
+    trim = q31_add_sat(trim, q31_mul(ctx->freeze_crossfade, FLOAT_TO_Q31(.05f)));
+    ctx->pitch_loop_trim = q31_lerp(ctx->pitch_loop_trim,
+        q31_sub_sat(Q31_MAX, q31_mul(strength, trim)), ctx->pitch_control_smooth);
+  }
+  ctx->pitch_control_counter = (ctx->pitch_control_counter + 1u) & 63u;
+  q31_t shimmer_filtered = dsp_onepole_lp(&ctx->shimmer_loop_lp,
+                              dsp_onepole_hp(&ctx->shimmer_loop_hp, shimmer_return));
+  q31_t octave_filtered = dsp_onepole_lp(&ctx->octave_loop_lp,
+                              dsp_onepole_hp(&ctx->octave_loop_hp, octave_voice));
+  shimmer_return = q31_mul(q31_lerp(shimmer_return, shimmer_filtered, ctx->pitch_loop_strength), ctx->pitch_loop_trim);
+  octave_voice = q31_mul(q31_lerp(octave_voice, octave_filtered, ctx->pitch_loop_strength), ctx->pitch_loop_trim);
 
   q31_t lp = dsp_onepole_lp(&ctx->fb_lp, loop_src);
   q31_t low_ref = dsp_onepole_lp(&ctx->fb_hp, loop_src);
@@ -1193,8 +1251,9 @@ static q31_t feedback_condition(te2350_t *ctx,
     shaped = q31_lerp(shaped, octave_voice, octave_blend);
   }
 
-  q31_t trans_duck = q31_mul(q31_mul(env_level, ctx->p_ducking), FLOAT_TO_Q31(0.22f));
-  q31_t fb_gain = q31_sub_sat(effective_feedback, trans_duck);
+  // Wet ducking must not consume the stored tail or depend on Freeze energy.
+  (void)env_level;
+  q31_t fb_gain = effective_feedback;
   if (fb_gain < 0) fb_gain = 0;
   if (fb_gain > FLOAT_TO_Q31(0.995f)) fb_gain = FLOAT_TO_Q31(0.995f);
 

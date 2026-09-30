@@ -85,6 +85,15 @@ typedef struct {
   // Shimmer voicing (parallel branch only)
   dsp_onepole_t shimmer_hp;     // HP helper via src - LP(src)
   dsp_onepole_t shimmer_lp;     // soft LP to keep halo airy without harsh top
+  // M8: independent filters only on recirculated pitch (direct wet unchanged).
+  dsp_onepole_t shimmer_loop_lp, shimmer_loop_hp;
+  dsp_onepole_t octave_loop_lp, octave_loop_hp;
+  q31_t pitch_loop_trim, pitch_loop_strength;
+  q31_t pitch_control_smooth;
+  uint8_t pitch_control_counter;
+  // Dedicated sample-rate-scaled wet ducking; state is not serialized.
+  q31_t duck_reduction_state;
+  q31_t duck_attack_coeff, duck_release_fast, duck_release_slow;
   
   // Independent pitch shifters: shimmer is a parallel halo, feedback octave is loop coloration.
   dsp_pitch_shifter_t shimmer_pitch_shifter;
