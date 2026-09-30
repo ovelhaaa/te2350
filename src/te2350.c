@@ -64,6 +64,8 @@ static inline q31_t q31_sqrt_unit(q31_t v);
 static inline q31_t q31_zone_amount(q31_t v, q31_t start, q31_t end);
 static q31_t calculate_dry_mix_gain(q31_t mix);
 
+static q31_t freeze_hold_write(te2350_t *ctx, q31_t pre2, q31_t gravity);
+
 static inline q31_t q31_lerp(q31_t a, q31_t b, q31_t t) {
   return q31_add_sat(q31_mul(a, q31_sub_sat(Q31_MAX, t)), q31_mul(b, t));
 }
@@ -265,6 +267,8 @@ bool te2350_init(te2350_t *ctx, void *memory_block, size_t total_bytes, float sa
 
   dsp_onepole_init(&ctx->fb_lp, FLOAT_TO_Q31(0.10f));
   dsp_onepole_init(&ctx->fb_hp, FLOAT_TO_Q31(0.015f));
+  dsp_onepole_init(&ctx->freeze_hold_lp, float_to_q31_safe(0.20f * 48000.0f / sample_rate));
+  dsp_onepole_init(&ctx->freeze_hold_low, float_to_q31_safe(0.001f * 48000.0f / sample_rate));
   dsp_onepole_init(&ctx->presence_hp, FLOAT_TO_Q31(0.030f)); // gentle low-mud removal
   dsp_onepole_init(&ctx->presence_lp, FLOAT_TO_Q31(0.210f)); // gentle harshness control
   ctx->presence_gain_smooth = FLOAT_TO_Q31(0.12f);
@@ -532,6 +536,15 @@ void te2350_process(te2350_t *ctx, q31_t in_mono, q31_t *out_l, q31_t *out_r) {
   q31_t pre1 = dsp_allpass_process(&ctx->ap1, loop_input, (q16_16_t)ap1_d_i);
   q31_t pre2 = dsp_allpass_process(&ctx->ap2, pre1, (q16_16_t)ap2_d_i);
 
+  // Hold the captured main-delay field independently of the atmospheric FDN.
+  // The normal return loses energy in the Hermite read (15/16), normalized
+  // pitch mix, formant damping and Bloom trim. Raising its final gain cannot
+  // recover that loss safely. A convex, subunitary storage return avoids those
+  // repeated losses while retaining a small share of the M8-conditioned loop.
+  // No read head or filter is reset when Freeze changes.
+  if (ctx->freeze_crossfade > 0) {
+    pre2 = freeze_hold_write(ctx, pre2, gravity);
+  }
   dsp_delay_write(&ctx->main_delay, pre2);
 
   q31_t main_perceived_time = q31_add_sat(ctx->p_time_smoothed,
@@ -1258,4 +1271,35 @@ static q31_t feedback_condition(te2350_t *ctx,
   if (fb_gain > FLOAT_TO_Q31(0.995f)) fb_gain = FLOAT_TO_Q31(0.995f);
 
   return q31_mul(shaped, fb_gain);
+}
+
+// Keep storage-hold arithmetic out of the normal audio path's register/code
+// footprint. Only the Freeze branch calls this helper.
+#if defined(_MSC_VER)
+__declspec(noinline)
+#elif defined(__GNUC__)
+__attribute__((noinline))
+#endif
+static q31_t freeze_hold_write(te2350_t *ctx, q31_t pre2, q31_t gravity) {
+  q31_t hold_time = q31_add_sat(ctx->p_time_smoothed,
+                              q31_mul(gravity, FLOAT_TO_Q31(0.035f)));
+  int32_t hold_delay = ctx->p_time_samples_target > 0
+                          ? ctx->p_time_samples_smoothed
+                          : map_time_samples(ctx, hold_time);
+  q31_t captured = dsp_delay_read(&ctx->main_delay, (size_t)hold_delay);
+  q31_t hold_lp = dsp_onepole_lp(&ctx->freeze_hold_lp, captured);
+  q31_t hold_low = dsp_onepole_lp(&ctx->freeze_hold_low, captured);
+  // Scale loss per circulation for short delays (500 ms reference). Long
+  // delays use the reference loss: conservative decay, never unity gain.
+  int64_t hold_scale_wide = ((int64_t)hold_delay * 2 * Q31_MAX) / ctx->sample_rate_i;
+  q31_t hold_scale = hold_scale_wide > Q31_MAX ? Q31_MAX : (q31_t)hold_scale_wide;
+  q31_t held = q31_lerp(captured, hold_lp, q31_mul(hold_scale, FLOAT_TO_Q31(0.006f)));
+  held = q31_sub_sat(held, q31_mul(hold_low, q31_mul(hold_scale, FLOAT_TO_Q31(0.0005f))));
+  held = q31_lerp(held, dsp_soft_saturate_gentle(held), hold_scale);
+  q31_t hold_gain = q31_sub_sat(Q31_MAX, q31_mul(hold_scale, FLOAT_TO_Q31(0.0005f)));
+  held = q31_mul(held, hold_gain);
+  // Keep conditioned shimmer/regen audible without feeding an additive,
+  // potentially superunitary pitch loop into the captured storage field.
+  held = q31_lerp(held, pre2, q31_mul(hold_scale, FLOAT_TO_Q31(0.004f)));
+  return q31_lerp(pre2, held, ctx->freeze_crossfade);
 }

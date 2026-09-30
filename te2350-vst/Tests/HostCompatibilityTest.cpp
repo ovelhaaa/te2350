@@ -364,6 +364,14 @@ bool verifyAllocationFreeAudioPath()
     {
         if (block % 32 == 0)
             setParameter(processor, "bypass", (block / 32) % 2 == 0 ? 1.0f : 0.0f);
+        // Exercise M8.1 storage hold and both Atmos states under the existing
+        // allocation guard; parameter notifications stay outside the callback.
+        if (block % 64 == 0
+            && !setParameter(processor, "freezeEngage", (block / 64) % 2 == 0 ? 1.0f : 0.0f))
+            return false;
+        if (block % 128 == 0
+            && !setParameter(processor, "atmosFdnOn", block < 128 ? 0.0f : 1.0f))
+            return false;
         for (int sample = 0; sample < blockSize; ++sample)
         {
             const auto value = ((block * blockSize + sample) % 113) == 0 ? 0.5f : 0.0f;

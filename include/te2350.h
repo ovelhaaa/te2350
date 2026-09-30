@@ -106,6 +106,8 @@ typedef struct {
   // Freeze mode state
   bool freeze_mode;
   q31_t freeze_crossfade;  // 0 = normal, Q31_MAX = frozen
+  dsp_onepole_t freeze_hold_lp; // Gentle spectral evolution in main-delay hold
+  dsp_onepole_t freeze_hold_low; // Slow DC/LF removal; independent of pitch conditioner
 
   // Melody Generator
   bool p_melody_enabled;

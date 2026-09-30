@@ -284,3 +284,12 @@ if(TE2350_BUILD_GOLDEN_TESTS)
         juce::juce_dsp)
     add_test(NAME TE2350MusicalBehaviourTest COMMAND $<TARGET_FILE:TE2350MusicalBehaviourTest>)
 endif()
+
+if(TE2350_BUILD_GOLDEN_TESTS)
+    add_executable(TE2350FreezeConsistencyTest Tests/FreezeConsistencyTest.cpp)
+    target_link_libraries(TE2350FreezeConsistencyTest PRIVATE te2350_core)
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/FreezeConsistencyOutput")
+    add_test(NAME TE2350FreezeConsistencyTest COMMAND $<TARGET_FILE:TE2350FreezeConsistencyTest>)
+    set_tests_properties(TE2350FreezeConsistencyTest PROPERTIES
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/FreezeConsistencyOutput")
+endif()

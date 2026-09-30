@@ -25,7 +25,7 @@ bool verifyM8BloomDucking()
             // Use the MacroEngine itself below for observable effective values.
             te2350::MacroEngine macros;macros.prepare(48000,128);
             for(int n=0;n<80;++n) macros.update(processor.apvts,128);
-            const float actual=macros.getEffectiveValue("duckAmount");
+            const float actual=macros.getEffectiveValue("duckAmount", 0.0f);
             if(actual+.001f<duck || actual>1.001f || actual<=previous+.02f) return false;
             previous=actual;
         }
