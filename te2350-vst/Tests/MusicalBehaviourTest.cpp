@@ -2,6 +2,85 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include "PluginProcessor.h"
+
+// Compare the actual plugin against continuously running wet and aligned dry
+// references. Excitation during bypass catches input starvation, not just resets.
+bool verifyPluginBypass(bool spillover, float quality, bool hostCallback)
+{
+    constexpr int blockSize = 128;
+    constexpr int rampSamples = 960; // 20 ms at 48 kHz
+    TE2350AudioProcessor toggled, continuous, dry;
+    const auto set = [](TE2350AudioProcessor& p, const char* id, float value)
+    {
+        auto* parameter = p.apvts.getParameter(id);
+        parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+    };
+    for (auto* p : { &toggled, &continuous, &dry })
+    {
+        set(*p, "space", 0); set(*p, "wild", 0); set(*p, "bloom", 0);
+        set(*p, "mix", spillover ? 1.0f : 0.0f);
+        set(*p, "feedback", spillover ? 0.8f : 0.0f);
+        set(*p, "timeMs", 50); set(*p, "syncMode", 0);
+        set(*p, "modDepth", 0); set(*p, "shimmerAmount", 0);
+        set(*p, "duckAmount", 0); set(*p, "inputTrim", 0);
+        set(*p, "outputTrim", spillover ? 0.0f : -6.0f);
+        set(*p, "qualityMode", quality);
+        set(*p, "bypass", p == &dry ? 1.0f : 0.0f);
+        p->prepareToPlay(48000.0, blockSize);
+    }
+    juce::AudioBuffer<float> a(2, blockSize), b(2, blockSize), d(2, blockSize);
+    juce::MidiBuffer midi;
+    float tailPeak = 0;
+    for (int block = 0; block < 300; ++block)
+    {
+        if (block == 80) set(toggled, "bypass", 1);
+        if (block == 140) set(toggled, "bypass", 0);
+        for (int s = 0; s < blockSize; ++s)
+        {
+            const int n = block * blockSize + s;
+            const float input = spillover
+                ? ((block >= 90 && block < 120 && n % 503 == 0) ? 0.5f : 0.0f)
+                : 0.2f * std::sin(static_cast<float>(n) * 0.037f);
+            for (int ch = 0; ch < 2; ++ch)
+                a.setSample(ch, s, spillover || ch == 0 ? input : -input);
+        }
+        b.makeCopyOf(a); d.makeCopyOf(a);
+        if (hostCallback) toggled.processBlockBypassed(a, midi);
+        else toggled.processBlock(a, midi);
+        continuous.processBlock(b, midi); dry.processBlock(d, midi);
+        for (int s = 0; s < blockSize; ++s)
+        {
+            const int n = block * blockSize + s;
+            float bypass = 0;
+            if (block >= 80 && block < 140)
+                bypass = std::min(1.0f, static_cast<float>(n - 80 * blockSize + 1) / rampSamples);
+            else if (block >= 140)
+                bypass = std::max(0.0f, 1.0f - static_cast<float>(n - 140 * blockSize + 1) / rampSamples);
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                const float expected = b.getSample(ch, s) * (1 - bypass) + d.getSample(ch, s) * bypass;
+                if (!std::isfinite(a.getSample(ch, s)) || std::abs(a.getSample(ch, s) - expected) > 2.0e-5f)
+                {
+                    std::cerr << "Bypass " << (spillover ? "spillover" : "gain law")
+                              << " FAILED: quality=" << quality << " host=" << hostCallback
+                              << " sample=" << n << " expected=" << expected
+                              << " actual=" << a.getSample(ch, s) << std::endl;
+                    return false;
+                }
+                if (block >= 148) tailPeak = std::max(tailPeak, std::abs(b.getSample(ch, s)));
+            }
+        }
+    }
+    if (spillover && tailPeak < 1.0e-4f)
+    {
+        std::cerr << "Bypass spillover FAILED: reference tail is silent" << std::endl;
+        return false;
+    }
+    std::cout << "Bypass " << (spillover ? "spillover" : "gain law")
+              << " PASSED: quality=" << quality << " host=" << hostCallback << std::endl;
+    return true;
+}
 
 extern "C" {
 #include "../../include/te2350.h"
@@ -55,7 +134,12 @@ double getAMDepth(const std::vector<float>& signal, int windowSize) {
 
 int main()
 {
+    juce::ScopedJuceInitialiser_GUI juceInitialiser;
     bool allPassed = true;
+    for (float quality : { 0.0f, 1.0f })
+        for (bool hostCallback : { false, true })
+            for (bool spillover : { false, true })
+                allPassed = verifyPluginBypass(spillover, quality, hostCallback) && allPassed;
     constexpr double sampleRate = 48000.0;
 
     auto runPitchTest = [&](const char* name, int intervalIndex, double expectedFreq, double tolerance) {

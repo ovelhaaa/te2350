@@ -1444,9 +1444,9 @@ void TE2350AudioProcessorEditor::showPresetActionsMenu()
     menu.addSeparator();
 
     juce::PopupMenu mutationMenu;
-    mutationMenu.addItem(10, "Gentle  ·  10%");
-    mutationMenu.addItem(11, "Musical  ·  20%");
-    mutationMenu.addItem(12, "Deep  ·  35%");
+    mutationMenu.addItem(10, "Gentle - 10%");
+    mutationMenu.addItem(11, "Musical - 20%");
+    mutationMenu.addItem(12, "Deep - 35%");
     menu.addSubMenu("Mutate current sound", mutationMenu);
 
     auto safeThis = juce::Component::SafePointer<TE2350AudioProcessorEditor>(this);
@@ -1620,7 +1620,7 @@ bool TE2350AudioProcessorEditor::hasPresetChanges() const
 
 void TE2350AudioProcessorEditor::updatePresetStatus()
 {
-    auto label = presetDirty ? juce::String("� MODIFIED") : juce::String();
+    auto label = presetDirty ? juce::String("MODIFIED") : juce::String();
 
     presetCaption.setText(label, juce::dontSendNotification);
     presetCaption.setColour(juce::Label::textColourId,

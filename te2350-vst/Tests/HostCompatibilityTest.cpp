@@ -362,6 +362,8 @@ bool verifyAllocationFreeAudioPath()
     realtimeAllocationCount.store(0, std::memory_order_relaxed);
     for (int block = 0; block < 256; ++block)
     {
+        if (block % 32 == 0)
+            setParameter(processor, "bypass", (block / 32) % 2 == 0 ? 1.0f : 0.0f);
         for (int sample = 0; sample < blockSize; ++sample)
         {
             const auto value = ((block * blockSize + sample) % 113) == 0 ? 0.5f : 0.0f;
@@ -370,7 +372,10 @@ bool verifyAllocationFreeAudioPath()
         }
 
         trackRealtimeAllocations.store(true, std::memory_order_release);
-        processor.processBlock(buffer, midi);
+        if ((block / 32) % 2 == 0)
+            processor.processBlockBypassed(buffer, midi);
+        else
+            processor.processBlock(buffer, midi);
         trackRealtimeAllocations.store(false, std::memory_order_release);
     }
 

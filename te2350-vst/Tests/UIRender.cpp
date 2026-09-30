@@ -233,6 +233,32 @@ int main(int argc, char* argv[])
     if (snapshotButton->getButtonText() != "A"
         || std::abs(processor.apvts.getRawParameterValue("feedback")->load()-before)>0.001f) return 1;
 
+    set("feedback", 0.31f);
+    settle();
+    const auto verifyText = [](const auto& self, juce::Component& component, bool& modified) -> bool
+    {
+        if (auto* label = dynamic_cast<juce::Label*>(&component))
+        {
+            const auto text = label->getText();
+            if (text.contains("MODIFIED"))
+            {
+                if (text != "MODIFIED") return false;
+                modified = true;
+            }
+            for (auto character : text)
+                if (character == 0xfffd || (character >= 0x80 && character <= 0x9f)
+                    || character == 0x00c2 || character == 0x00c3) return false;
+        }
+        for (auto* child : component.getChildren())
+            if (!self(self, *child, modified)) return false;
+        return true;
+    };
+    bool modified = false;
+    if (!verifyText(verifyText, *editor, modified) || !modified) return 1;
+    if (!renderEditor(*editor, outputDirectory.getChildFile("modified_960x680.png"), 960, 680)
+        || !renderEditor(*editor, outputDirectory.getChildFile("modified_1040x680.png"), 1040, 680)
+        || !renderEditor(*editor, outputDirectory.getChildFile("modified_1280x820.png"), 1280, 820)) return 1;
+
     std::printf("Rendered JUCE editor references to %s\n",
                 outputDirectory.getFullPathName().toRawUTF8());
     return 0;

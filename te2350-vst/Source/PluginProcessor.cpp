@@ -126,9 +126,6 @@ void TE2350AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         {
             const auto bypassAmount = bypassMix.getNextValue();
             bypassRamp[static_cast<size_t>(sample)] = bypassAmount;
-
-            for (auto channel = 0; channel < effectBlock.getNumChannels(); ++channel)
-                effectBlock.getWritePointer(channel)[sample] *= 1.0f - bypassAmount;
         }
 
         macroEngine.update(apvts, numSamples);
