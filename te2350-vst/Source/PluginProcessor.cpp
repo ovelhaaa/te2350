@@ -134,7 +134,16 @@ void TE2350AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         macroEngine.update(apvts, numSamples);
         instabilityMeter.store(macroEngine.getInstability());
 
-        core.setParameters(collectCoreParameters(bpm));
+        const auto parameters = collectCoreParameters(bpm);
+        effectiveFeedbackMeter.store(juce::jmin(parameters.feedback, 0.95f + parameters.wild * 0.10f));
+        effectiveShimmerMeter.store(parameters.shimmerAmount);
+        effectiveDuckingMeter.store(parameters.duckAmount);
+        const float controlValues[] { parameters.timeMs, parameters.feedback, parameters.highCutHz,
+                                      parameters.diffusion, parameters.wetWidth, parameters.shimmerAmount,
+                                      parameters.duckAmount };
+        for (size_t i = 0; i < effectiveControls.size(); ++i)
+            effectiveControls[i].store(controlValues[i], std::memory_order_relaxed);
+        core.setParameters(parameters);
         core.processBlock(effectBlock);
         oversampling.setStudioMode(getChoiceIndex("qualityMode") == 1);
         oversampling.processEffectBlock(effectBlock);
@@ -433,4 +442,13 @@ te2350::CoreParameters TE2350AudioProcessor::collectCoreParameters(double bpm) c
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new TE2350AudioProcessor();
+}
+
+float TE2350AudioProcessor::getEffectiveControlValue(juce::StringRef parameterID) const
+{
+    static constexpr const char* ids[] { "timeMs", "feedback", "highCutHz", "diffusion", "wetWidth", "shimmerAmount", "duckAmount" };
+    for (size_t i = 0; i < effectiveControls.size(); ++i)
+        if (parameterID == juce::StringRef(ids[i]))
+            return effectiveControls[i].load(std::memory_order_relaxed);
+    return getRawFloat(parameterID, 0.0f);
 }

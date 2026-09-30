@@ -11,14 +11,12 @@ constexpr int userPresetIDBase = 1000;
 constexpr int embeddedUserPresetID = 9000;
 
 juce::Colour night()      { return juce::Colour(0xff06080e); }
-juce::Colour panel()      { return juce::Colour(0xff0d1420); }
 juce::Colour panelLine()  { return juce::Colour(0xff203248); }
 juce::Colour textMain()   { return juce::Colour(0xffe8f5ff); }
 juce::Colour textMuted()  { return juce::Colour(0xff8192a9); }
 juce::Colour cyan()       { return juce::Colour(0xff27d9ff); }
 juce::Colour violet()     { return juce::Colour(0xff9b62ff); }
 juce::Colour amber()      { return juce::Colour(0xffffb451); }
-juce::Colour spectral()   { return juce::Colour(0xff62f0b1); }
 
 juce::Font uiFont(float size, int style = juce::Font::plain)
 {
@@ -72,14 +70,6 @@ juce::String formatDisplayValue(double value,
     return text + suffix;
 }
 
-int chooseColumns(juce::Rectangle<int> area, int itemCount, int minCellWidth, int maxColumns)
-{
-    if (itemCount <= 0)
-        return 1;
-
-    const auto fit = (area.getWidth() + gridGap) / (minCellWidth + gridGap);
-    return juce::jlimit(1, juce::jmin(itemCount, maxColumns), fit);
-}
 
 }
 
@@ -133,14 +123,6 @@ public:
         g.setColour(juce::Colour(0xff05080d));
         g.fillEllipse(bounds);
 
-        juce::ColourGradient glow(accent.withAlpha(0.32f), centre.x, centre.y,
-                                  juce::Colours::transparentBlack, centre.x + radius, centre.y + radius, true);
-        g.setGradientFill(glow);
-        g.fillEllipse(bounds.expanded(5.0f));
-
-        g.setColour(panelLine().withAlpha(0.92f));
-        g.drawEllipse(bounds, 1.2f);
-
         juce::Path track;
         track.addCentredArc(centre.x, centre.y, radius * 0.78f, radius * 0.78f, 0.0f,
                             rotaryStartAngle, rotaryEndAngle, true);
@@ -148,6 +130,15 @@ public:
         g.strokePath(track, juce::PathStrokeType(5.0f, juce::PathStrokeType::curved,
                                                  juce::PathStrokeType::rounded));
 
+        const auto effective = slider.getProperties()["effectiveProportion"];
+        if (!effective.isVoid())
+        {
+            juce::Path ghost;
+            ghost.addCentredArc(centre.x, centre.y, radius * 0.95f, radius * 0.95f, 0.0f,
+                               rotaryStartAngle, rotaryStartAngle + static_cast<float>(effective) * (rotaryEndAngle-rotaryStartAngle), true);
+            g.setColour(cyan().withAlpha(0.25f));
+            g.strokePath(ghost, juce::PathStrokeType(2.0f));
+        }
         const auto defaultValue = slider.getProperties()["defaultProportion"];
         if (! defaultValue.isVoid())
         {
@@ -169,9 +160,6 @@ public:
         g.setColour(accent);
         g.strokePath(value, juce::PathStrokeType(5.5f, juce::PathStrokeType::curved,
                                                  juce::PathStrokeType::rounded));
-
-        g.setColour(accent.withAlpha(0.20f));
-        g.drawEllipse(bounds.reduced(radius * 0.18f), 1.0f);
 
         const auto pointerLength = radius * 0.50f;
         const auto pointerThickness = juce::jmax(2.2f, radius * 0.055f);
@@ -341,28 +329,9 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        auto r = getLocalBounds().toFloat().reduced(0.5f);
-        juce::ColourGradient bg(panel().withAlpha(0.94f), r.getX(), r.getY(),
-                                juce::Colour(0xff090d16), r.getRight(), r.getBottom(), false);
-        bg.addColour(0.62, juce::Colour(0xff0f1421));
-        g.setGradientFill(bg);
-        g.fillRoundedRectangle(r, 8.0f);
-
-        g.setColour(panelLine().withAlpha(0.62f));
-        g.drawRoundedRectangle(r, 8.0f, 1.0f);
-
-        g.setColour(cyan().withAlpha(0.24f));
-        g.drawLine(r.getX() + 12.0f, r.getY() + 25.0f, r.getRight() - 12.0f, r.getY() + 25.0f, 1.0f);
-
-        g.setFont(uiFont(12.0f, juce::Font::bold));
-        g.setColour(textMain());
-        g.drawText(title.toUpperCase(), 12, 4, getWidth() - 24, 18, juce::Justification::centredLeft);
-
-        if (code.isNotEmpty())
-        {
-            g.setColour(textMuted().withAlpha(0.78f));
-            g.drawText(code.toUpperCase(), 12, 4, getWidth() - 24, 18, juce::Justification::centredRight);
-        }
+        g.setColour(textMuted());
+        g.setFont(uiFont(10, juce::Font::bold));
+        g.drawText(title.toUpperCase(), 12, 4, getWidth()-24, 18, juce::Justification::centredLeft);
     }
 
 private:
@@ -458,89 +427,27 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        auto r = getLocalBounds().toFloat().reduced(isLarge ? 3.0f : 4.0f);
-        const auto focused = slider.hasKeyboardFocus(true);
-        g.setColour(juce::Colour(0xff080d16).withAlpha(isLarge ? 0.64f : 0.38f));
-        g.fillRoundedRectangle(r, 7.0f);
-        g.setColour(accent.withAlpha(focused ? 0.92f : isLarge ? 0.58f : 0.28f));
-        g.drawRoundedRectangle(r, 7.0f, focused ? 1.6f : isLarge ? 1.2f : 0.9f);
-
-        if (useMacroCard)
+        auto area = getLocalBounds().reduced(8);
+        if (slider.hasKeyboardFocus(true))
         {
-            auto content = getLocalBounds().reduced(13, 9);
-            const auto knobColumn = juce::jlimit(78, 96, content.getWidth() / 3);
-            auto textArea = content.withTrimmedRight(knobColumn + 6);
-
-            g.setColour(textMain());
-            g.setFont(uiFont(18.0f, juce::Font::bold));
-            g.drawFittedText(title.toUpperCase(), textArea.removeFromTop(28),
-                             juce::Justification::centredLeft, 1);
-
-            g.setColour(textMuted());
-            g.setFont(uiFont(9.0f));
-            g.drawFittedText(subtitle.toUpperCase(), textArea.removeFromTop(13),
-                             juce::Justification::centredLeft, 1);
-
-            auto value = textArea.removeFromBottom(20).toFloat();
-            g.setColour(juce::Colour(0xff05080d).withAlpha(0.72f));
-            g.fillRoundedRectangle(value, 4.0f);
-            g.setColour(accent.withAlpha(focused ? 0.72f : 0.42f));
-            g.drawRoundedRectangle(value, 4.0f, focused ? 1.2f : 0.8f);
-            g.setColour(textMain().withAlpha(0.96f));
-            g.setFont(uiFont(10.5f, juce::Font::bold));
-            g.drawFittedText(formatValue(), value.toNearestInt().reduced(4, 0),
-                             juce::Justification::centred, 1);
-            return;
+            g.setColour(accent.withAlpha(0.6f));
+            g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(2), 5, 1);
         }
-
-        auto labelArea = getLocalBounds().reduced(isLarge ? 10 : 7);
-
         g.setColour(textMain());
-        g.setFont(uiFont(isLarge ? 18.5f : 11.5f, juce::Font::bold));
-        g.drawFittedText(title.toUpperCase(), labelArea.removeFromTop(isLarge ? 25 : 17),
-                         juce::Justification::centred, 1);
-
+        g.setFont(uiFont(useMacroCard ? 20.0f : 12.0f, juce::Font::bold));
+        g.drawText(title.toUpperCase(), area.removeFromTop(26), juce::Justification::centred);
         g.setColour(textMuted());
-        g.setFont(uiFont(isLarge ? 10.0f : 9.0f, juce::Font::plain));
-        g.drawFittedText(subtitle.toUpperCase(), labelArea.removeFromTop(isLarge ? 14 : 12),
-                         juce::Justification::centred, 1);
-
-        const auto engaged = isLarge || focused || isMouseOver(true)
-                          || slider.isMouseOver(true) || slider.isMouseButtonDown(true);
-        const auto valueBgAlpha = engaged ? 0.72f : 0.30f;
-        const auto valueBorderAlpha = engaged ? 0.42f : 0.18f;
-        const auto valueTextAlpha = engaged ? 0.96f : 0.78f;
-        auto value = getLocalBounds().reduced(isLarge ? 17 : 10)
-                    .removeFromBottom(isLarge ? 20 : 17).toFloat();
-        g.setColour(juce::Colour(0xff05080d).withAlpha(valueBgAlpha));
-        g.fillRoundedRectangle(value, 4.0f);
-        g.setColour(accent.withAlpha(valueBorderAlpha));
-        g.drawRoundedRectangle(value, 4.0f, 0.8f);
-        g.setColour(textMain().withAlpha(valueTextAlpha));
-        g.setFont(uiFont(isLarge ? 11.0f : 9.5f, juce::Font::bold));
-        g.drawFittedText(formatValue(), value.toNearestInt().reduced(4, 0),
-                         juce::Justification::centred, 1);
+        g.setFont(uiFont(12));
+        g.drawText(formatValue(), area.removeFromBottom(22), juce::Justification::centred);
     }
 
     void resized() override
     {
-        if (useMacroCard)
-        {
-            auto area = getLocalBounds().reduced(8);
-            const auto knobColumn = juce::jlimit(78, 96, area.getWidth() / 3);
-            auto knobArea = area.removeFromRight(knobColumn);
-            const auto side = juce::jmin(84, juce::jmin(knobArea.getWidth(), knobArea.getHeight()));
-            slider.setBounds(juce::Rectangle<int>(side, side).withCentre(knobArea.getCentre()));
-            return;
-        }
-
-        auto area = getLocalBounds().reduced(isLarge ? 8 : 5);
-        area.removeFromTop(isLarge ? 43 : 31);
-        area.removeFromBottom(isLarge ? 23 : 20);
-
-        const auto maxSide = isLarge ? 118 : 62;
-        const auto availableSide = juce::jmin(area.getWidth(), area.getHeight());
-        const auto side = juce::jmin(maxSide, juce::jmax(24, availableSide));
+        auto area = getLocalBounds().reduced(8);
+        area.removeFromTop(26);
+        area.removeFromBottom(22);
+        const auto side = juce::jmin(useMacroCard ? 170 : 76,
+                                    juce::jmin(area.getWidth(), area.getHeight()));
         slider.setBounds(juce::Rectangle<int>(side, side).withCentre(area.getCentre()));
     }
 
@@ -671,27 +578,13 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        auto r = getLocalBounds().toFloat().reduced(4.0f);
-        const auto focused = combo.hasKeyboardFocus(true);
-        g.setColour(juce::Colour(0xff080d16).withAlpha(0.36f));
-        g.fillRoundedRectangle(r, 7.0f);
-        g.setColour((focused ? cyan() : panelLine()).withAlpha(focused ? 0.90f : 0.54f));
-        g.drawRoundedRectangle(r, 7.0f, focused ? 1.5f : 0.9f);
-
         g.setColour(textMain());
-        g.setFont(uiFont(11.0f, juce::Font::bold));
-        g.drawFittedText(title.toUpperCase(), 7, 7, getWidth() - 14, 14,
-                         juce::Justification::centred, 1);
-
-        g.setColour(textMuted());
-        g.setFont(uiFont(8.8f));
-        g.drawFittedText(subtitle.toUpperCase(), 7, 21, getWidth() - 14, 12,
-                         juce::Justification::centred, 1);
+        g.setFont(uiFont(11, juce::Font::bold));
+        g.drawText(title.toUpperCase(), 7, 7, getWidth()-14, 18, juce::Justification::centred);
     }
-
     void resized() override
     {
-        combo.setBounds(getLocalBounds().reduced(11).removeFromBottom(27));
+        combo.setBounds(getLocalBounds().reduced(8).removeFromBottom(27));
     }
 
 private:
@@ -851,18 +744,18 @@ private:
             return colour;
 
         if (level >= 0.92f)
-            return juce::Colour(0xffff5c5c);
+            return amber();
 
         if (level >= 0.82f)
             return amber();
 
-        return spectral();
+        return cyan();
     }
 
     juce::String formatLevel() const
     {
         if (isWarningMeter)
-            return level >= 0.92f ? "LIMIT" : juce::String(juce::roundToInt(level * 100.0f)) + "%";
+            return juce::String(juce::roundToInt(level * 105.0f)) + "%";
 
         if (level <= 0.0001f)
             return "-inf";
@@ -875,73 +768,6 @@ private:
     juce::Colour colour;
     bool isWarningMeter = false;
     float level = 0.0f;
-};
-
-class TE2350AudioProcessorEditor::GravityMeter final : public juce::Component
-{
-public:
-    void setValues(float instabilityValue, float feedbackValue, float phaseValue)
-    {
-        instability = juce::jlimit(0.0f, 1.0f, instabilityValue);
-        feedback = juce::jlimit(0.0f, 1.05f, feedbackValue) / 1.05f;
-        phase = phaseValue;
-        repaint();
-    }
-
-    void paint(juce::Graphics& g) override
-    {
-        auto r = getLocalBounds().toFloat().reduced(4.0f);
-        const auto size = juce::jmin(r.getWidth(), r.getHeight());
-        auto orbit = juce::Rectangle<float>(size, size).withCentre(r.getCentre());
-        auto centre = orbit.getCentre();
-        const auto radius = size * 0.39f;
-
-        g.setColour(juce::Colour(0xff05080d));
-        g.fillEllipse(orbit);
-        g.setColour(panelLine().withAlpha(0.72f));
-        g.drawEllipse(orbit, 1.0f);
-        g.setColour(cyan().withAlpha(0.18f));
-        g.drawEllipse(orbit.reduced(size * 0.17f), 1.0f);
-
-        juce::Path field;
-        constexpr int points = 150;
-        for (int i = 0; i <= points; ++i)
-        {
-            const auto t = juce::MathConstants<float>::twoPi * static_cast<float>(i) / static_cast<float>(points);
-            const auto wobble = 1.0f + 0.12f * std::sin(t * 5.0f + phase);
-            const auto x = centre.x + std::sin(t * 2.0f + phase * 0.45f) * radius * wobble;
-            const auto y = centre.y + std::sin(t * 3.0f + phase) * radius * wobble;
-            if (i == 0)
-                field.startNewSubPath(x, y);
-            else
-                field.lineTo(x, y);
-        }
-
-        g.setColour(violet().withAlpha(0.16f + instability * 0.32f));
-        g.strokePath(field, juce::PathStrokeType(2.0f + instability * 2.0f));
-        g.setColour(spectral().withAlpha(0.40f + instability * 0.45f));
-        g.strokePath(field, juce::PathStrokeType(1.0f));
-
-        const auto moonAngle = phase * 0.55f;
-        const auto moon = juce::Point<float>(centre.x + std::cos(moonAngle) * radius * 0.82f,
-                                             centre.y + std::sin(moonAngle) * radius * 0.58f);
-        g.setColour(amber().withAlpha(0.88f));
-        g.fillEllipse(juce::Rectangle<float>(7.0f, 7.0f).withCentre(moon));
-
-        g.setColour(textMain());
-        g.setFont(uiFont(11.0f, juce::Font::bold));
-        g.drawText("GRAVITY", getLocalBounds().removeFromTop(15), juce::Justification::centred);
-        g.setColour(textMuted());
-        g.setFont(uiFont(10.0f));
-        g.drawText(juce::String(juce::roundToInt(instability * 100.0f)) + "% / " +
-                   juce::String(juce::roundToInt(feedback * 100.0f)) + "%",
-                   getLocalBounds().removeFromBottom(15), juce::Justification::centred);
-    }
-
-private:
-    float instability = 0.0f;
-    float feedback = 0.0f;
-    float phase = 0.0f;
 };
 
 class TE2350AudioProcessorEditor::LogoMark final : public juce::Component
@@ -974,7 +800,7 @@ public:
                     path.lineTo(x, y);
             }
 
-            g.setColour((pass == 0 ? cyan() : pass == 1 ? violet() : spectral()).withAlpha(0.48f));
+            g.setColour((pass == 0 ? cyan() : pass == 1 ? violet() : cyan()).withAlpha(0.48f));
             g.strokePath(path, juce::PathStrokeType(pass == 0 ? 1.6f : 1.0f));
         }
 
@@ -1002,13 +828,12 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     macroPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Macros", "Performance")));
     corePanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Delay / Reverb", "Perform")));
     advancedPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Advanced", "Sculpt")));
-    utilityPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("I/O", "System")));
-    gravityMeter = static_cast<GravityMeter*>(addOwned(std::make_unique<GravityMeter>()));
+    utilityPanel = static_cast<SectionPanel*>(addOwned(std::make_unique<SectionPanel>("Engine / System", "")));
     inputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Input", cyan())));
-    outputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Output", spectral())));
-    feedbackMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Feedback Safety", amber(), true)));
+    outputMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Output", cyan())));
+    feedbackMeter = static_cast<MeterStrip*>(addOwned(std::make_unique<MeterStrip>("Feedback", amber(), true)));
     corePerformLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Perform", cyan())));
-    coreColorLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Color", spectral())));
+    coreColorLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Color", cyan())));
     advancedMotionLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Motion", violet())));
     advancedTextureLabel = static_cast<GroupLabel*>(addOwned(std::make_unique<GroupLabel>("Texture", amber())));
 
@@ -1031,10 +856,9 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     coreLayer.addAndMakeVisible(coreColorLabel);
     advancedLayer.addAndMakeVisible(advancedMotionLabel);
     advancedLayer.addAndMakeVisible(advancedTextureLabel);
-    utilityPanel->addAndMakeVisible(gravityMeter);
-    utilityPanel->addAndMakeVisible(inputMeter);
-    utilityPanel->addAndMakeVisible(outputMeter);
-    utilityPanel->addAndMakeVisible(feedbackMeter);
+    addAndMakeVisible(inputMeter);
+    addAndMakeVisible(outputMeter);
+    addAndMakeVisible(feedbackMeter);
 
     presetSelector.onChange = [this]
     {
@@ -1106,7 +930,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     resetButton.setDescription("Restore every parameter to its declared default value.");
 
     bypassButton.setButtonText("BYPASS");
-    bypassButton.setColour(juce::TextButton::buttonOnColourId, spectral());
+    bypassButton.setColour(juce::TextButton::buttonOnColourId, cyan());
     bypassButton.setComponentID("bypass-button");
     bypassButton.setName("Bypass");
     bypassButton.setTitle("Bypass");
@@ -1126,55 +950,57 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     advancedToggle.onClick = [this]
     {
         advancedExpanded = ! advancedExpanded;
-        advancedToggle.setButtonText(advancedExpanded ? "PERFORM" : "SCULPT");
+        advancedToggle.setButtonText(advancedExpanded ? "CLOSE" : "ADVANCED");
         advancedToggle.setToggleState(advancedExpanded, juce::dontSendNotification);
         advancedToggle.setTooltip(advancedExpanded ? "Return to the performance view."
                                                    : "Open the detailed sound-design view.");
         resized();
     };
 
-    addSlider(macroLayer, macroControls, "space", "Space", "depth / size", cyan(), true, "%", 100.0, 0);
-    addSlider(macroLayer, macroControls, "wild", "Wild", "instability", violet(), true, "%", 100.0, 0);
-    addSlider(macroLayer, macroControls, "bloom", "Bloom", "tail / expand", amber(), true, "%", 100.0, 0);
+    addSlider(macroLayer, macroControls, "space", "Space", "Expands delay time, diffusion, width and atmospheric depth.", cyan(), true, "%", 100.0, 0);
+    addSlider(macroLayer, macroControls, "wild", "Wild", "Introduces instability, modulation, chaos and regenerative feedback.", violet(), true, "%", 100.0, 0);
+    addSlider(macroLayer, macroControls, "bloom", "Bloom", "Extends and opens the tail while adding shimmer and ducking.", cyan(), true, "%", 100.0, 0);
 
     auto& timeSlider = addSlider(coreLayer, corePrimaryControls,
                                  "timeMs", "Time", "delay line", cyan(), true, " ms", 1.0, 0);
     timeControl = timeSlider.getParentComponent();
     addSlider(coreLayer, corePrimaryControls, "feedback", "Feedback", "regeneration", amber(), true, "%", 100.0, 0);
-    addSlider(coreLayer, corePrimaryControls, "mix", "Mix", "dry / wet", spectral(), true, "%", 100.0, 0);
-    addSlider(coreLayer, coreSecondaryControls, "diffusion", "Diffusion", "cloud density", violet(), false, "%", 100.0, 0);
-    addSlider(coreLayer, coreSecondaryControls, "highCutHz", "Tone", "air / damp", spectral(), false, " kHz", 0.001, 1);
-    addSlider(coreLayer, coreSecondaryControls, "lowCutHz", "Damp", "low orbit", amber(), false, " Hz", 1.0, 0);
-    addSlider(coreLayer, coreSecondaryControls, "wetWidth", "Width", "stereo field", cyan(), false, "%", 100.0, 0);
-    addCombo(coreLayer, coreSecondaryControls, "syncMode", "Sync", "host grid");
+    addSlider(coreLayer, corePrimaryControls, "mix", "Mix", "dry / wet", cyan(), true, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedColorControls, "diffusion", "Diffusion", "cloud density", violet(), false, "%", 100.0, 0);
+    addSlider(coreLayer, corePrimaryControls, "highCutHz", "Tone", "Wet high-cut / brightness; frequency mapping follows the voiced core filter.", cyan(), true, " kHz", 0.001, 1);
+    addSlider(advancedLayer, advancedColorControls, "lowCutHz", "Low Cut", "Removes low-frequency energy from the wet signal.", amber(), false, " Hz", 1.0, 0);
+    addSlider(coreLayer, corePrimaryControls, "wetWidth", "Width", "stereo field", cyan(), true, "%", 100.0, 0);
+    syncSelector = &addCombo(coreLayer, coreSecondaryControls, "syncMode", "", "Host tempo division; Free enables manual Time.");
+    syncSelector->setName("Time sync");
+    syncSelector->setTitle("Time sync");
 
     addSlider(advancedLayer, advancedMotionControls, "modRateHz", "Mod Rate", "slow orbit", cyan(), false, " Hz", 1.0, 2);
     addSlider(advancedLayer, advancedMotionControls, "modDepth", "Mod Depth", "field bend", violet(), false, "%", 100.0, 0);
     addCombo(advancedLayer, advancedMotionControls, "modShape", "Mod Shape", "movement");
     addSlider(advancedLayer, advancedMotionControls, "chaos", "Chaos", "diffusion random", violet(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedMotionControls, "presence", "Presence", "front detail", spectral(), false, "%", 100.0, 0);
-    addSlider(advancedLayer, advancedMotionControls, "wobble", "Pitch Drift", "tape gravity", spectral(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedColorControls, "presence", "Presence", "front detail", cyan(), false, "%", 100.0, 0);
+    addSlider(advancedLayer, advancedMotionControls, "wobble", "Drift", "tape gravity", cyan(), false, "%", 100.0, 0);
     addSlider(advancedLayer, advancedTextureControls, "shimmerAmount", "Shimmer", "octave veil", amber(), false, "%", 100.0, 0);
     auto& shimmerFeedback = addSlider(advancedLayer, advancedTextureControls,
-                                      "shimmerFeedback", "Shimmer FB", "recirculate",
+                                      "shimmerFeedback", "Regen", "Amount of pitched signal fed back into the tail.",
                                       amber(), false, "%", 100.0, 0);
     shimmerFeedbackControl = shimmerFeedback.getParentComponent();
     auto& shimmerInterval = addCombo(advancedLayer, advancedTextureControls,
-                                     "shimmerInterval", "Octave", "interval");
+                                     "shimmerInterval", "Interval", "Pitch interval of the shimmer and regeneration lanes.");
     shimmerIntervalControl = shimmerInterval.getParentComponent();
-    addSlider(advancedLayer, advancedTextureControls, "duckAmount", "Ducking", "clear centre", cyan(), false, "%", 100.0, 0);
-    auto& duckThreshold = addSlider(advancedLayer, advancedTextureControls,
-                                    "duckThreshold", "Duck Thr", "trigger level",
+    addSlider(advancedLayer, advancedDynamicsControls, "duckAmount", "Ducking", "clear centre", cyan(), false, "%", 100.0, 0);
+    auto& duckThreshold = addSlider(advancedLayer, advancedDynamicsControls,
+                                    "duckThreshold", "Duck Threshold", "trigger level",
                                     cyan(), false, " dB", 1.0, 1);
     duckThresholdControl = duckThreshold.getParentComponent();
-    addToggle(advancedLayer, advancedTextureControls, "freezeEngage", "Freeze", spectral(),
+    addToggle(advancedLayer, advancedFreezeControls, "freezeEngage", "Freeze", cyan(),
               [this]
               {
                   if (const auto* mode = processor.apvts.getRawParameterValue("freezeMode"))
                       return mode->load() < 0.5f;
                   return false;
               });
-    auto& freezeMode = addCombo(advancedLayer, advancedTextureControls,
+    auto& freezeMode = addCombo(advancedLayer, advancedFreezeControls,
                                 "freezeMode", "Freeze Mode", "hold / latch");
     freezeMode.onChange = [this]
     {
@@ -1192,12 +1018,12 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
     };
 
     addFader(utilityLayer, utilityControls, "inputTrim", "Input", "trim", cyan(), " dB", 1.0, 1);
-    addFader(utilityLayer, utilityControls, "outputTrim", "Output", "trim", spectral(), " dB", 1.0, 1);
-    addToggle(utilityLayer, utilityControls, "killDry", "Kill Dry", amber());
-    addToggle(utilityLayer, utilityControls, "atmosFdnOn", "Atmos", violet());
-    addCombo(utilityLayer, utilityControls, "qualityMode", "Engine", "fixed / 2x");
+    addFader(utilityLayer, utilityControls, "outputTrim", "Output", "trim", cyan(), " dB", 1.0, 1);
+    addToggle(utilityLayer, utilityControls, "killDry", "Kill Dry", cyan()).setTooltip("Removes the direct signal inside the effect mix. Useful on aux/send buses.");
+    addToggle(utilityLayer, utilityControls, "atmosFdnOn", "Atmos FDN", violet());
+    addCombo(utilityLayer, utilityControls, "qualityMode", "Engine", "Hardware: Original fixed-point character. Studio: 2x oversampled output colour path.");
 
-    addToggle(macroLayer, macroPerformanceControls, "freezeEngage", "Freeze", spectral(),
+    addToggle(coreLayer, macroPerformanceControls, "freezeEngage", "Freeze", cyan(),
               [this]
               {
                   if (const auto* mode = processor.apvts.getRawParameterValue("freezeMode"))
@@ -1217,16 +1043,34 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
         presetDirty = true;
         updatePresetStatus();
     };
-    macroLayer.addAndMakeVisible(mutateButton);
-    macroPerformanceControls.push_back(&mutateButton);
+    addAndMakeVisible(mutateButton);
 
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
     loadedPresetSnapshot = snapshotA.createCopy();
 
-    corePanel->setVisible(! advancedExpanded);
+    corePanel->setVisible(true);
     advancedPanel->setVisible(advancedExpanded);
 
+    resetButton.setVisible(false);
+    corePerformLabel->setVisible(false);
+    coreColorLabel->setVisible(false);
+    advancedMotionLabel->setVisible(false);
+    advancedTextureLabel->setVisible(false);
+    advancedViewport.setComponentID("advanced-drawer");
+    addAndMakeVisible(advancedViewport);
+    advancedViewport.setViewedComponent(&advancedContent, false);
+    advancedViewport.setScrollBarsShown(true, false);
+    advancedContent.addAndMakeVisible(advancedPanel);
+    advancedPanel->setVisible(advancedExpanded);
+    advancedContent.addAndMakeVisible(utilityPanel);
+    for (const auto& name : { "MOTION", "SHIMMER", "COLOR", "DYNAMICS", "FREEZE", "ENGINE / SYSTEM" })
+    {
+        auto label = std::make_unique<GroupLabel>(name, cyan());
+        advancedLayer.addAndMakeVisible(label.get());
+        advancedGroupLabels.push_back(label.get());
+        ownedComponents.push_back(std::move(label));
+    }
     updateDependentControls();
     observedProgramIndex = processor.getCurrentProgram();
     rebuildPresetSelector();
@@ -1246,103 +1090,57 @@ TE2350AudioProcessorEditor::~TE2350AudioProcessorEditor()
 
 void TE2350AudioProcessorEditor::paint(juce::Graphics& g)
 {
-    auto bounds = getLocalBounds().toFloat();
-    juce::ColourGradient bg(night(), bounds.getCentreX(), 0.0f,
-                            juce::Colour(0xff121032), bounds.getRight(), bounds.getBottom(), true);
-    bg.addColour(0.42, juce::Colour(0xff071626));
-    bg.addColour(0.78, juce::Colour(0xff160d26));
-    g.setGradientFill(bg);
-    g.fillRect(bounds);
-
-    g.setColour(violet().withAlpha(0.08f));
-    g.fillEllipse(bounds.withSizeKeepingCentre(bounds.getWidth() * 0.92f, bounds.getHeight() * 1.10f));
-
-    for (int i = 0; i < 22; ++i)
-    {
-        const auto x = std::fmod(static_cast<float>(i * 97 + 29), juce::jmax(1.0f, bounds.getWidth()));
-        const auto y = std::fmod(static_cast<float>(i * 53 + 41), juce::jmax(1.0f, bounds.getHeight()));
-        const auto alpha = 0.03f + 0.08f * (0.5f + 0.5f * std::sin(animationPhase * 0.25f + static_cast<float>(i)));
-        g.setColour((i % 4 == 0 ? amber() : i % 3 == 0 ? violet() : cyan()).withAlpha(alpha));
-        g.fillEllipse(x, y, i % 5 == 0 ? 1.8f : 1.1f, i % 5 == 0 ? 1.8f : 1.1f);
-    }
-
-    auto header = getLocalBounds().reduced(margin).removeFromTop(54);
-    g.setColour(textMuted());
-    g.setFont(uiFont(11.0f, juce::Font::bold));
-    g.drawText("AMBIENT DELAY / REVERB TEXTURE INSTRUMENT",
-               header.withTrimmedLeft(76).removeFromBottom(16), juce::Justification::centredLeft);
-
+    g.fillAll(night());
     g.setColour(textMain());
-    g.setFont(uiFont(27.0f, juce::Font::bold));
-    g.drawFittedText("TE-2350 ANTIGRAVITY",
-                     header.withTrimmedLeft(76).withTrimmedRight(480),
-                     juce::Justification::centredLeft,
-                     1,
-                     0.86f);
-
-    g.setColour(cyan().withAlpha(0.58f));
-    g.drawHorizontalLine(header.getBottom() + 4, static_cast<float>(margin), static_cast<float>(getWidth() - margin));
+    g.setFont(uiFont(25, juce::Font::bold));
+    g.drawText("TE-2350", 80, 18, 160, 30, juce::Justification::centredLeft);
+    g.setColour(textMuted());
+    g.setFont(uiFont(10));
+    g.drawText("ANTIGRAVITY", 82, 48, 160, 16, juce::Justification::centredLeft);
 }
 
 void TE2350AudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced(margin);
     auto header = area.removeFromTop(54);
-
-    logoMark->setBounds(header.removeFromLeft(52).reduced(2));
-    header.removeFromLeft(12);
-
-    auto headerRight = header.removeFromRight(480);
-    bypassButton.setBounds(headerRight.removeFromRight(74).reduced(3, 10));
-    resetButton.setBounds(headerRight.removeFromRight(64).reduced(3, 10));
-    abButton.setBounds(headerRight.removeFromRight(66).reduced(3, 10));
-    advancedToggle.setBounds(headerRight.removeFromRight(78).reduced(3, 10));
-    headerRight.removeFromRight(8);
-    auto presetArea = headerRight.removeFromRight(190).reduced(2, 3);
-    presetCaption.setBounds(presetArea.removeFromTop(12));
-    auto presetActionArea = presetArea.removeFromRight(28);
-    presetArea.removeFromRight(4);
-    presetSelector.setBounds(presetArea.reduced(0, 1));
-    presetActionsButton.setBounds(presetActionArea.reduced(0, 1));
-
+    logoMark->setBounds(header.removeFromLeft(52));
+    auto right = header.removeFromRight(getWidth() - 270);
+    bypassButton.setBounds(right.removeFromRight(80).reduced(3,10));
+    advancedToggle.setBounds(right.removeFromRight(100).reduced(3,10));
+    abButton.setBounds(right.removeFromRight(40).reduced(3,10));
+    mutateButton.setBounds(right.removeFromRight(78).reduced(3,10));
+    presetActionsButton.setBounds(right.removeFromRight(32).reduced(2,10));
+    presetCaption.setBounds(right.removeFromBottom(14));
+    presetSelector.setBounds(right.reduced(4,4));
     area.removeFromTop(12);
-    const auto utilityHeight = juce::jlimit(116, 136, area.getHeight() / 5);
-    auto utility = area.removeFromBottom(utilityHeight);
-    area.removeFromBottom(12);
-
-    const auto leftWidth = juce::jlimit(252, 304, area.getWidth() / 3);
-    auto left = area.removeFromLeft(leftWidth);
-    area.removeFromLeft(12);
-
-    macroPanel->setBounds(left);
-    utilityPanel->setBounds(utility);
-
-    corePanel->setVisible(! advancedExpanded);
+    auto footer = area.removeFromBottom(34);
+    const auto meterWidth = footer.getWidth()/3;
+    inputMeter->setBounds(footer.removeFromLeft(meterWidth).reduced(12,0));
+    outputMeter->setBounds(footer.removeFromLeft(meterWidth).reduced(12,0));
+    feedbackMeter->setBounds(footer.reduced(12,0));
+    area.removeFromBottom(8);
+    advancedViewport.setVisible(advancedExpanded);
     advancedPanel->setVisible(advancedExpanded);
-    corePanel->setBounds(area);
-    advancedPanel->setBounds(area);
-
+    if (advancedExpanded)
+    {
+        advancedViewport.setBounds(area.removeFromBottom(150));
+        area.removeFromBottom(8);
+    }
+    auto macros = area.removeFromTop(advancedExpanded ? 185 : area.getHeight()*3/5);
+    macroPanel->setBounds(macros);
     macroLayer.setBounds(macroPanel->getContentBounds());
-    coreLayer.setBounds(corePanel->getContentBounds());
-    advancedLayer.setBounds(advancedPanel->getContentBounds());
-
     layoutMacroControls(macroLayer.getLocalBounds());
+    corePanel->setBounds(area);
+    coreLayer.setBounds(corePanel->getContentBounds());
     layoutCoreControls(coreLayer.getLocalBounds());
+    const auto contentWidth = getWidth()-margin*2-18;
+    advancedContent.setSize(contentWidth, 770);
+    advancedPanel->setBounds(0,0,contentWidth,640);
+    advancedLayer.setBounds(advancedPanel->getContentBounds());
     layoutAdvancedControls(advancedLayer.getLocalBounds());
-
-    auto utilityContent = utilityPanel->getContentBounds();
-    auto meterArea = utilityContent.removeFromRight(
-        juce::jlimit(370, 445, static_cast<int>(utilityContent.getWidth() * 0.43f)));
-    utilityContent.removeFromRight(10);
-    utilityLayer.setBounds(utilityContent);
-    layoutGrid(utilityLayer.getLocalBounds(), utilityControls,
-               static_cast<int>(utilityControls.size()));
-
-    gravityMeter->setBounds(meterArea.removeFromRight(76).reduced(2));
-    meterArea.removeFromRight(8);
-    inputMeter->setBounds(meterArea.removeFromTop(meterArea.getHeight() / 3).reduced(0, 1));
-    outputMeter->setBounds(meterArea.removeFromTop(meterArea.getHeight() / 2).reduced(0, 1));
-    feedbackMeter->setBounds(meterArea.reduced(0, 1));
+    utilityPanel->setBounds(0,640,contentWidth,130);
+    utilityLayer.setBounds(utilityPanel->getContentBounds());
+    layoutGrid(utilityLayer.getLocalBounds(),utilityControls,5);
 }
 
 juce::Slider& TE2350AudioProcessorEditor::addSlider(juce::Component& parent,
@@ -1361,17 +1159,20 @@ juce::Slider& TE2350AudioProcessorEditor::addSlider(juce::Component& parent,
                                               suffix, displayScale, decimalPlaces);
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
+    raw->setComponentID(parameterID);
+    jassert(processor.apvts.getParameter(parameterID) != nullptr);
     enableDefaultReset(raw->getSlider(), processor.apvts.getParameter(parameterID));
+    raw->getSlider().getProperties().set("parameterID", parameterID);
 
     if (parameterID == "feedback")
     {
         raw->getSlider().getProperties().set("warningThresholdValue", 0.86);
-        raw->getSlider().getProperties().set("criticalThresholdValue", 0.97);
+        raw->getSlider().getProperties().set("criticalThresholdValue", 2.0);
     }
     else if (parameterID == "shimmerFeedback")
     {
         raw->getSlider().getProperties().set("warningThresholdValue", 0.76);
-        raw->getSlider().getProperties().set("criticalThresholdValue", 0.88);
+        raw->getSlider().getProperties().set("criticalThresholdValue", 2.0);
     }
 
     sliderAttachments.push_back(std::make_unique<SliderAttachment>(processor.apvts, parameterID, raw->getSlider()));
@@ -1394,7 +1195,10 @@ juce::Slider& TE2350AudioProcessorEditor::addFader(juce::Component& parent,
                                                suffix, displayScale, decimalPlaces);
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
+    raw->setComponentID(parameterID);
+    jassert(processor.apvts.getParameter(parameterID) != nullptr);
     enableDefaultReset(raw->getSlider(), processor.apvts.getParameter(parameterID));
+    raw->getSlider().getProperties().set("parameterID", parameterID);
     sliderAttachments.push_back(std::make_unique<SliderAttachment>(processor.apvts, parameterID, raw->getSlider()));
     group.push_back(raw);
     ownedComponents.push_back(std::move(control));
@@ -1410,6 +1214,8 @@ juce::ComboBox& TE2350AudioProcessorEditor::addCombo(juce::Component& parent,
     auto control = std::make_unique<ComboTile>(title, subtitle);
     auto* raw = control.get();
     parent.addAndMakeVisible(raw);
+    raw->setComponentID(parameterID);
+    jassert(processor.apvts.getParameter(parameterID) != nullptr);
     populateComboChoices(raw->getCombo(), processor.apvts.getParameter(parameterID));
     comboAttachments.push_back(std::make_unique<ComboAttachment>(processor.apvts, parameterID, raw->getCombo()));
     group.push_back(raw);
@@ -1428,6 +1234,8 @@ juce::Button& TE2350AudioProcessorEditor::addToggle(juce::Component& parent,
     auto* raw = control.get();
     raw->setMomentaryPredicate(std::move(isMomentary));
     parent.addAndMakeVisible(raw);
+    raw->setComponentID(parameterID);
+    jassert(processor.apvts.getParameter(parameterID) != nullptr);
     buttonAttachments.push_back(std::make_unique<ButtonAttachment>(processor.apvts, parameterID, raw->getButton()));
     group.push_back(raw);
     ownedComponents.push_back(std::move(control));
@@ -1459,68 +1267,38 @@ void TE2350AudioProcessorEditor::layoutGrid(juce::Rectangle<int> area,
 
 void TE2350AudioProcessorEditor::layoutCoreControls(juce::Rectangle<int> area)
 {
-    if (corePrimaryControls.empty() && coreSecondaryControls.empty())
-        return;
-
-    const auto gap = 10;
-    const auto primaryHeight = juce::jlimit(160, 230, static_cast<int>(static_cast<float>(area.getHeight()) * 0.55f));
-    auto primaryArea = area.removeFromTop(primaryHeight);
-    area.removeFromTop(gap);
-
-    corePerformLabel->setBounds(primaryArea.removeFromTop(16));
-    primaryArea.removeFromTop(4);
-    coreColorLabel->setBounds(area.removeFromTop(16));
-    area.removeFromTop(4);
-
-    layoutGrid(primaryArea, corePrimaryControls, chooseColumns(primaryArea, static_cast<int>(corePrimaryControls.size()), 150, 3));
-
-    const auto secondaryColumns = chooseColumns(area, static_cast<int>(coreSecondaryControls.size()), 96, 5);
-    layoutGrid(area, coreSecondaryControls, secondaryColumns);
+    auto freezeArea = area.removeFromRight(116);
+    layoutGrid(freezeArea.withSizeKeepingCentre(110,50), macroPerformanceControls,1);
+    const auto width = area.getWidth()/5;
+    for (size_t i=0; i<corePrimaryControls.size(); ++i)
+    {
+        auto cell = area.removeFromLeft(width);
+        if (i==0)
+        {
+            coreSecondaryControls.front()->setBounds(cell.removeFromBottom(34));
+        }
+        corePrimaryControls[i]->setBounds(cell);
+    }
 }
 
 void TE2350AudioProcessorEditor::layoutAdvancedControls(juce::Rectangle<int> area)
 {
-    if (advancedMotionControls.empty() && advancedTextureControls.empty())
-        return;
-
-    const auto gap = 10;
-    const auto motionHeight = juce::jlimit(140, 210, static_cast<int>(static_cast<float>(area.getHeight()) * 0.45f));
-    auto motionArea = area.removeFromTop(motionHeight);
-    area.removeFromTop(gap);
-
-    advancedMotionLabel->setBounds(motionArea.removeFromTop(16));
-    motionArea.removeFromTop(4);
-    advancedTextureLabel->setBounds(area.removeFromTop(16));
-    area.removeFromTop(4);
-
-    const auto motionColumns = chooseColumns(motionArea, static_cast<int>(advancedMotionControls.size()), 104, 6);
-    const auto textureColumns = chooseColumns(area, static_cast<int>(advancedTextureControls.size()), 72, 7);
-
-    layoutGrid(motionArea, advancedMotionControls, motionColumns);
-    layoutGrid(area, advancedTextureControls, textureColumns);
+    const std::vector<juce::Component*>* groups[] = {
+        &advancedMotionControls, &advancedTextureControls, &advancedColorControls,
+        &advancedDynamicsControls, &advancedFreezeControls
+    };
+    for (int i=0; i<5; ++i)
+    {
+        auto row = area.removeFromTop(120);
+        advancedGroupLabels[static_cast<size_t>(i)]->setBounds(row.removeFromLeft(110));
+        layoutGrid(row,*groups[i],static_cast<int>(groups[i]->size()));
+    }
+    advancedGroupLabels.back()->setVisible(false);
 }
 
 void TE2350AudioProcessorEditor::layoutMacroControls(juce::Rectangle<int> area)
 {
-    if (macroControls.empty())
-        return;
-
-    if (! macroPerformanceControls.empty())
-    {
-        auto performanceArea = area.removeFromBottom(48);
-        area.removeFromBottom(8);
-        layoutGrid(performanceArea, macroPerformanceControls,
-                   static_cast<int>(macroPerformanceControls.size()));
-    }
-
-    const auto gap = 9;
-    const auto cellH = (area.getHeight() - gap * 2) / 3;
-    for (int i = 0; i < static_cast<int>(macroControls.size()); ++i)
-    {
-        macroControls[static_cast<size_t>(i)]->setBounds(area.removeFromTop(cellH).reduced(1));
-        if (i + 1 < static_cast<int>(macroControls.size()))
-            area.removeFromTop(gap);
-    }
+    layoutGrid(area,macroControls,3);
 }
 
 void TE2350AudioProcessorEditor::resetParametersToDefault()
@@ -1537,7 +1315,7 @@ void TE2350AudioProcessorEditor::resetParametersToDefault()
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
     showingSnapshotA = true;
-    abButton.setButtonText("A/B  A");
+    abButton.setButtonText("A");
     abButton.setToggleState(false, juce::dontSendNotification);
     presetDirty = hasPresetChanges();
     updatePresetStatus();
@@ -1549,13 +1327,13 @@ void TE2350AudioProcessorEditor::toggleAB()
     {
         snapshotA = processor.apvts.copyState();
         applySnapshot(snapshotB);
-        abButton.setButtonText("A/B  B");
+        abButton.setButtonText("B");
     }
     else
     {
         snapshotB = processor.apvts.copyState();
         applySnapshot(snapshotA);
-        abButton.setButtonText("A/B  A");
+        abButton.setButtonText("A");
     }
 
     showingSnapshotA = ! showingSnapshotA;
@@ -1662,6 +1440,7 @@ void TE2350AudioProcessorEditor::showPresetActionsMenu()
         redoLabel << " " << processor.getRedoDescription();
     menu.addItem(3, undoLabel, processor.canUndo());
     menu.addItem(4, redoLabel, processor.canRedo());
+    menu.addItem(5, "Reset all parameters to defaults");
     menu.addSeparator();
 
     juce::PopupMenu mutationMenu;
@@ -1686,6 +1465,8 @@ void TE2350AudioProcessorEditor::showPresetActionsMenu()
                 safeThis->processor.undo();
             else if (result == 4)
                 safeThis->processor.redo();
+            else if (result == 5)
+                safeThis->resetParametersToDefault();
             else if (result >= 10 && result <= 12)
             {
                 constexpr float depths[] { 0.10f, 0.20f, 0.35f };
@@ -1839,17 +1620,7 @@ bool TE2350AudioProcessorEditor::hasPresetChanges() const
 
 void TE2350AudioProcessorEditor::updatePresetStatus()
 {
-    auto label = processor.isActivePresetUser() ? juce::String("USER PRESET")
-                                                : juce::String("FACTORY PRESET");
-    if (!processor.isActivePresetUser())
-    {
-        const auto& descriptors = te2350::getFactoryPresetDescriptors();
-        const auto program = processor.getCurrentProgram();
-        if (juce::isPositiveAndBelow(program, static_cast<int>(descriptors.size())))
-            label << "  ·  " << descriptors[static_cast<size_t>(program)].category;
-    }
-    if (presetDirty)
-        label << "  •  MODIFIED";
+    auto label = presetDirty ? juce::String("� MODIFIED") : juce::String();
 
     presetCaption.setText(label, juce::dontSendNotification);
     presetCaption.setColour(juce::Label::textColourId,
@@ -1897,11 +1668,8 @@ void TE2350AudioProcessorEditor::updateDependentControls()
     };
 
     const auto syncIsFree = read("syncMode") < 0.5f;
-    const auto effectiveShimmer = read("shimmerAmount")
-                                + read("space") * 0.32f
-                                + read("bloom") * 0.18f;
-    const auto bloom = read("bloom");
-    const auto effectiveDucking = read("duckAmount") + bloom * bloom * 0.45f;
+    const auto effectiveShimmer = processor.getEffectiveShimmerMeterValue();
+    const auto effectiveDucking = processor.getEffectiveDuckingMeterValue();
 
     setControlAvailable(timeControl, syncIsFree);
     setControlAvailable(shimmerFeedbackControl, effectiveShimmer > 0.001f);
@@ -1911,19 +1679,10 @@ void TE2350AudioProcessorEditor::updateDependentControls()
 
 void TE2350AudioProcessorEditor::timerCallback()
 {
-    animationPhase += 0.035f;
-    if (animationPhase > juce::MathConstants<float>::twoPi * 100.0f)
-        animationPhase = 0.0f;
-
     inputMeter->setLevel(processor.getInputMeterValue());
     outputMeter->setLevel(processor.getOutputMeterValue());
 
-    auto feedbackValue = 0.0f;
-    if (const auto* raw = processor.apvts.getRawParameterValue("feedback"))
-        feedbackValue = raw->load();
-
-    feedbackMeter->setLevel(juce::jlimit(0.0f, 1.0f, feedbackValue / 1.05f));
-    gravityMeter->setValues(processor.getInstabilityMeterValue(), feedbackValue, animationPhase);
+    feedbackMeter->setLevel(processor.getEffectiveFeedbackMeterValue() / 1.05f);
 
     const auto programIndex = processor.getCurrentProgram();
     const auto selectorRepresentsUserPreset =
@@ -1948,5 +1707,20 @@ void TE2350AudioProcessorEditor::timerCallback()
         }
     }
 
+    for (const auto& component : ownedComponents)
+    {
+        if (auto* knob = dynamic_cast<KnobTile*>(component.get()))
+        {
+            auto& slider = knob->getSlider();
+            const auto id = slider.getProperties()["parameterID"].toString();
+            if (id == "timeMs" || id == "feedback" || id == "highCutHz" || id == "diffusion"
+                || id == "wetWidth" || id == "shimmerAmount" || id == "duckAmount")
+            {
+                const auto effective = processor.getEffectiveControlValue(id);
+                slider.getProperties().set("effectiveProportion", juce::jlimit(0.0, 1.0, slider.valueToProportionOfLength(effective)));
+                knob->repaint();
+            }
+        }
+    }
     updateDependentControls();
 }

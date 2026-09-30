@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 
 #include <atomic>
+#include <array>
 #include <vector>
 
 #include "Core/TE2350CoreWrapper.h"
@@ -63,6 +64,11 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
     float getInstabilityMeterValue() const { return instabilityMeter.load(); }
+    // Published by the audio thread; UI must never read MacroEngine directly.
+    float getEffectiveControlValue(juce::StringRef parameterID) const;
+    float getEffectiveFeedbackMeterValue() const { return effectiveFeedbackMeter.load(); }
+    float getEffectiveShimmerMeterValue() const { return effectiveShimmerMeter.load(); }
+    float getEffectiveDuckingMeterValue() const { return effectiveDuckingMeter.load(); }
     float getInputMeterValue() const { return inputMeter.load(); }
     float getOutputMeterValue() const { return outputMeter.load(); }
 
@@ -81,6 +87,10 @@ private:
     juce::AudioBuffer<float> bypassDryBuffer;
     std::vector<float> bypassRamp;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> bypassMix;
+    std::array<std::atomic<float>, 7> effectiveControls { 420.0f, 0.45f, 9000.0f, 0.40f, 0.60f, 0.0f, 0.10f };
+    std::atomic<float> effectiveFeedbackMeter { 0.45f };
+    std::atomic<float> effectiveShimmerMeter { 0.0f };
+    std::atomic<float> effectiveDuckingMeter { 0.1f };
     std::atomic<float> instabilityMeter { 0.0f };
     std::atomic<float> inputMeter { 0.0f };
     std::atomic<float> outputMeter { 0.0f };

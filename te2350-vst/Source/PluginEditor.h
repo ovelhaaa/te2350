@@ -28,7 +28,6 @@ private:
     class GroupLabel;
     class SectionPanel;
     class MeterStrip;
-    class GravityMeter;
     class LogoMark;
 
     juce::Slider& addSlider(juce::Component& parent,
@@ -89,7 +88,6 @@ private:
     SectionPanel* corePanel = nullptr;
     SectionPanel* advancedPanel = nullptr;
     SectionPanel* utilityPanel = nullptr;
-    GravityMeter* gravityMeter = nullptr;
     MeterStrip* inputMeter = nullptr;
     MeterStrip* outputMeter = nullptr;
     MeterStrip* feedbackMeter = nullptr;
@@ -99,6 +97,11 @@ private:
     GroupLabel* advancedTextureLabel = nullptr;
     LogoMark* logoMark = nullptr;
 
+    juce::Viewport advancedViewport;
+    juce::Component advancedContent;
+    juce::ComboBox* syncSelector = nullptr;
+    std::vector<juce::Component*> advancedColorControls, advancedDynamicsControls, advancedFreezeControls;
+    std::vector<GroupLabel*> advancedGroupLabels;
     juce::Component macroLayer;
     juce::Component coreLayer;
     juce::Component advancedLayer;
@@ -107,9 +110,9 @@ private:
     juce::ComboBox presetSelector;
     juce::Label presetCaption;
     juce::TextButton presetActionsButton { "..." };
-    juce::TextButton abButton { "A/B  A" };
+    juce::TextButton abButton { "A" };
     juce::TextButton resetButton { "RESET" };
-    juce::TextButton advancedToggle { "SCULPT" };
+    juce::TextButton advancedToggle { "ADVANCED" };
     juce::ToggleButton bypassButton { "BYPASS" };
     juce::TextButton mutateButton { "MUTATE" };
     juce::TooltipWindow tooltipWindow { this, 700 };
@@ -140,7 +143,6 @@ private:
     bool rebuildingPresetSelector = false;
     int selectedUserPreset = -1;
     int observedProgramIndex = 0;
-    float animationPhase = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TE2350AudioProcessorEditor)
 };
