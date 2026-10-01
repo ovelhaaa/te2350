@@ -19,7 +19,8 @@ separate. No public release is published by this workflow.
 Default is direct upstream JUCE tag 7.0.12, with HEAD verified against
 4f43011b96eb0636104cb3e433894cda98243626. Optional TE2350_JUCE_PATH must be an
 actual JUCE root, with modules/build tools and a project(JUCE ...) declaration;
-wrappers fail before add_subdirectory. Actual override commit is recorded.
+wrappers fail before add_subdirectory. Actual override commit and dirty status are recorded. An unversioned folder
+is marked unversioned rather than borrowing an enclosing repository SHA.
 
 Audit discovered that M12's wrapper actually fetched JUCE 7.0.12. The declared
 8.0.8 default was unused. An initial fresh build of 8.0.8 rejected MinGW and
@@ -60,6 +61,11 @@ ReleaseReadiness, OfflineReferenceRender, GoldenReferenceRender/Compare,
 CoreControl, PluginSmoke and Calibration. release_qualification checks required
 names before running the entire inventory; package_te2350 invokes the same gate
 on every attempt. No cached success marker or golden-update command is used.
+
+First complete corrected Release gate: **16/16 PASS**, zero failures, 317.40 s
+wall time. The extracted ZIP loaded through the scanner and created its editor.
+Final rerun adds stripping of MinGW runtime debug sections on staged copies;
+build-tree binaries are left untouched. A stripped-copy host scan passed.
 
 Core goldens compare two independent current-core render paths byte for byte;
 they are not a stored historical full-plugin audio baseline. Plugin tolerances

@@ -69,6 +69,8 @@ with an explicit `TE2350_PLUGIN_COPY_DIR`; CI does not install anything.
 MSVC and MinGW compiler runtimes are statically linked. Packaging audits both
 binaries and rejects non-system imported DLLs. Release uses optimization and
 NDEBUG, has no sanitizer configuration, and excludes PDB/debug artifacts.
+MinGW debug/symbol sections from static runtimes are stripped from staged
+binaries before final verification; build-tree binaries are retained for diagnosis.
 
 `release_qualification` builds the required tools, checks all 15 required CTest
 names are registered and runs the entire inventory (16 tests on Windows, including PackagingGateTest).

@@ -34,6 +34,12 @@ set(staged_exe "${stage}/Standalone/${exe_name}")
 if(NOT EXISTS "${staged_binary}" OR NOT EXISTS "${staged_bundle}/Contents/Resources/moduleinfo.json")
     message(FATAL_ERROR "Invalid Windows x64 VST3 bundle structure")
 endif()
+# MinGW's static runtime archives contain debug sections even with -O3/NDEBUG.
+# Strip only staged copies; exported VST3 entry points are preserved and scanned below.
+if(STRIP_TOOL)
+    execute_process(COMMAND "${STRIP_TOOL}" --strip-unneeded "${staged_binary}" "${staged_exe}"
+        COMMAND_ERROR_IS_FATAL ANY)
+endif()
 file(READ "${staged_bundle}/Contents/Resources/moduleinfo.json" moduleinfo)
 foreach(cid IN ITEMS ABCDEF019182FAEB5465416754323335 ABCDEF011234ABCD5465416754323335)
     if(NOT moduleinfo MATCHES "${cid}")
@@ -110,7 +116,7 @@ file(SHA256 "${staged_exe}" standalone_hash)
 file(WRITE "${stage}/release-manifest.txt"
     "Product: TE-2350 Antigravity\nVersion: ${VERSION}\nCommit SHA: ${commit}\nSource status: ${source_status}\n"
     "Build type: ${CONFIG}\nPlatform: Windows\nArchitecture: x64\nCompiler: ${COMPILER}\n"
-    "JUCE version: ${JUCE_VERSION}\nJUCE commit: ${JUCE_COMMIT}\n"
+    "JUCE version: ${JUCE_VERSION}\nJUCE commit: ${JUCE_COMMIT}\nJUCE source status: ${JUCE_SOURCE_STATUS}\n"
     "Preset format version: ${PRESET_FORMAT_VERSION}\nState version: ${STATE_VERSION}\n"
     "VST3 processor CID: ABCDEF019182FAEB5465416754323335\n"
     "VST3 controller CID: ABCDEF011234ABCD5465416754323335\n"

@@ -31,6 +31,10 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND TE2350_BUILD_GOLDEN_TESTS)
     file(READ "${juce_SOURCE_DIR}/CMakeLists.txt" juce_project)
     string(REGEX MATCH "project\\(JUCE VERSION ([0-9.]+)" unused "${juce_project}")
     set(TE2350_JUCE_VERSION "${CMAKE_MATCH_1}")
+    set(TE2350_RELEASE_STRIP_TOOL "")
+    if(MINGW)
+        set(TE2350_RELEASE_STRIP_TOOL "${CMAKE_STRIP}")
+    endif()
     configure_file(cmake/PackageConfig.cmake.in PackageConfig.cmake @ONLY)
     add_test(NAME TE2350PackagingGateTest COMMAND "${CMAKE_COMMAND}"
         "-DPACKAGE_CONFIG=${CMAKE_CURRENT_BINARY_DIR}/PackageConfig.cmake"
