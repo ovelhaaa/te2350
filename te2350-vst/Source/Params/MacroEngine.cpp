@@ -85,31 +85,33 @@ std::vector<MacroEngine::MacroDefinition> MacroEngine::createFactoryDefinitions(
         {
             "space",
             {
-                { "timeMs", 420.0f, 1080.0f, Curve::Log },
-                { "lowCutHz", 80.0f, 140.0f, Curve::Log },
-                { "highCutHz", 9000.0f, 5200.0f, Curve::Log },
-                { "diffusion", 0.40f, 0.78f, Curve::Linear },
-                { "shimmerAmount", 0.0f, 0.32f, Curve::Linear },
-                { "wetWidth", 0.60f, 0.95f, Curve::Linear }
+                { "timeMs", 420.0f, 1080.0f, Curve::Log, 1.0f / 1580.0f },
+                { "lowCutHz", 80.0f, 140.0f, Curve::Log, 1.0f / 920.0f },
+                { "highCutHz", 9000.0f, 5200.0f, Curve::Log, 1.0f / 8000.0f },
+                { "diffusion", 0.40f, 0.70f, Curve::Linear, 1.0f / 0.60f },
+                { "shimmerAmount", 0.0f, 0.08f, Curve::Linear, 1.0f },
+                { "wetWidth", 0.60f, 0.82f, Curve::Linear, 1.0f / 0.40f }
             }
         },
         {
             "wild",
             {
-                { "feedback", 0.45f, 1.05f, Curve::Linear },
-                { "chaos", 0.0f, 0.85f, Curve::Exponential },
-                { "wobble", 0.10f, 0.85f, Curve::Exponential },
-                { "modRateHz", 0.15f, 1.20f, Curve::Log },
-                { "modDepth", 0.10f, 0.85f, Curve::Exponential }
+                { "feedback", 0.45f, 0.57f, Curve::Linear, 1.0f / 1.05f },
+                { "chaos", 0.0f, 0.72f, Curve::Progressive, 1.0f },
+                { "wobble", 0.10f, 0.60f, Curve::Progressive, 1.0f / 0.90f },
+                { "modRateHz", 0.15f, 0.90f, Curve::Log, 1.0f / 1.85f },
+                { "modDepth", 0.10f, 0.65f, Curve::Progressive, 1.0f / 0.90f }
             }
         },
         {
             "bloom",
             {
-                { "highCutHz", 9000.0f, 14000.0f, Curve::Log },
-                { "duckAmount", 0.10f, 0.55f, Curve::Exponential },
-                { "shimmerAmount", 0.0f, 0.18f, Curve::Linear },
-                { "mix", 0.35f, 0.52f, Curve::Linear }
+                { "feedback", 0.45f, 0.75f, Curve::Linear, 1.0f / 1.05f },
+                { "highCutHz", 9000.0f, 14000.0f, Curve::Log, 1.0f / 9000.0f },
+                { "duckAmount", 0.10f, 0.55f, Curve::Exponential, 1.0f },
+                // Existing core Bloom voicing enriches a manually enabled
+                // shimmer. Avoid switching its feedback lane on at Bloom > 0.
+                { "mix", 0.35f, 0.52f, Curve::Linear, 1.0f / 0.65f }
             }
         }
     };
@@ -128,6 +130,11 @@ float MacroEngine::mapTarget(const MacroTarget& target, float macroValue)
 
         case Curve::Exponential:
             return target.valueAt0 + (target.valueAt100 - target.valueAt0) * amount * amount;
+
+        case Curve::Progressive:
+            // Nonzero initial slope; upper half still accelerates distinctly.
+            return target.valueAt0 + (target.valueAt100 - target.valueAt0)
+                * (0.35f * amount + 0.65f * amount * amount);
 
         case Curve::Linear:
             break;
@@ -191,17 +198,29 @@ void MacroEngine::calculateTargets(const juce::AudioProcessorValueTreeState& sta
             const auto offset = mapped - target.valueAt0;
             if (auto* value = findValue(target.paramID))
             {
-                // Bloom uses remaining duck headroom so 0..100% stays useful.
-                const auto contribution = target.paramID == juce::StringRef("duckAmount")
-                    ? offset * (1.0f - value->target) : offset;
+                auto contribution = offset;
+                if (target.headroomScale > 0.0f)
+                    if (const auto* spec = findParameterSpec(target.paramID))
+                    {
+                        const auto headroom = offset >= 0.0f
+                            ? spec->maximum - value->target : value->target - spec->minimum;
+                        contribution *= target.headroomScale * headroom;
+                    }
                 value->target = clampForParameter(target.paramID, value->target + contribution);
             }
         }
     }
 
     const auto wild = getMacroValue("wild");
-    const auto wildFeedbackCeiling = 0.95f + wild * 0.10f;
+    const auto wildFeedbackCeiling = 0.95f + wild * 0.04f;
     if (auto* feedback = findValue("feedback"))
-        feedback->target = juce::jmin(feedback->target, wildFeedbackCeiling);
+    {
+        // Compress only the upper manual range; no flat hard-ceiling interval.
+        // Stay below unity at the Q31 boundary, including WILD=100%.
+        constexpr float knee = 0.85f;
+        if (feedback->target > knee)
+            feedback->target = knee + (feedback->target - knee)
+                * (wildFeedbackCeiling - knee) / (1.05f - knee);
+    }
 }
 }

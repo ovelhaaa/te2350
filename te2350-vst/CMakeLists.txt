@@ -147,6 +147,15 @@ add_custom_target(TE2350PackageBeta
 
 option(TE2350_BUILD_GOLDEN_TESTS "Build the golden-reference scaffold executable" OFF)
 if(TE2350_BUILD_GOLDEN_TESTS)
+    add_executable(TE2350MacroCalibrationTest Tests/MacroCalibrationTest.cpp)
+    target_include_directories(TE2350MacroCalibrationTest PRIVATE Source "${TE2350_ROOT}/include")
+    target_compile_definitions(TE2350MacroCalibrationTest PRIVATE
+        JucePlugin_Name="TE-2350 Antigravity" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(TE2350MacroCalibrationTest PRIVATE
+        TE2350Antigravity juce::juce_audio_utils juce::juce_dsp)
+    add_test(NAME TE2350MacroCalibrationTest COMMAND TE2350MacroCalibrationTest
+        "${CMAKE_CURRENT_BINARY_DIR}/MacroCalibrationOutput")
+
     add_executable(TE2350OfflineReference "${TE2350_ROOT}/src/web/offline_host.c")
     target_include_directories(TE2350OfflineReference PRIVATE "${TE2350_ROOT}/include")
     target_link_libraries(TE2350OfflineReference PRIVATE te2350_core)

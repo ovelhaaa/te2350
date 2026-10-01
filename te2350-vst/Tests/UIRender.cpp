@@ -216,7 +216,8 @@ int main(int argc, char* argv[])
             processor.getEffectiveShimmerMeterValue(),processor.getEffectiveDuckingMeterValue()); return 1; }
     set("wild",1); set("space",1); set("bloom",1); set("syncMode",0);
     settle();
-    if (processor.getEffectiveFeedbackMeterValue() < 0.79f
+    if (processor.getEffectiveFeedbackMeterValue() < 0.25f
+        || processor.getEffectiveFeedbackMeterValue() > 0.99f
         || std::abs(processor.apvts.getRawParameterValue("feedback")->load()-0.2f)>0.001f
         || !findComponent(*editor,"timeMs")->isEnabled()
         || !findComponent(*editor,"shimmerInterval")->isEnabled()

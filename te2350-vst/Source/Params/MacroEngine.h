@@ -12,7 +12,8 @@ public:
     {
         Linear,
         Log,
-        Exponential
+        Exponential,
+        Progressive
     };
 
     struct MacroTarget
@@ -21,6 +22,9 @@ public:
         float valueAt0 = 0.0f;
         float valueAt100 = 1.0f;
         Curve curve = Curve::Linear;
+        // Nonzero: scale the mapped delta by directional remaining headroom.
+        // Units are inverse parameter units, preserving the declared curve.
+        float headroomScale = 0.0f;
     };
 
     struct MacroDefinition
