@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — M11
+
+- Expanded the factory bank from 13 to 20 programs, appending seven musical roles.
+- Preserved M10 names, indices and saved parameter bits with a frozen regression fixture.
+- Added piano/bass and chord diagnostics, diffusion A/B, and an unnormalised listening audit.
+- DSP, macros, UI and parameter contracts remain unchanged.
+
 ## 0.2.0-rc1 â€” 2026-07-31
 
 ### Added

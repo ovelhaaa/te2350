@@ -74,10 +74,12 @@ archive.
   momentary (active only while pressed) or latched.
 - Shimmer feedback is dormant while Shimmer Amount is zero, so neutral presets
   no longer acquire hidden octave coloration.
-- The factory library contains 13 categorized presets. The six additions cover
-  rhythmic slap/eighth-note delays, tape motion, octave shimmer, Freeze pads,
-  and dark downward-octave ambience. Calibration renders peak between 0.26 and
-  0.40 without clipping, with active RMS spanning approximately 2.2 dB.
+- The factory library contains 20 categorized presets. M11 preserves the first
+  13 programs and appends Long Shadow, Afterimage, Diffuse Halo, Fifth Nebula,
+  Submerged Choir, Prism Drift, and Ghost Room: dry-forward long tails, diffuse
+  harmonic shimmer, moving pitch texture, and subtle ambience. See the
+  [M11 audit](../docs/M11/M11-Preset-Expansion.md) for parameters, metrics,
+  regression results, and unnormalised listening renders.
 - User presets use versioned `.te2350preset` files, atomic replacement, and
   malformed-file rejection. Their identity is embedded in host state, so a
   project retains its sound when the original local preset file is unavailable.
@@ -174,7 +176,7 @@ ctest --test-dir build/te2350-vst -R TE2350PresetWorkflowTest --output-on-failur
 ```
 
 The release-readiness regression sweeps every one of the 30 automatable
-parameters through endpoints and continuous changes, switches all 13 factory
+parameters through endpoints and continuous changes, switches all 20 factory
 programs under load, exercises mono/stereo processing from 44.1 to 192 kHz,
 and verifies sample-identical audio after host-state recall:
 

@@ -119,7 +119,7 @@ bool verifyParameterAndProgramContract()
         }
     }
 
-    if (processor.getNumPrograms() != 13)
+    if (processor.getNumPrograms() != 20)
     {
         std::fprintf(stderr, "factory program contract changed: %d programs\n",
                      processor.getNumPrograms());
@@ -396,7 +396,7 @@ int main()
         return 1;
     }
 
-    std::printf("Release readiness passed: 30 automatable parameters, 13 programs, "
+    std::printf("Release readiness passed: 30 automatable parameters, 20 programs, "
                 "44.1-192 kHz, mono/stereo, maxPeak=%.4f recallDiff=%.9f\n",
                 maximumPeak,
                 maximumRecallDifference);

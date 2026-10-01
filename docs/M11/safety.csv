@@ -1,0 +1,487 @@
+preset,source,mode,peak,dc,final_tail_rms
+Low Orbit,impulse,0,0.369537,-6.97763e-07,6.99889e-07
+Low Orbit,impulse,1,0.168619,2.87413e-08,2.93602e-08
+Low Orbit,impulse,2,0.168614,2.79266e-08,2.84053e-08
+Low Orbit,pluck,0,0.150699,-9.66175e-08,1.02445e-08
+Low Orbit,pluck,1,0.133471,-1.71022e-07,2.70091e-08
+Low Orbit,pluck,2,0.133409,-1.71502e-07,2.60778e-08
+Low Orbit,vocal,0,0.0568647,-6.24089e-08,1.09435e-08
+Low Orbit,vocal,1,0.0523917,-1.31044e-08,2.88717e-08
+Low Orbit,vocal,2,0.0523342,-1.53124e-08,2.53787e-08
+Low Orbit,pad,0,0.121921,-6.64066e-08,1.04778e-08
+Low Orbit,pad,1,0.0765106,-1.67509e-08,2.79404e-08
+Low Orbit,pad,2,0.0764954,-1.70081e-08,2.7474e-08
+Low Orbit,percussion,0,0.200537,-6.06731e-07,5.80802e-07
+Low Orbit,percussion,1,0.0930801,2.76217e-08,2.65249e-08
+Low Orbit,percussion,2,0.0930756,2.85612e-08,2.79404e-08
+Low Orbit,chords,0,0.108232,-5.8876e-08,8.61969e-09
+Low Orbit,chords,1,0.0763177,1.34522e-08,2.32961e-08
+Low Orbit,chords,2,0.0762969,1.26959e-08,2.21208e-08
+Tidal Lock,impulse,0,0.330444,-6.22673e-07,6.25632e-07
+Tidal Lock,impulse,1,0.152734,2.06135e-08,2.16034e-08
+Tidal Lock,impulse,2,0.152722,2.06667e-08,2.19535e-08
+Tidal Lock,pluck,0,0.148664,-1.02744e-07,3.99033e-08
+Tidal Lock,pluck,1,0.156464,-1.44131e-07,8.47863e-08
+Tidal Lock,pluck,2,0.156524,-1.43854e-07,8.46075e-08
+Tidal Lock,vocal,0,0.0521022,-5.34931e-08,1.79986e-08
+Tidal Lock,vocal,1,0.0469655,-3.5672e-09,3.85017e-08
+Tidal Lock,vocal,2,0.0469651,-3.54411e-09,3.84242e-08
+Tidal Lock,pad,0,0.0980109,-3.13119e-08,9.51584e-09
+Tidal Lock,pad,1,0.0603619,7.95906e-09,2.0771e-08
+Tidal Lock,pad,2,0.0603894,7.96698e-09,2.08119e-08
+Tidal Lock,percussion,0,0.18147,-5.32126e-07,5.22051e-07
+Tidal Lock,percussion,1,0.0871218,2.03182e-08,1.37574e-07
+Tidal Lock,percussion,2,0.087111,2.03389e-08,1.37424e-07
+Tidal Lock,chords,0,0.0969161,-5.60782e-08,9.86102e-09
+Tidal Lock,chords,1,0.0616276,1.55723e-08,2.1443e-08
+Tidal Lock,chords,2,0.0615947,1.56083e-08,2.17089e-08
+Trade Winds,impulse,0,0.357556,-6.72433e-07,6.74713e-07
+Trade Winds,impulse,1,0.173558,3.00686e-08,3.04561e-08
+Trade Winds,impulse,2,0.173552,3.0713e-08,3.16667e-08
+Trade Winds,pluck,0,0.129329,-1.14457e-07,1.30427e-08
+Trade Winds,pluck,1,0.164731,-2.19197e-07,3.12063e-08
+Trade Winds,pluck,2,0.164686,-2.18876e-07,3.05049e-08
+Trade Winds,vocal,0,0.0550892,-7.1689e-08,1.32724e-08
+Trade Winds,vocal,1,0.0622277,-3.2232e-08,3.21375e-08
+Trade Winds,vocal,2,0.0622084,-3.21596e-08,3.21375e-08
+Trade Winds,pad,0,0.110427,-7.52536e-08,1.07153e-08
+Trade Winds,pad,1,0.103526,-6.37406e-08,2.6096e-08
+Trade Winds,pad,2,0.103525,-6.33961e-08,2.67801e-08
+Trade Winds,percussion,0,0.192091,-5.78494e-07,5.59259e-07
+Trade Winds,percussion,1,0.0953482,3.04729e-08,3.0268e-08
+Trade Winds,percussion,2,0.095336,3.02743e-08,2.98023e-08
+Trade Winds,chords,0,0.104725,-5.79923e-08,1.30427e-08
+Trade Winds,chords,1,0.0898546,1.35919e-08,3.12063e-08
+Trade Winds,chords,2,0.0898263,1.23664e-08,2.86501e-08
+Solar Wind,impulse,0,0.341404,-6.47965e-07,6.51916e-07
+Solar Wind,impulse,1,0.165756,1.28695e-08,1.59352e-08
+Solar Wind,impulse,2,0.165744,1.64993e-08,2.11876e-08
+Solar Wind,pluck,0,0.166088,-1.51981e-07,6.90088e-09
+Solar Wind,pluck,1,0.204143,-2.82561e-07,1.58065e-08
+Solar Wind,pluck,2,0.20805,-2.97498e-07,2.44081e-07
+Solar Wind,vocal,0,0.0827944,-1.05261e-07,7.16708e-09
+Solar Wind,vocal,1,0.0782735,-4.60742e-08,1.64001e-08
+Solar Wind,vocal,2,0.0815441,-4.86537e-08,1.86036e-07
+Solar Wind,pad,0,0.117927,-1.18041e-07,6.82572e-09
+Solar Wind,pad,1,0.0697405,-1.15545e-08,1.56395e-08
+Solar Wind,pad,2,0.0715419,-1.3383e-08,3.78009e-08
+Solar Wind,percussion,0,0.197268,-5.5844e-07,5.40907e-07
+Solar Wind,percussion,1,0.092896,1.46483e-08,1.59827e-08
+Solar Wind,percussion,2,0.095403,1.57469e-08,1.74888e-07
+Solar Wind,chords,0,0.100818,-5.82833e-08,7.4572e-09
+Solar Wind,chords,1,0.0693084,8.56261e-09,1.70634e-08
+Solar Wind,chords,2,0.0701987,8.44375e-09,2.35009e-08
+Escape Velocity,impulse,0,0.353087,-6.68014e-07,6.69742e-07
+Escape Velocity,impulse,1,0.158029,2.03141e-08,2.22327e-08
+Escape Velocity,impulse,2,0.158017,2.04223e-08,2.2359e-08
+Escape Velocity,pluck,0,0.146924,-1.10062e-07,8.29427e-09
+Escape Velocity,pluck,1,0.166635,-1.77907e-07,2.00363e-08
+Escape Velocity,pluck,2,0.166477,-1.77587e-07,2.10469e-08
+Escape Velocity,vocal,0,0.0564235,-6.47933e-08,8.43997e-09
+Escape Velocity,vocal,1,0.0550133,-3.55367e-09,2.03309e-08
+Escape Velocity,vocal,2,0.0549874,-3.13982e-09,2.20718e-08
+Escape Velocity,pad,0,0.129788,-2.77345e-08,8.83549e-09
+Escape Velocity,pad,1,0.0725718,-1.64857e-08,2.12893e-08
+Escape Velocity,pad,2,0.0725462,-1.61739e-08,2.21948e-08
+Escape Velocity,percussion,0,0.189753,-5.72766e-07,5.55271e-07
+Escape Velocity,percussion,1,0.0856027,2.00152e-08,2.2064e-08
+Escape Velocity,percussion,2,0.085568,2.02205e-08,2.28391e-08
+Escape Velocity,chords,0,0.104029,-6.08002e-08,9.19867e-09
+Escape Velocity,chords,1,0.0655781,1.17239e-08,2.21409e-08
+Escape Velocity,chords,2,0.0655773,1.17162e-08,2.25053e-08
+Zero-G,impulse,0,0.324113,-6.07365e-07,6.21685e-07
+Zero-G,impulse,1,0.152907,2.57667e-08,2.51439e-07
+Zero-G,impulse,2,0.152891,2.57508e-08,2.51224e-07
+Zero-G,pluck,0,0.145513,-1.12308e-07,3.54004e-06
+Zero-G,pluck,1,0.150357,-1.54427e-07,7.31277e-06
+Zero-G,pluck,2,0.15039,-1.54255e-07,7.30332e-06
+Zero-G,vocal,0,0.0747164,-8.84895e-08,9.67333e-07
+Zero-G,vocal,1,0.0623026,-2.46917e-08,1.99826e-06
+Zero-G,vocal,2,0.0621976,-2.46434e-08,1.99551e-06
+Zero-G,pad,0,0.100827,-3.20204e-08,1.16224e-07
+Zero-G,pad,1,0.0628467,1.25593e-08,2.40149e-07
+Zero-G,pad,2,0.0628309,1.25589e-08,2.3997e-07
+Zero-G,percussion,0,0.176902,-5.1536e-07,4.65924e-06
+Zero-G,percussion,1,0.096162,2.58337e-08,9.56804e-06
+Zero-G,percussion,2,0.0961495,2.58413e-08,9.56066e-06
+Zero-G,chords,0,0.0947341,-5.1965e-08,1.15351e-07
+Zero-G,chords,1,0.0723581,1.72339e-08,2.3835e-07
+Zero-G,chords,2,0.07235,1.72396e-08,2.38033e-07
+Event Horizon,impulse,0,0.34071,-6.37767e-07,9.81276e-07
+Event Horizon,impulse,1,0.150088,3.24339e-08,1.63825e-06
+Event Horizon,impulse,2,0.150071,3.24712e-08,1.63587e-06
+Event Horizon,pluck,0,0.144365,-7.1295e-08,1.43284e-05
+Event Horizon,pluck,1,0.134613,-6.98158e-08,3.1561e-05
+Event Horizon,pluck,2,0.134552,-6.9559e-08,3.15139e-05
+Event Horizon,vocal,0,0.0581804,-5.22674e-08,1.17537e-05
+Event Horizon,vocal,1,0.0521247,1.40507e-08,2.58897e-05
+Event Horizon,vocal,2,0.0520707,1.40878e-08,2.5843e-05
+Event Horizon,pad,0,0.106719,-4.58827e-08,1.84562e-06
+Event Horizon,pad,1,0.0582682,2.19169e-09,4.0653e-06
+Event Horizon,pad,2,0.0582523,2.21691e-09,4.05954e-06
+Event Horizon,percussion,0,0.185292,-5.45067e-07,7.17878e-06
+Event Horizon,percussion,1,0.0960419,3.36093e-08,1.57697e-05
+Event Horizon,percussion,2,0.0960285,3.35981e-08,1.57516e-05
+Event Horizon,chords,0,0.09906,-5.04799e-08,1.85664e-06
+Event Horizon,chords,1,0.0604735,2.47655e-08,4.08959e-06
+Event Horizon,chords,2,0.060462,2.47716e-08,4.08664e-06
+Glass Transit,impulse,0,0.344503,-6.53745e-07,6.56835e-07
+Glass Transit,impulse,1,0.168935,1.37101e-08,1.99207e-08
+Glass Transit,impulse,2,0.168926,1.75081e-08,1.86265e-08
+Glass Transit,pluck,0,0.137951,-1.55387e-07,6.58394e-09
+Glass Transit,pluck,1,0.170905,-2.98404e-07,1.54762e-08
+Glass Transit,pluck,2,0.161485,-3.05017e-07,1.77151e-08
+Glass Transit,vocal,0,0.059382,-6.44015e-08,6.69164e-09
+Glass Transit,vocal,1,0.0630785,-1.7694e-08,1.56962e-08
+Glass Transit,vocal,2,0.059085,-1.66505e-08,1.77151e-08
+Glass Transit,pad,0,0.103733,-6.66702e-08,6.84639e-09
+Glass Transit,pad,1,0.0769707,-1.61372e-08,1.59531e-08
+Glass Transit,pad,2,0.0723852,-8.61872e-09,1.63036e-08
+Glass Transit,percussion,0,0.185103,-5.56485e-07,5.45575e-07
+Glass Transit,percussion,1,0.0893539,1.43609e-08,1.79851e-08
+Glass Transit,percussion,2,0.0889017,1.70085e-08,1.67638e-08
+Glass Transit,chords,0,0.101619,-6.17333e-08,6.13386e-09
+Glass Transit,chords,1,0.0717863,7.78209e-09,1.44688e-08
+Glass Transit,chords,2,0.0709469,8.8185e-09,1.53668e-08
+Cassette Moon,impulse,0,0.364821,-6.8835e-07,6.90576e-07
+Cassette Moon,impulse,1,0.184875,2.79789e-08,2.84053e-08
+Cassette Moon,impulse,2,0.184872,2.85669e-08,2.93367e-08
+Cassette Moon,pluck,0,0.147392,-8.84367e-08,1.0248e-08
+Cassette Moon,pluck,1,0.150277,-1.29184e-07,2.6548e-08
+Cassette Moon,pluck,2,0.150213,-1.29031e-07,2.63129e-08
+Cassette Moon,vocal,0,0.0562161,-3.718e-08,1.00126e-08
+Cassette Moon,vocal,1,0.0479096,1.24967e-08,2.63129e-08
+Cassette Moon,vocal,2,0.0479003,1.25422e-08,2.63129e-08
+Cassette Moon,pad,0,0.117833,2.95807e-09,8.62398e-09
+Cassette Moon,pad,1,0.0797431,-2.60047e-08,2.21385e-08
+Cassette Moon,pad,2,0.0797243,-2.61032e-08,2.19006e-08
+Cassette Moon,percussion,0,0.196091,-5.99264e-07,5.71599e-07
+Cassette Moon,percussion,1,0.0940995,3.01868e-08,3.05011e-08
+Cassette Moon,percussion,2,0.0940799,2.9787e-08,2.98035e-08
+Cassette Moon,chords,0,0.106704,-5.92787e-08,9.31703e-09
+Cassette Moon,chords,1,0.0754795,1.41095e-08,2.39849e-08
+Cassette Moon,chords,2,0.0754689,1.45827e-08,2.46858e-08
+Pulsar Eighths,impulse,0,0.361783,-6.84216e-07,6.85919e-07
+Pulsar Eighths,impulse,1,0.248126,2.18928e-08,2.37487e-08
+Pulsar Eighths,impulse,2,0.248126,2.20711e-08,2.39819e-08
+Pulsar Eighths,pluck,0,0.143869,-1.4755e-07,8.84756e-09
+Pulsar Eighths,pluck,1,0.168924,-3.20405e-07,2.23517e-08
+Pulsar Eighths,pluck,2,0.168803,-3.20388e-07,2.18877e-08
+Pulsar Eighths,vocal,0,0.0732884,-1.2373e-07,8.61575e-09
+Pulsar Eighths,vocal,1,0.0689847,-8.103e-08,2.18877e-08
+Pulsar Eighths,vocal,2,0.0689629,-7.99554e-08,2.37487e-08
+Pulsar Eighths,pad,0,0.120178,-8.92235e-08,9.77889e-09
+Pulsar Eighths,pad,1,0.0943312,-6.64322e-08,2.39819e-08
+Pulsar Eighths,pad,2,0.0942368,-6.76219e-08,2.18877e-08
+Pulsar Eighths,percussion,0,0.198136,-5.89167e-07,5.68572e-07
+Pulsar Eighths,percussion,1,0.102271,2.29271e-08,2.39724e-08
+Pulsar Eighths,percussion,2,0.102264,2.29281e-08,2.39819e-08
+Pulsar Eighths,chords,0,0.106601,-5.97161e-08,9.08904e-09
+Pulsar Eighths,chords,1,0.0855209,6.88872e-09,2.25942e-08
+Pulsar Eighths,chords,2,0.0855114,5.51407e-09,2.02567e-08
+Frozen Choir,impulse,0,0.314661,-5.95856e-07,6.00022e-07
+Frozen Choir,impulse,1,0.152995,1.14453e-08,2.41769e-08
+Frozen Choir,impulse,2,0.152979,1.36956e-08,4.93382e-06
+Frozen Choir,pluck,0,0.145275,-1.29678e-07,1.71247e-08
+Frozen Choir,pluck,1,0.156854,-1.97703e-07,3.4266e-08
+Frozen Choir,pluck,2,0.168455,-2.17741e-07,3.33936e-05
+Frozen Choir,vocal,0,0.0540192,-6.79111e-08,1.48266e-08
+Frozen Choir,vocal,1,0.0649148,-2.34516e-08,2.97321e-08
+Frozen Choir,vocal,2,0.0578467,-2.66684e-08,1.42982e-05
+Frozen Choir,pad,0,0.0947623,-7.07163e-08,8.06916e-09
+Frozen Choir,pad,1,0.0586925,-5.48292e-09,1.65069e-08
+Frozen Choir,pad,2,0.0529662,-2.31964e-09,1.38642e-06
+Frozen Choir,percussion,0,0.170074,-5.00173e-07,4.95837e-07
+Frozen Choir,percussion,1,0.0871938,1.33592e-08,3.3651e-08
+Frozen Choir,percussion,2,0.0871798,1.32647e-08,4.60856e-05
+Frozen Choir,chords,0,0.0929535,-5.29209e-08,8.00616e-09
+Frozen Choir,chords,1,0.0603929,9.90834e-09,1.63651e-08
+Frozen Choir,chords,2,0.0560351,9.99652e-09,1.60238e-06
+Dark Matter,impulse,0,0.348283,-6.53962e-07,6.5812e-07
+Dark Matter,impulse,1,0.135863,2.97553e-08,3.42187e-08
+Dark Matter,impulse,2,0.135847,3.39446e-08,5.41139e-08
+Dark Matter,pluck,0,0.131789,-5.18425e-08,4.75596e-08
+Dark Matter,pluck,1,0.11232,5.72447e-10,1.09133e-07
+Dark Matter,pluck,2,0.12308,3.69996e-09,1.93479e-06
+Dark Matter,vocal,0,0.0582265,-5.38875e-08,2.29617e-08
+Dark Matter,vocal,1,0.049828,2.16952e-08,5.30078e-08
+Dark Matter,vocal,2,0.044967,2.0876e-08,6.32551e-07
+Dark Matter,pad,0,0.103544,-9.6136e-08,1.60349e-08
+Dark Matter,pad,1,0.0659,-1.42484e-08,3.73344e-08
+Dark Matter,pad,2,0.0669997,-1.89358e-08,1.84275e-07
+Dark Matter,percussion,0,0.187096,-5.58972e-07,5.43918e-07
+Dark Matter,percussion,1,0.088578,3.36198e-08,4.17208e-08
+Dark Matter,percussion,2,0.0884507,3.44784e-08,4.05011e-07
+Dark Matter,chords,0,0.101388,-5.41919e-08,1.76969e-08
+Dark Matter,chords,1,0.0598531,2.67075e-08,4.10579e-08
+Dark Matter,chords,2,0.0574469,2.63684e-08,5.17751e-07
+Microgravity Slap,impulse,0,0.396206,-7.54695e-07,7.56478e-07
+Microgravity Slap,impulse,1,0.247467,1.92445e-08,2.04729e-08
+Microgravity Slap,impulse,2,0.247466,1.96899e-08,2.09548e-08
+Microgravity Slap,pluck,0,0.134399,-1.0152e-07,7.21795e-09
+Microgravity Slap,pluck,1,0.18108,-3.28528e-07,2.21195e-08
+Microgravity Slap,pluck,2,0.181007,-3.28298e-07,2.21195e-08
+Microgravity Slap,vocal,0,0.0601423,-7.37771e-08,6.98492e-09
+Microgravity Slap,vocal,1,0.06657,-5.65379e-08,2.11877e-08
+Microgravity Slap,vocal,2,0.0665549,-5.64967e-08,2.11877e-08
+Microgravity Slap,pad,0,0.13695,-5.86153e-08,6.28666e-09
+Microgravity Slap,pad,1,0.0867748,-2.08246e-08,1.88612e-08
+Microgravity Slap,pad,2,0.086771,-2.20718e-08,1.72348e-08
+Microgravity Slap,percussion,0,0.213195,-6.61327e-07,6.28531e-07
+Microgravity Slap,percussion,1,0.0905476,1.88256e-08,1.89639e-08
+Microgravity Slap,percussion,2,0.0905367,1.96209e-08,2.00234e-08
+Microgravity Slap,chords,0,0.116824,-6.76476e-08,6.05741e-09
+Microgravity Slap,chords,1,0.0817678,5.46203e-09,1.86342e-08
+Microgravity Slap,chords,2,0.0817315,5.46536e-09,1.86292e-08
+Long Shadow,impulse,0,0.411281,-7.85614e-07,8.73783e-07
+Long Shadow,impulse,1,0.149945,1.87702e-08,1.2093e-06
+Long Shadow,impulse,2,0.149927,1.8716e-08,1.20819e-06
+Long Shadow,pluck,0,0.149651,-9.34426e-08,3.73917e-05
+Long Shadow,pluck,1,0.150412,-1.65157e-07,0.000119548
+Long Shadow,pluck,2,0.150413,-1.64677e-07,0.000119396
+Long Shadow,vocal,0,0.0675308,-7.06467e-08,1.76558e-05
+Long Shadow,vocal,1,0.0560142,-1.27407e-08,5.64489e-05
+Long Shadow,vocal,2,0.0559597,-1.26955e-08,5.63465e-05
+Long Shadow,pad,0,0.123231,-9.60164e-08,1.25511e-06
+Long Shadow,pad,1,0.0633997,-9.68839e-09,4.01282e-06
+Long Shadow,pad,2,0.0634044,-9.669e-09,4.00618e-06
+Long Shadow,percussion,0,0.221594,-6.93485e-07,3.25681e-05
+Long Shadow,percussion,1,0.0860065,1.96642e-08,0.000104106
+Long Shadow,percussion,2,0.08599,1.96478e-08,0.000104006
+Long Shadow,chords,0,0.121024,-7.72065e-08,2.19847e-06
+Long Shadow,chords,1,0.0568951,1.399e-08,7.02889e-06
+Long Shadow,chords,2,0.0568621,1.39848e-08,7.02234e-06
+Long Shadow,piano,0,0.123796,-1.71126e-08,2.24706e-05
+Long Shadow,piano,1,0.102335,-6.99169e-08,7.1843e-05
+Long Shadow,piano,2,0.102271,-6.98355e-08,7.17778e-05
+Long Shadow,major,0,0.121024,-7.37995e-08,1.62828e-06
+Long Shadow,major,1,0.0589665,1.21302e-08,5.2059e-06
+Long Shadow,major,2,0.0589377,1.21263e-08,5.19879e-06
+Long Shadow,minor,0,0.119206,-7.28958e-08,1.51319e-06
+Long Shadow,minor,1,0.0603864,1.14835e-08,4.83792e-06
+Long Shadow,minor,2,0.0603555,1.14961e-08,4.83114e-06
+Long Shadow,suspended,0,0.120646,-7.26672e-07,1.79494e-06
+Long Shadow,suspended,1,0.0598853,1.20217e-08,5.15725e-06
+Long Shadow,suspended,2,0.0598928,1.20456e-08,5.15032e-06
+Long Shadow,cluster,0,0.11327,-7.22285e-07,2.52218e-06
+Long Shadow,cluster,1,0.0517703,1.62251e-08,7.66371e-06
+Long Shadow,cluster,2,0.0517867,1.6226e-08,7.65748e-06
+Long Shadow,bass,0,0.170523,-5.60372e-07,6.18082e-07
+Long Shadow,bass,1,0.0372077,-8.18145e-09,1.97613e-06
+Long Shadow,bass,2,0.0372096,-8.18773e-09,1.97435e-06
+Afterimage,impulse,0,0.427021,-8.1807e-07,8.35324e-07
+Afterimage,impulse,1,0.150798,1.61893e-08,5.90793e-07
+Afterimage,impulse,2,0.150782,1.61995e-08,5.90301e-07
+Afterimage,pluck,0,0.146685,-9.01227e-08,2.07989e-06
+Afterimage,pluck,1,0.153599,-1.59901e-07,7.61858e-06
+Afterimage,pluck,2,0.153544,-1.59706e-07,7.60783e-06
+Afterimage,vocal,0,0.070135,-7.72655e-08,6.98958e-07
+Afterimage,vocal,1,0.0555164,-2.90171e-08,2.56028e-06
+Afterimage,vocal,2,0.055506,-2.89226e-08,2.55543e-06
+Afterimage,pad,0,0.137601,-5.79748e-08,6.53149e-08
+Afterimage,pad,1,0.0612732,-4.78244e-09,2.39323e-07
+Afterimage,pad,2,0.0612531,-4.74525e-09,2.38873e-07
+Afterimage,percussion,0,0.230245,-7.29708e-07,2.96331e-06
+Afterimage,percussion,1,0.0841623,1.6197e-08,1.0564e-05
+Afterimage,percussion,2,0.084145,1.62102e-08,1.0556e-05
+Afterimage,chords,0,0.125869,-7.76263e-08,8.11131e-08
+Afterimage,chords,1,0.0561252,1.16602e-08,2.97182e-07
+Afterimage,chords,2,0.0561044,1.16641e-08,2.96838e-07
+Afterimage,piano,0,0.118231,-6.96205e-10,3.17915e-06
+Afterimage,piano,1,0.102383,-7.29824e-08,1.16452e-05
+Afterimage,piano,2,0.102357,-7.29191e-08,1.16299e-05
+Afterimage,major,0,0.125869,-7.25334e-08,7.84543e-08
+Afterimage,major,1,0.0619273,1.03811e-08,2.87444e-07
+Afterimage,major,2,0.0619021,1.03937e-08,2.86981e-07
+Afterimage,minor,0,0.123933,-6.99967e-08,8.77009e-08
+Afterimage,minor,1,0.0502482,1.06651e-08,3.2131e-07
+Afterimage,minor,2,0.0501608,1.06672e-08,3.20862e-07
+Afterimage,suspended,0,0.130434,-7.47936e-07,8.25501e-07
+Afterimage,suspended,1,0.0600297,1.06342e-08,3.60902e-07
+Afterimage,suspended,2,0.0600195,1.0636e-08,3.60476e-07
+Afterimage,cluster,0,0.123544,-7.50502e-07,8.23957e-07
+Afterimage,cluster,1,0.0470639,1.43988e-08,3.09352e-07
+Afterimage,cluster,2,0.0470494,1.43958e-08,3.08957e-07
+Afterimage,bass,0,0.181153,-1.09269e-06,4.05827e-08
+Afterimage,bass,1,0.0272313,4.81787e-09,1.48775e-07
+Afterimage,bass,2,0.0272534,4.82692e-09,1.48622e-07
+Diffuse Halo,impulse,0,0.351274,-6.66904e-07,6.69609e-07
+Diffuse Halo,impulse,1,0.150642,1.40467e-08,2.00865e-08
+Diffuse Halo,impulse,2,0.150626,1.45164e-08,1.64649e-07
+Diffuse Halo,pluck,0,0.128009,-1.05916e-07,1.42389e-08
+Diffuse Halo,pluck,1,0.142646,-1.51947e-07,3.29892e-08
+Diffuse Halo,pluck,2,0.138549,-1.64381e-07,1.14474e-06
+Diffuse Halo,vocal,0,0.0557318,-6.22127e-08,8.2982e-09
+Diffuse Halo,vocal,1,0.0513373,-2.79898e-09,1.9597e-08
+Diffuse Halo,vocal,2,0.0478604,-2.57636e-09,3.02832e-07
+Diffuse Halo,pad,0,0.112197,-9.37145e-08,5.80258e-09
+Diffuse Halo,pad,1,0.0552602,-4.94736e-09,1.40408e-08
+Diffuse Halo,pad,2,0.0528774,-7.93886e-09,3.66991e-08
+Diffuse Halo,percussion,0,0.188827,-5.7024e-07,5.55713e-07
+Diffuse Halo,percussion,1,0.0830585,1.43621e-08,2.88161e-08
+Diffuse Halo,percussion,2,0.0830758,1.44592e-08,1.83615e-06
+Diffuse Halo,chords,0,0.103517,-5.93588e-08,6.22718e-09
+Diffuse Halo,chords,1,0.0520008,1.04829e-08,1.50582e-08
+Diffuse Halo,chords,2,0.0485469,1.04522e-08,4.98986e-08
+Diffuse Halo,piano,0,0.0999252,-3.92395e-08,1.18718e-08
+Diffuse Halo,piano,1,0.100761,-7.88458e-08,2.76274e-08
+Diffuse Halo,piano,2,0.0948466,-7.79609e-08,2.06226e-06
+Diffuse Halo,major,0,0.103517,-6.17e-08,5.87744e-09
+Diffuse Halo,major,1,0.0472988,9.55703e-09,1.425e-08
+Diffuse Halo,major,2,0.0456015,9.35542e-09,5.69852e-08
+Diffuse Halo,minor,0,0.104917,-6.06343e-08,6.07374e-09
+Diffuse Halo,minor,1,0.0460231,9.73353e-09,1.47207e-08
+Diffuse Halo,minor,2,0.0450711,9.47988e-09,6.08356e-08
+Diffuse Halo,suspended,0,0.111949,-6.16975e-07,6.69496e-07
+Diffuse Halo,suspended,1,0.0541457,9.16404e-09,2.04156e-08
+Diffuse Halo,suspended,2,0.053614,8.88227e-09,6.22026e-08
+Diffuse Halo,cluster,0,0.101149,-6.16549e-07,6.69483e-07
+Diffuse Halo,cluster,1,0.0512032,1.19068e-08,2.04139e-08
+Diffuse Halo,cluster,2,0.0459373,1.19884e-08,5.81264e-08
+Diffuse Halo,bass,0,0.146303,-3.9064e-07,7.13258e-09
+Diffuse Halo,bass,1,0.0242131,8.84615e-09,1.70843e-08
+Diffuse Halo,bass,2,0.0239696,7.36151e-09,2.01913e-08
+Fifth Nebula,impulse,0,0.349914,-6.64646e-07,6.67079e-07
+Fifth Nebula,impulse,1,0.152124,1.26583e-08,2.64607e-08
+Fifth Nebula,impulse,2,0.152107,1.28389e-08,3.97182e-06
+Fifth Nebula,pluck,0,0.160662,-9.4037e-08,2.59349e-07
+Fifth Nebula,pluck,1,0.13871,-9.71236e-08,5.90738e-07
+Fifth Nebula,pluck,2,0.146656,-1.07718e-07,3.45273e-05
+Fifth Nebula,vocal,0,0.0738091,-7.94692e-08,1.58316e-07
+Fifth Nebula,vocal,1,0.0577849,-1.06008e-08,3.60622e-07
+Fifth Nebula,vocal,2,0.0527238,-1.03501e-08,7.39437e-06
+Fifth Nebula,pad,0,0.121199,-1.08454e-07,8.8588e-09
+Fifth Nebula,pad,1,0.054293,4.9202e-10,2.0625e-08
+Fifth Nebula,pad,2,0.0507897,-4.82363e-10,1.08132e-06
+Fifth Nebula,percussion,0,0.194568,-5.70493e-07,5.6454e-07
+Fifth Nebula,percussion,1,0.0828495,1.25903e-08,2.48399e-07
+Fifth Nebula,percussion,2,0.0828181,1.28449e-08,3.36306e-05
+Fifth Nebula,chords,0,0.103146,-6.07694e-08,7.23596e-09
+Fifth Nebula,chords,1,0.0501209,1.01541e-08,1.70187e-08
+Fifth Nebula,chords,2,0.0476785,1.0172e-08,1.13681e-06
+Fifth Nebula,piano,0,0.128264,-3.88172e-08,2.00651e-07
+Fifth Nebula,piano,1,0.108519,-6.19539e-08,4.57046e-07
+Fifth Nebula,piano,2,0.108295,-6.20379e-08,4.66026e-05
+Fifth Nebula,major,0,0.103146,-6.4386e-08,9.26062e-09
+Fifth Nebula,major,1,0.0476062,9.67548e-09,2.15151e-08
+Fifth Nebula,major,2,0.0452199,9.76582e-09,1.63182e-06
+Fifth Nebula,minor,0,0.107195,-6.27393e-08,9.40832e-09
+Fifth Nebula,minor,1,0.0484588,9.54045e-09,2.18549e-08
+Fifth Nebula,minor,2,0.047857,9.60336e-09,1.60032e-06
+Fifth Nebula,suspended,0,0.11206,-6.16062e-07,6.67114e-07
+Fifth Nebula,suspended,1,0.0476819,9.37121e-09,2.31681e-08
+Fifth Nebula,suspended,2,0.0511313,9.54315e-09,1.44758e-06
+Fifth Nebula,cluster,0,0.101061,-6.11536e-07,6.67145e-07
+Fifth Nebula,cluster,1,0.052721,1.05781e-08,2.62401e-08
+Fifth Nebula,cluster,2,0.0475358,9.90974e-09,1.63972e-06
+Fifth Nebula,bass,0,0.145951,-3.53946e-07,6.78575e-09
+Fifth Nebula,bass,1,0.0279102,1.73402e-09,1.60283e-08
+Fifth Nebula,bass,2,0.0296749,1.65438e-09,7.51502e-07
+Submerged Choir,impulse,0,0.34372,-6.53295e-07,6.56046e-07
+Submerged Choir,impulse,1,0.14481,1.06521e-08,1.81515e-08
+Submerged Choir,impulse,2,0.144794,1.12608e-08,1.62148e-06
+Submerged Choir,pluck,0,0.150195,-8.24163e-08,4.60313e-08
+Submerged Choir,pluck,1,0.11527,-7.29856e-08,1.03022e-07
+Submerged Choir,pluck,2,0.127191,-8.15388e-08,1.08957e-05
+Submerged Choir,vocal,0,0.0537125,-5.70573e-08,2.62406e-08
+Submerged Choir,vocal,1,0.0412828,2.10745e-09,5.88107e-08
+Submerged Choir,vocal,2,0.0375396,2.28515e-09,3.09954e-06
+Submerged Choir,pad,0,0.103466,-7.44896e-08,5.42377e-09
+Submerged Choir,pad,1,0.0421794,2.79865e-10,1.26495e-08
+Submerged Choir,pad,2,0.0400987,1.7439e-09,2.77636e-07
+Submerged Choir,percussion,0,0.188496,-5.59288e-07,5.47503e-07
+Submerged Choir,percussion,1,0.0761728,1.10971e-08,1.32385e-07
+Submerged Choir,percussion,2,0.0761468,1.11515e-08,1.21057e-05
+Submerged Choir,chords,0,0.101416,-6.06317e-08,5.77718e-09
+Submerged Choir,chords,1,0.041146,9.66572e-09,1.34145e-08
+Submerged Choir,chords,2,0.0400103,9.79894e-09,4.57052e-07
+Submerged Choir,piano,0,0.113838,-3.01349e-08,3.75841e-08
+Submerged Choir,piano,1,0.0921267,-3.32745e-08,8.41482e-08
+Submerged Choir,piano,2,0.0980477,-3.32099e-08,8.54132e-06
+Submerged Choir,major,0,0.101416,-5.81998e-08,6.06351e-09
+Submerged Choir,major,1,0.0418911,8.63819e-09,1.40199e-08
+Submerged Choir,major,2,0.0407092,9.01746e-09,5.2239e-07
+Submerged Choir,minor,0,0.0998425,-5.71897e-08,6.06932e-09
+Submerged Choir,minor,1,0.0415131,8.45726e-09,1.40326e-08
+Submerged Choir,minor,2,0.0412353,8.86109e-09,4.75945e-07
+Submerged Choir,suspended,0,0.103367,-6.00882e-07,6.55972e-07
+Submerged Choir,suspended,1,0.0484452,8.43637e-09,1.7017e-08
+Submerged Choir,suspended,2,0.0460019,8.87495e-09,4.79565e-07
+Submerged Choir,cluster,0,0.0985633,-5.99658e-07,6.55955e-07
+Submerged Choir,cluster,1,0.0342453,1.05888e-08,1.77271e-08
+Submerged Choir,cluster,2,0.0345331,1.06844e-08,5.17436e-07
+Submerged Choir,bass,0,0.145599,-4.38461e-07,5.15288e-09
+Submerged Choir,bass,1,0.0228165,4.0578e-09,1.20825e-08
+Submerged Choir,bass,2,0.0244796,3.82589e-09,1.80989e-07
+Prism Drift,impulse,0,0.361973,-6.89291e-07,6.92455e-07
+Prism Drift,impulse,1,0.149484,1.13576e-08,1.42059e-08
+Prism Drift,impulse,2,0.149468,1.43772e-08,1.48421e-08
+Prism Drift,pluck,0,0.139875,-1.02328e-07,5.9304e-09
+Prism Drift,pluck,1,0.136567,-1.49436e-07,1.48789e-08
+Prism Drift,pluck,2,0.136048,-1.54218e-07,1.54821e-08
+Prism Drift,vocal,0,0.0586869,-6.60769e-08,5.06794e-09
+Prism Drift,vocal,1,0.0491156,-4.04774e-09,1.27746e-08
+Prism Drift,vocal,2,0.0481644,-3.49082e-09,1.36797e-08
+Prism Drift,pad,0,0.112697,-6.10632e-08,5.62911e-09
+Prism Drift,pad,1,0.0614662,-1.37065e-08,1.41582e-08
+Prism Drift,pad,2,0.0598357,-1.17599e-08,1.45703e-08
+Prism Drift,percussion,0,0.194748,-5.92405e-07,5.75096e-07
+Prism Drift,percussion,1,0.0835967,1.27392e-08,1.39554e-08
+Prism Drift,percussion,2,0.0835815,1.41419e-08,1.59757e-08
+Prism Drift,chords,0,0.10666,-6.54025e-08,4.85912e-09
+Prism Drift,chords,1,0.0537313,9.76375e-09,1.23224e-08
+Prism Drift,chords,2,0.0558057,1.14785e-08,1.78033e-08
+Prism Drift,piano,0,0.114305,-3.62046e-08,5.67449e-09
+Prism Drift,piano,1,0.106371,-8.20071e-08,1.42553e-08
+Prism Drift,piano,2,0.109501,-8.23344e-08,1.17354e-08
+Prism Drift,major,0,0.10666,-6.01693e-08,4.18211e-09
+Prism Drift,major,1,0.0537313,6.57153e-09,1.06277e-08
+Prism Drift,major,2,0.0558057,8.3738e-09,1.41562e-08
+Prism Drift,minor,0,0.100963,-6.11511e-08,4.62013e-09
+Prism Drift,minor,1,0.0491334,7.26532e-09,1.17307e-08
+Prism Drift,minor,2,0.048762,8.9254e-09,1.46037e-08
+Prism Drift,suspended,0,0.104749,-6.34666e-07,6.92393e-07
+Prism Drift,suspended,1,0.0610877,6.57994e-09,1.43631e-08
+Prism Drift,suspended,2,0.0593455,8.69403e-09,1.50394e-08
+Prism Drift,cluster,0,0.10625,-6.33077e-07,6.92442e-07
+Prism Drift,cluster,1,0.0422757,1.10343e-08,1.42328e-08
+Prism Drift,cluster,2,0.0433122,1.25827e-08,1.40878e-08
+Prism Drift,bass,0,0.14974,4.2495e-08,5.97179e-09
+Prism Drift,bass,1,0.0309893,-1.54399e-08,1.49893e-08
+Prism Drift,bass,2,0.0323753,-1.24662e-08,1.61385e-08
+Ghost Room,impulse,0,0.437428,-8.39328e-07,8.40885e-07
+Ghost Room,impulse,1,0.138784,1.77575e-08,3.44668e-08
+Ghost Room,impulse,2,0.138768,1.78569e-08,3.44251e-08
+Ghost Room,pluck,0,0.151209,-8.96216e-08,8.61831e-08
+Ghost Room,pluck,1,0.130746,-1.37296e-07,3.54245e-07
+Ghost Room,pluck,2,0.130617,-1.3715e-07,3.53746e-07
+Ghost Room,vocal,0,0.078899,-9.78536e-08,2.78877e-08
+Ghost Room,vocal,1,0.0631582,-4.65247e-08,1.14745e-07
+Ghost Room,vocal,2,0.063119,-4.64287e-08,1.14445e-07
+Ghost Room,pad,0,0.142646,-1.2954e-07,4.22694e-09
+Ghost Room,pad,1,0.0589982,-5.51273e-09,1.86906e-08
+Ghost Room,pad,2,0.0589745,-5.51629e-09,1.85582e-08
+Ghost Room,percussion,0,0.23594,-7.53221e-07,7.06107e-07
+Ghost Room,percussion,1,0.0810281,1.7793e-08,4.34374e-07
+Ghost Room,percussion,2,0.0810181,1.77921e-08,4.34029e-07
+Ghost Room,chords,0,0.128895,-7.95589e-08,4.34201e-09
+Ghost Room,chords,1,0.0645232,1.2602e-08,1.90014e-08
+Ghost Room,chords,2,0.0645337,1.26033e-08,1.87398e-08
+Ghost Room,piano,0,0.12192,-6.22722e-09,9.88549e-08
+Ghost Room,piano,1,0.101995,-6.9034e-08,4.06313e-07
+Ghost Room,piano,2,0.101945,-6.89198e-08,4.05788e-07
+Ghost Room,major,0,0.128895,-8.44342e-08,5.08523e-09
+Ghost Room,major,1,0.055048,1.20392e-08,2.19794e-08
+Ghost Room,major,2,0.0550563,1.20407e-08,2.18328e-08
+Ghost Room,minor,0,0.128272,-8.13996e-08,5.35843e-09
+Ghost Room,minor,1,0.0477963,1.22237e-08,2.30773e-08
+Ghost Room,minor,2,0.0477651,1.22228e-08,2.29227e-08
+Ghost Room,suspended,0,0.135199,-7.77e-07,8.40927e-07
+Ghost Room,suspended,1,0.0564007,1.21489e-08,2.043e-08
+Ghost Room,suspended,2,0.0563943,1.21789e-08,2.06178e-08
+Ghost Room,cluster,0,0.126809,-7.71634e-07,8.4105e-07
+Ghost Room,cluster,1,0.0497437,1.42729e-08,2.23457e-08
+Ghost Room,cluster,2,0.0497182,1.42763e-08,2.23169e-08
+Ghost Room,bass,0,0.181608,-2.15591e-07,4.07168e-09
+Ghost Room,bass,1,0.034381,-2.42795e-08,1.81293e-08
+Ghost Room,bass,2,0.034405,-2.42388e-08,1.83932e-08

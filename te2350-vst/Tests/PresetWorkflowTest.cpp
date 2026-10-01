@@ -59,9 +59,9 @@ struct TemporaryPresetDirectory
 bool verifyFactoryCatalog()
 {
     const auto& descriptors = te2350::getFactoryPresetDescriptors();
-    if (descriptors.size() != 13)
+    if (descriptors.size() != 20)
     {
-        std::fprintf(stderr, "expected 13 factory presets, got %zu\n", descriptors.size());
+        std::fprintf(stderr, "expected 20 factory presets, got %zu\n", descriptors.size());
         return false;
     }
 

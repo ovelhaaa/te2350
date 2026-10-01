@@ -1,10 +1,14 @@
-#include "FactoryPresets.h"
+// Frozen M10 catalog: captured before M11; do not regenerate.
+#pragma once
+#include "Presets/FactoryPresets.h"
 
 #include <array>
 #include <map>
 #include <string>
 
-namespace te2350
+namespace m10Snapshot
+{ using PresetDescriptor = te2350::PresetDescriptor; }
+namespace m10Snapshot
 {
 namespace
 {
@@ -16,8 +20,8 @@ struct Preset
     std::map<std::string, float> values;
 };
 
-// M11: append only. The first thirteen entries are the immutable M10 bank.
-const std::array<Preset, 20> presets {{
+// M10: voicing only. Keep the catalog/order and global parameter defaults intact.
+const std::array<Preset, 13> presets {{
     { "Low Orbit", "FOUNDATIONS", "Dark, focused short ambience with subtle drift.",
       { { "space", 0.35f }, { "wild", 0.02f }, { "bloom", 0.18f }, { "timeMs", 230.0f }, { "feedback", 0.34f },
         { "mix", 0.3f }, { "highCutHz", 4800.0f }, { "lowCutHz", 100.0f }, { "diffusion", 0.35f }, { "wetWidth", 0.28f },
@@ -95,48 +99,6 @@ const std::array<Preset, 20> presets {{
         { "mix", 0.25f }, { "highCutHz", 12500.0f }, { "lowCutHz", 160.0f }, { "diffusion", 0.1f }, { "wetWidth", 0.2f },
         { "shimmerAmount", 0.0f }, { "shimmerFeedback", 0.0f }, { "shimmerInterval", 2.0f }, { "duckAmount", 0.04f }, { "modRateHz", 0.4f },
         { "modDepth", 0.0f }, { "chaos", 0.0f }, { "wobble", 0.02f }, { "presence", 0.72f }, { "freezeEngage", 0.0f },
-        { "atmosFdnOn", 0.0f }, { "outputTrim", 0.0f } } },
-    { "Long Shadow", "DEEP SPACE", "Dry-forward, deep trailing field for vocal, guitar, piano and harp.",
-      { { "space", 0.82f }, { "wild", 0.03f }, { "bloom", 0.68f }, { "timeMs", 1380.0f }, { "feedback", 0.86f },
-        { "mix", 0.045f }, { "highCutHz", 5600.0f }, { "lowCutHz", 140.0f }, { "diffusion", 0.86f }, { "wetWidth", 0.7f },
-        { "shimmerAmount", 0.0f }, { "shimmerFeedback", 0.0f }, { "shimmerInterval", 2.0f }, { "duckAmount", 0.36f }, { "modRateHz", 0.045f },
-        { "modDepth", 0.035f }, { "chaos", 0.0f }, { "wobble", 0.03f }, { "presence", 0.38f }, { "freezeEngage", 0.0f },
-        { "atmosFdnOn", 1.0f }, { "outputTrim", 0.0f } } },
-    { "Afterimage", "DEEP SPACE", "Nearly dry phrases opening into a wide tail; vocal and guitar/harp.",
-      { { "space", 0.78f }, { "wild", 0.08f }, { "bloom", 0.60f }, { "timeMs", 800.0f }, { "feedback", 0.77f },
-        { "mix", 0.015f }, { "highCutHz", 6400.0f }, { "lowCutHz", 170.0f }, { "diffusion", 0.88f }, { "wetWidth", 0.78f },
-        { "shimmerAmount", 0.0f }, { "shimmerFeedback", 0.0f }, { "shimmerInterval", 2.0f }, { "duckAmount", 0.72f }, { "modRateHz", 0.06f },
-        { "modDepth", 0.055f }, { "chaos", 0.015f }, { "wobble", 0.06f }, { "presence", 0.42f }, { "freezeEngage", 0.0f },
-        { "atmosFdnOn", 1.0f }, { "outputTrim", 0.0f } } },
-    { "Diffuse Halo", "SHIMMER", "Dissolved octave-up halo for piano, pads and harmonic sources.",
-      { { "space", 0.72f }, { "wild", 0.06f }, { "bloom", 0.55f }, { "timeMs", 760.0f }, { "feedback", .70f },
-        { "mix", 0.28f }, { "highCutHz", 8800.0f }, { "lowCutHz", 200.0f }, { "diffusion", 0.9f }, { "wetWidth", 0.79f },
-        { "shimmerAmount", 0.25f }, { "shimmerFeedback", 0.24f }, { "shimmerInterval", 2.0f }, { "duckAmount", 0.24f }, { "modRateHz", 0.055f },
-        { "modDepth", 0.06f }, { "chaos", 0.0f }, { "wobble", 0.04f }, { "presence", 0.48f }, { "freezeEngage", 0.0f },
-        { "atmosFdnOn", 1.0f }, { "outputTrim", 0.0f } } },
-    { "Fifth Nebula", "SHIMMER", "Diffuse fifth extension for chords and pads, with slow wide movement.",
-      { { "space", 0.76f }, { "wild", 0.12f }, { "bloom", 0.7f }, { "timeMs", 1050.0f }, { "feedback", .79f },
-        { "mix", 0.25f }, { "highCutHz", 6800.0f }, { "lowCutHz", 230.0f }, { "diffusion", 0.94f }, { "wetWidth", 0.85f },
-        { "shimmerAmount", 0.28f }, { "shimmerFeedback", 0.36f }, { "shimmerInterval", 1.0f }, { "duckAmount", 0.32f }, { "modRateHz", 0.055f },
-        { "modDepth", 0.1f }, { "chaos", 0.015f }, { "wobble", 0.08f }, { "presence", 0.4f }, { "freezeEngage", 0.0f },
-        { "atmosFdnOn", 1.0f }, { "outputTrim", 0.0f } } },
-    { "Submerged Choir", "DEEP SPACE", "Dark harmonic octave-down cloud for vocal, guitar and pad.",
-      { { "space", 0.7f }, { "wild", 0.05f }, { "bloom", 0.66f }, { "timeMs", 1080.0f }, { "feedback", 0.79f },
-        { "mix", 0.28f }, { "highCutHz", 2200.0f }, { "lowCutHz", 260.0f }, { "diffusion", 0.91f }, { "wetWidth", 0.73f },
-        { "shimmerAmount", 0.32f }, { "shimmerFeedback", 0.34f }, { "shimmerInterval", 0.0f }, { "duckAmount", 0.3f }, { "modRateHz", 0.04f },
-        { "modDepth", 0.04f }, { "chaos", 0.0f }, { "wobble", 0.035f }, { "presence", 0.2f }, { "freezeEngage", 0.0f },
-        { "atmosFdnOn", 1.0f }, { "outputTrim", 0.0f } } },
-    { "Prism Drift", "EXPERIMENTAL", "Hidden fifth fragments in irregular motion for synth and percussion.",
-      { { "space", 0.58f }, { "wild", 0.72f }, { "bloom", 0.44f }, { "timeMs", 540.0f }, { "feedback", 0.61f },
-        { "mix", 0.27f }, { "highCutHz", 7900.0f }, { "lowCutHz", 210.0f }, { "diffusion", 0.78f }, { "wetWidth", 0.75f },
-        { "shimmerAmount", 0.16f }, { "shimmerFeedback", 0.12f }, { "shimmerInterval", 1.0f }, { "duckAmount", 0.26f }, { "modRateHz", 0.06f },
-        { "modDepth", 0.38f }, { "chaos", 0.24f }, { "wobble", 0.34f }, { "presence", 0.46f }, { "freezeEngage", 0.0f },
-        { "atmosFdnOn", 0.0f }, { "outputTrim", 0.0f } } },
-    { "Ghost Room", "FOUNDATIONS", "Subtle neutral-dark long ambience for dry acoustic sources.",
-      { { "space", 0.62f }, { "wild", 0.015f }, { "bloom", 0.36f }, { "timeMs", 820.0f }, { "feedback", 0.72f },
-        { "mix", 0.05f }, { "highCutHz", 5400.0f }, { "lowCutHz", 160.0f }, { "diffusion", 0.87f }, { "wetWidth", 0.43f },
-        { "shimmerAmount", 0.0f }, { "shimmerFeedback", 0.0f }, { "shimmerInterval", 2.0f }, { "duckAmount", 0.38f }, { "modRateHz", 0.035f },
-        { "modDepth", 0.02f }, { "chaos", 0.0f }, { "wobble", 0.015f }, { "presence", 0.38f }, { "freezeEngage", 0.0f },
         { "atmosFdnOn", 0.0f }, { "outputTrim", 0.0f } } }
 }};
 }
@@ -178,7 +140,14 @@ void applyFactoryPreset(juce::AudioProcessorValueTreeState& state, int index)
         if (ranged == nullptr || identified == nullptr)
             continue;
 
-        auto plainValue = ranged->convertFrom0to1(ranged->getDefaultValue());
+        // Capture M10 values for every parameter omitted from the sparse catalog.
+        static const std::map<std::string, float> omittedDefaults {
+            { "syncMode", 0.0f }, { "killDry", 0.0f }, { "modShape", 1.0f },
+            { "duckThreshold", -24.0f }, { "inputTrim", 0.0f }, { "bypass", 0.0f },
+            { "qualityMode", 0.0f }, { "freezeMode", 1.0f }
+        };
+        const auto key = identified->paramID.toStdString();
+        auto plainValue = values.count(key) ? values.at(key) : omittedDefaults.at(key);
         if (const auto found = values.find(identified->paramID.toStdString()); found != values.end())
             plainValue = found->second;
 

@@ -1,6 +1,8 @@
-// M10 offline musical audit. Production DSP and macro mappings are unchanged.
+// M11 offline musical audit. Production DSP and macro mappings are unchanged.
 #include "PluginProcessor.h"
 #include "Presets/FactoryPresets.h"
+#include "M10FactorySnapshot.h"
+#include <cstring>
 #include <array>
 #include <cmath>
 #include <fstream>
@@ -10,7 +12,7 @@
 namespace
 {
 constexpr int sr = 48000, bs = 128, active = 4, duration = 24;
-const std::array<const char *, 6> sources{{"impulse", "pluck", "vocal", "pad", "percussion", "chords"}};
+const std::array<const char *, 12> sources{{"impulse", "pluck", "vocal", "pad", "percussion", "chords", "piano", "major", "minor", "suspended", "cluster", "bass"}};
 void set(TE2350AudioProcessor &p, const char *id, float v)
 {
     auto *a = p.apvts.getParameter(id);
@@ -34,6 +36,16 @@ float source(int n, int type)
         for (int h = 1; h <= 8; ++h)
             x += std::sin(tau * f * h * u) * std::exp(-u * (4 + h)) * .16 / (h * h);
         return float(x * std::min(1., u * 2000));
+    }
+    if (type == 11)
+        return float(.18 * std::sin(tau * 55 * t) * fade + .05 * std::sin(tau * 110 * t) * fade);
+    if (type == 6)
+    {
+        const double u = std::fmod(t, .5), f = 261.6256 * std::pow(2., int(t / .5) % 5 / 12.);
+        double x = 0;
+        for (int h = 1; h <= 12; ++h)
+            x += .13 / (h * h) * std::sin(tau * f * (h + .0003 * h * h) * u) * std::exp(-u * (2.5 + h));
+        return float(x * std::min(1., u * 1500));
     }
     if (type == 2)
     {
@@ -59,7 +71,10 @@ float source(int n, int type)
                                                  {{110, 130.8128, 164.8138, 220}},
                                                  {{87.3071, 110, 130.8128, 174.6141}},
                                                  {{97.9989, 123.4708, 146.8324, 195.9977}}}};
-    const auto &notes = chords[type == 3 ? 0 : static_cast<size_t>(t) % 4];
+    if (type >= 7)
+        chords = {{{{130.8128,164.8138,195.9977,261.6256}}, {{130.8128,155.5635,195.9977,261.6256}},
+                   {{130.8128,174.6141,195.9977,261.6256}}, {{130.8128,138.5913,146.8324,195.9977}}}};
+    const auto &notes = chords[type >= 7 ? type - 7 : (type == 3 ? 0 : static_cast<size_t>(t) % 4)];
     double u = std::fmod(t, 1.), x = 0;
     for (double f : notes)
         x += .038 * (std::sin(tau * f * t) + .2 * std::sin(tau * f * 2 * t));
@@ -239,10 +254,12 @@ void safety(const juce::AudioBuffer<float> &a, const Metrics &m, const std::stri
     if (m.last > std::max(.003, previous * 2))
         throw std::runtime_error("growing late tail: " + label);
 }
-juce::AudioBuffer<float> render(int index, int type, int mode, bool freezePerformance = false)
+juce::AudioBuffer<float> render(int index, int type, int mode, bool freezePerformance = false, bool lowDiffusion = false)
 {
     TE2350AudioProcessor p;
     p.setCurrentProgram(index);
+    if (lowDiffusion)
+        set(p, "diffusion", .08f);
     if (mode != 0)
         set(p, "killDry", 1);
     p.prepareToPlay(sr, bs);
@@ -305,6 +322,44 @@ juce::AudioBuffer<float> render(int index, int type, int mode, bool freezePerfor
     }
     return out;
 }
+void verifyLegacy()
+{
+    for (int i = 0; i < 13; ++i)
+    {
+        TE2350AudioProcessor actual, expected;
+        actual.setCurrentProgram(i);
+        m10Snapshot::applyFactoryPreset(expected.apvts, i);
+        if (actual.getProgramName(i) != m10Snapshot::getFactoryPresetNames()[i])
+            throw std::runtime_error("legacy name/order changed");
+        for (auto* a : actual.getParameters())
+        {
+            auto* id = dynamic_cast<juce::AudioProcessorParameterWithID*>(a);
+            const float x = a->getValue(), y = expected.apvts.getParameter(id->paramID)->getValue();
+            const float rawX = actual.apvts.getRawParameterValue(id->paramID)->load();
+            const float rawY = expected.apvts.getRawParameterValue(id->paramID)->load();
+            if (std::memcmp(&x, &y, sizeof(float)) || std::memcmp(&rawX, &rawY, sizeof(float)))
+                throw std::runtime_error("legacy bits changed: " + id->paramID.toStdString());
+        }
+    }
+    std::cout << "M10 legacy: all 13 names/order and all saved parameter bits preserved" << std::endl;
+}
+void verifyNewRoles()
+{
+    const char* names[] = {"Long Shadow", "Afterimage", "Diffuse Halo", "Fifth Nebula", "Submerged Choir", "Prism Drift", "Ghost Room"};
+    for (int i = 13; i < 20; ++i)
+    {
+        TE2350AudioProcessor p; p.setCurrentProgram(i);
+        const auto c = resolved(p);
+        if (p.getProgramName(i) != names[i-13] || c.space >= .9 || c.wild >= .9 || c.bloom >= .9 || c.freeze)
+            throw std::runtime_error("new preset identity/headroom");
+        if ((i == 13 || i == 14 || i == 19) && (c.mix > .25 || c.shimmerFeedback > .00001))
+            throw std::runtime_error("low-mix ambience role");
+        if (i == 14 && c.duckAmount < .7) throw std::runtime_error("afterimage ducking");
+        if (i >= 15 && i <= 17 && (c.diffusion < .9 || c.shimmerAmount < .2 || c.shimmerInterval != (i == 15 ? 2 : i == 16 ? 1 : 0)))
+            throw std::runtime_error("diffuse harmonic role");
+        if (i == 18 && (c.wild < .6 || c.shimmerFeedback > .2)) throw std::runtime_error("pitch motion role");
+    }
+}
 void verifyDiagnosticParity()
 {
     for (int index : {0, 5, 9, 10})
@@ -350,9 +405,9 @@ void transitions(const juce::File &dir)
     log << "from,to,peak,rms_db,adjacent_rms_delta_db\n";
     double previousDb = 0;
     int from = -1;
-    for (int k = 0; k < 26; ++k)
+    for (int k = 0; k < 40; ++k)
     {
-        int index = k < 13 ? k : 25 - k;
+        int index = k < 20 ? k : 39 - k;
         p.setCurrentProgram(index);
         TE2350AudioProcessor expected;
         expected.setCurrentProgram(index);
@@ -406,7 +461,7 @@ void diversity()
 {
     bool shortTail = false, longTail = false, veryLong = false, dark = false, bright = false, focused = false,
          wide = false, stable = false, motion = false, shimmer = false, atmos = false;
-    for (int i = 0; i < 13; ++i)
+    for (int i = 0; i < 20; ++i)
     {
         TE2350AudioProcessor p;
         p.setCurrentProgram(i);
@@ -440,11 +495,11 @@ int main(int argc, char **argv)
             throw std::runtime_error("output directory");
         const bool auditOnly = argc > 2 && std::string(argv[2]) == "--audit-only";
         const auto names = te2350::getFactoryPresetNames();
-        if (names.size() != 13)
-            throw std::runtime_error("13 presets required");
+        if (names.size() != 20)
+            throw std::runtime_error("20 presets required");
         std::ofstream raw(dir.getChildFile("parameters.csv").getFullPathName().toStdString());
         raw << "preset,parameter,raw,effective\n";
-        for (int i = 0; i < 13; ++i)
+        for (int i = 0; i < 20; ++i)
         {
             TE2350AudioProcessor p;
             p.setCurrentProgram(i);
@@ -464,8 +519,12 @@ int main(int argc, char **argv)
             }
         }
         raw.close();
+        verifyLegacy();
+        verifyNewRoles();
+        if (argc > 2 && std::string(argv[2]) == "--verify-only")
+            return 0;
         verifyDiagnosticParity();
-        for (int type = 0; type < 6; ++type)
+        for (int type = 0; type < 12; ++type)
         {
             juce::AudioBuffer<float> dry(2, duration * sr);
             for (int n = 0; n < dry.getNumSamples(); ++n)
@@ -477,9 +536,9 @@ int main(int argc, char **argv)
         std::ofstream metrics(dir.getChildFile("safety.csv").getFullPathName().toStdString());
         metrics << "preset,source,mode,peak,dc,final_tail_rms\n";
         std::vector<Metrics> impulseMetrics, percussionMetrics;
-        for (int i = 0; i < 13; ++i)
+        for (int i = 0; i < 20; ++i)
         {
-            for (int type = 0; type < 6; ++type)
+            for (int type = 0; type < (i < 13 ? 6 : 12); ++type)
                 for (int mode = 0; mode < 3; ++mode)
                 {
                     auto audio = render(i, type, mode);
@@ -499,8 +558,16 @@ int main(int argc, char **argv)
                     if (!wav(dir.getChildFile(file), audio))
                         throw std::runtime_error("WAV write");
                 }
-            std::cout << names[i] << " rendered (six sources, mix/wet/no-shimmer)" << std::endl;
+            std::cout << names[i] << " rendered (twelve sources (legacy: six), mix/wet/no-shimmer)" << std::endl;
         }
+        for (int i : {15, 16})
+            for (int type : {0, 2, 7, 8, 9, 10})
+            {
+                auto audio = render(i, type, 1, false, true);
+                safety(audio, measure(audio), "low diffusion A/B");
+                if (!wav(dir.getChildFile(juce::String(i) + "_" + sources[type] + "_lowdiff.wav"), audio))
+                    throw std::runtime_error("diffusion WAV write");
+            }
         transitions(dir);
         if (!auditOnly)
         {
@@ -541,7 +608,7 @@ int main(int argc, char **argv)
                       << "," << late << "," << fm.peak << "," << fm.last << "\n";
         }
         std::cout << "Preset voicing " << (auditOnly ? "baseline audit" : "test passed")
-                  << ": 13 presets, six sources, diagnostic parity, safety, transitions" << std::endl;
+                  << ": 20 presets, twelve sources (legacy: six), diagnostic parity, safety, transitions" << std::endl;
         return 0;
     }
     catch (const std::exception &e)
