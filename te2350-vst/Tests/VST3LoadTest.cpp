@@ -51,7 +51,8 @@ int main(int argc, char* argv[])
         || description.version != TE2350_EXPECTED_PLUGIN_VERSION
         || instance->getTotalNumInputChannels() != 2
         || instance->getTotalNumOutputChannels() != 2
-        || instance->getParameters().size() != 30
+        // JUCE's VST3 wrapper adds a program-change parameter to the 30 APVTS IDs.
+        || instance->getParameters().size() != 31
         || instance->getNumPrograms() != 20)
     {
         std::fprintf(stderr,

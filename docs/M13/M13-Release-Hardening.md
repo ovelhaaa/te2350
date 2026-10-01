@@ -65,7 +65,14 @@ Core goldens compare two independent current-core render paths byte for byte;
 they are not a stored historical full-plugin audio baseline. Plugin tolerances
 are exercised by calibration/musical/host/readiness tests. Factory snapshots
 remain unchanged. UIRender checks layout/interaction and emits PNGs; it does
-not implement a stored pixel-baseline gate. M13 adds no visual change.
+not implement a stored pixel-baseline gate. M13 adds no visual change. All 15 generated PNGs were byte-identical to the
+M12 outputs in the first Release qualification run. No snapshot was refreshed.
+
+Paired warmed HostCompatibility benchmarks (three alternating runs per build)
+compared the approved M12 binary and M13: 48 kHz Hardware 2.54% -> 2.50%,
+48 kHz Studio 2.87% -> 2.78%, 192 kHz Studio 10.49% -> 10.51% CPU load. The
+maximum positive relative difference was 0.19%, consistent with timing noise;
+no callback change or performance regression was found. Raw rows: performance.csv.
 
 ## Packaging
 
@@ -106,7 +113,10 @@ M12 processor CID: ABCDEF019182FAEB5465416754323335.
 M12 controller CID: ABCDEF011234ABCD5465416754323335.
 Manufacturer TE-2350, manufacturer code TeAg, plugin code T235 and bundle ID
 com.te2350.antigravity remain unchanged. Packaging checks the two CIDs and
-version against the final bundle moduleinfo; VST3Load checks runtime metadata.
+version against the final bundle moduleinfo; VST3Load checks runtime metadata and creates the actual hosted editor. The
+host exposes 31 VST3 parameters: the 30 unchanged APVTS parameters plus
+JUCE's existing Program selector. An overly strict initial scanner assertion
+expected 30; it was corrected after the first gated run rejected the package.
 
 The user preset directory remains JUCE userApplicationDataDirectory/TE-2350/
 Antigravity/Presets. PresetWorkflow always injects temporary directories; editor
