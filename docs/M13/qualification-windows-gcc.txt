@@ -1,0 +1,50 @@
+[0/2] Re-checking globbed directories...
+[1/2] Re-running CMake...
+-- Configuring juceaide
+-- Building juceaide
+-- Exporting juceaide
+-- Configuring done (7.6s)
+-- Generating done (0.2s)
+-- Build files have been written to: C:/progs/vst/te2350/build/release-7
+[0/4] Re-checking globbed directories...
+[1/18] Generating juce_binarydata_TE2350Assets/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_TE2350Assets/JuceLibraryCode/BinaryData.h
+[1/5] C:\Windows\system32\cmd.exe /C "cd /D C:\progs\vst\te2350\build\release-7 && "C:\Program Files\CMake\bin\cmake.exe" -DPACKAGE_CONFIG=C:/progs/vst/te2350/build/release-7/PackageConfig.cmake -DCONFIG=Release "-DVST3_BUNDLE=C:/progs/vst/te2350/build/release-7/TE2350Antigravity_artefacts/Release/VST3/TE-2350 Antigravity.vst3" "-DVST3_BINARY=C:/progs/vst/te2350/build/release-7/TE2350Antigravity_artefacts/Release/VST3/TE-2350 Antigravity.vst3/Contents/x86_64-win/TE-2350 Antigravity.vst3" "-DSTANDALONE=C:/progs/vst/te2350/build/release-7/TE2350Antigravity_artefacts/Release/Standalone/TE-2350 Antigravity.exe" -DSCANNER=C:/progs/vst/te2350/build/release-7/TE2350VST3LoadTest.exe -P C:/progs/vst/te2350/te2350-vst/cmake/PackageRelease.cmake"
+Test project C:/progs/vst/te2350/build/release-7
+      Start  3: TE2350GoldenReferenceRender
+      Start  2: TE2350OfflineReferenceRender
+      Start 11: TE2350PresetVoicingTest
+ 1/16 Test  #2: TE2350OfflineReferenceRender .....   Passed    0.08 sec
+      Start  1: TE2350MacroCalibrationTest
+ 2/16 Test  #3: TE2350GoldenReferenceRender ......   Passed    0.13 sec
+      Start 15: TE2350FreezeConsistencyTest
+ 3/16 Test #15: TE2350FreezeConsistencyTest ......   Passed   34.57 sec
+      Start 14: TE2350MusicalBehaviourTest
+ 4/16 Test #14: TE2350MusicalBehaviourTest .......   Passed   12.88 sec
+      Start  7: TE2350CalibrationTest
+ 5/16 Test  #7: TE2350CalibrationTest ............   Passed    3.25 sec
+      Start 16: TE2350PackagingGateTest
+ 6/16 Test #16: TE2350PackagingGateTest ..........   Passed    0.76 sec
+      Start 10: TE2350UIRenderTest
+ 7/16 Test #10: TE2350UIRenderTest ...............   Passed    1.37 sec
+      Start  8: TE2350HostCompatibilityTest
+ 8/16 Test  #8: TE2350HostCompatibilityTest ......   Passed    0.51 sec
+      Start  6: TE2350PluginSmokeTest
+ 9/16 Test  #6: TE2350PluginSmokeTest ............   Passed    0.10 sec
+      Start 12: TE2350PresetWorkflowTest
+10/16 Test #12: TE2350PresetWorkflowTest .........   Passed    0.19 sec
+      Start 13: TE2350ReleaseReadinessTest
+11/16 Test #13: TE2350ReleaseReadinessTest .......   Passed    0.38 sec
+      Start  4: TE2350GoldenReferenceCompare
+12/16 Test  #4: TE2350GoldenReferenceCompare .....   Passed    0.06 sec
+      Start  9: TE2350VST3LoadTest
+13/16 Test  #9: TE2350VST3LoadTest ...............   Passed    0.22 sec
+      Start  5: TE2350CoreControlTest
+14/16 Test  #5: TE2350CoreControlTest ............   Passed    0.03 sec
+15/16 Test  #1: TE2350MacroCalibrationTest .......   Passed  162.64 sec
+16/16 Test #11: TE2350PresetVoicingTest ..........   Passed  285.47 sec
+
+100% tests passed, 0 tests failed out of 16
+
+Total Test time (real) = 285.51 sec
+VST3 load test passed: TE-2350 Antigravity 0.3.0, params=31 latency=4 tail=65.0 s
+-- Qualified ZIP: C:/progs/vst/te2350/dist/TE-2350-Antigravity-0.3.0-windows-x64.zip

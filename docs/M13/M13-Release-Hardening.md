@@ -44,9 +44,27 @@ cmake --build build/release-7 --config Release --target package_te2350 --paralle
 ```
 
 Repeat validation uses a clean Git clone and its own fetched JUCE/build tree.
+Local OS: Windows 10 x64, build 19045. The exact independent-clone flow was:
+
+```powershell
+git clone --branch codex/m13-release-hardening --single-branch https://github.com/ovelhaaa/te2350.git C:/tmp/te2350-m13-clean-0cf22e7
+cmake --preset release -S C:/tmp/te2350-m13-clean-0cf22e7/te2350-vst
+# Follow the branch fixes during qualification; final source revision is f1ffad2672ca5e13b1aa044920be8f1e9d7b9824.
+git -C C:/tmp/te2350-m13-clean-0cf22e7 pull --ff-only
+cmake --build C:/tmp/te2350-m13-clean-0cf22e7/build/release --config Release --target package_te2350 --parallel 3
+```
+
+The clone configured from scratch, fetched its own JUCE, built the products/tools,
+and invoked CTest through the gate. No original-machine source/dependency path
+or other-plugin target appears in its CMakeCache/build graph. Source status
+remained clean after configure/build/tests/package in both checkouts.
 The portable documented commands are in te2350-vst/README.md and CMakePresets.json;
-Release/Debug/MSVC trees are isolated. This report will record final results
-once qualification and final package verification finish.
+Release/Debug/MSVC trees are isolated. Final build/configuration/package inputs are pinned at commit
+`f1ffad2672ca5e13b1aa044920be8f1e9d7b9824`. Both final packages record clean
+project and JUCE trees. Later documentation-only commits do not change the
+recorded binary build revision. The initial failed JUCE8 configure was moved
+reversibly to the ignored build/m13-failed-juce8-configure directory; the
+standard build/release preset path is free.
 
 ## Qualification
 
@@ -64,8 +82,11 @@ on every attempt. No cached success marker or golden-update command is used.
 
 First complete corrected Release gate: **16/16 PASS**, zero failures, 317.40 s
 wall time. The extracted ZIP loaded through the scanner and created its editor.
-Final rerun adds stripping of MinGW runtime debug sections on staged copies;
-build-tree binaries are left untouched. A stripped-copy host scan passed.
+Final stripped-package gate: **16/16 PASS**, zero failures, **285.51 s** locally
+and **315.88 s** in the independent clone. Each ZIP was extracted, checked and
+loaded with its editor through the VST3 scanner. MinGW runtime debug sections
+are removed only on staged copies; build-tree binaries remain available.
+No debug sections remain in the two shipped binaries.
 
 Core goldens compare two independent current-core render paths byte for byte;
 they are not a stored historical full-plugin audio baseline. Plugin tolerances
@@ -79,6 +100,26 @@ compared the approved M12 binary and M13: 48 kHz Hardware 2.54% -> 2.50%,
 48 kHz Studio 2.87% -> 2.78%, 192 kHz Studio 10.49% -> 10.51% CPU load. The
 maximum positive relative difference was 0.19%, consistent with timing noise;
 no callback change or performance regression was found. Raw rows: performance.csv.
+
+
+| Test | Final Release result | Seconds |
+| --- | --- | ---: |
+| TE2350CalibrationTest | PASS | 3.25 |
+| TE2350CoreControlTest | PASS | 0.03 |
+| TE2350FreezeConsistencyTest | PASS | 34.57 |
+| TE2350GoldenReferenceCompare | PASS | 0.06 |
+| TE2350GoldenReferenceRender | PASS | 0.13 |
+| TE2350HostCompatibilityTest | PASS | 0.51 |
+| TE2350MacroCalibrationTest | PASS | 162.64 |
+| TE2350MusicalBehaviourTest | PASS | 12.88 |
+| TE2350OfflineReferenceRender | PASS | 0.08 |
+| TE2350PackagingGateTest | PASS | 0.76 |
+| TE2350PluginSmokeTest | PASS | 0.10 |
+| TE2350PresetVoicingTest | PASS | 285.47 |
+| TE2350PresetWorkflowTest | PASS | 0.19 |
+| TE2350ReleaseReadinessTest | PASS | 0.38 |
+| TE2350UIRenderTest | PASS | 1.37 |
+| TE2350VST3LoadTest | PASS | 0.22 |
 
 ## Packaging
 
@@ -94,6 +135,22 @@ instantiated and processed with PATH reduced to Windows system directories.
 Distribution is copied to dist only after these checks. The build-tree artifact
 alone cannot satisfy final validation. Source commit/dirty status, dependency
 version/commit, compiler, schemas, identity and hashes are recorded.
+
+Both final ZIPs passed CRC/payload hash verification and have the same 12-file
+logical payload, document contents, metadata, versions and identity. Binary
+hashes differ as allowed for timestamps/build-path data; LICENSE differs only
+in LF/CRLF checkout line endings. Core golden outputs are byte-identical
+across builds, SHA256 `b949b61097048401472cdde46366250e717fb5ea94c27a6d5b4bce655494c234`.
+All 15 UI PNGs are also byte-identical between builds and against M12.
+
+Local ZIP SHA256:
+`dc66ef89fcd17b6289b2f6fa3d74dfbeb57fcd7bb2c87e13b8997b63c6c73f22`.
+
+Packaged preview Standalone was started from an unrelated build working directory
+with only Windows system paths on PATH and remained alive for the three-second
+launch smoke check. It was stopped after the check. This verifies process
+startup only; GUI/audio-device operation is not claimed. Native GUI inspection
+was unavailable because the computer-use runtime could not write kernel assets.
 
 ## Dependencies
 
@@ -137,7 +194,26 @@ same gated package/final scan. No CMake/dependency cache, installation copy,
 floating pluginval download or broad executable artifact glob remains. Artifacts
 are limited to qualified ZIP/checksums; test logs/PNG evidence are separate.
 Push/PR and workflow_dispatch are supported. No GitHub Release publication.
-Remote run result is pending; local results are not represented as an Actions pass.
+Remote clean build **PASS**: [run 36921772224](https://github.com/ovelhaaa/te2350/actions/runs/36921772224),
+source commit `f1ffad2672ca5e13b1aa044920be8f1e9d7b9824`, completed
+2026-10-01 20:55 UTC. Runner: Windows Server 2022 x64 (10.0.20348),
+Visual Studio 2022, MSVC 19.44.35229.0. All **16/16 tests passed**, zero
+failures, 524.42 s test wall time. The extracted final VST3 loaded and created
+its editor: version 0.3.0, 31 host parameters, latency 4, tail 65.0 s.
+Source-cleanliness verification and both artifact uploads passed.
+Full test-result excerpt: qualification-windows-msvc-ci.txt; local complete
+gate logs: qualification-windows-gcc.txt and qualification-clean-clone.txt.
+
+Qualified MSVC ZIP/checksums: [TE-2350-windows-x64 artifact 11193322056](https://github.com/ovelhaaa/te2350/actions/runs/36921772224/artifacts/11193322056).
+Test log/PNG evidence: [artifact 11193506939](https://github.com/ovelhaaa/te2350/actions/runs/36921772224/artifacts/11193506939).
+Actions artifacts have retention limits; the local test ZIP remains in dist.
+Earlier runs were superseded/cancelled by subsequent code fixes. The final
+code revision above is the successful qualification result.
+
+The runner emitted a post-checkout cleanup warning for the pre-existing
+src/web/emsdk gitlink without a .gitmodules URL. It does not enter the desktop
+build, and all required steps completed successfully. It remains outside this
+desktop release milestone, along with runner action-runtime deprecation notices.
 
 ## Known limitations
 

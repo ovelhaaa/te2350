@@ -1,0 +1,26 @@
+{
+  "files": [
+    "CHANGELOG.md",
+    "DEPENDENCIES.txt",
+    "JUCE-LICENSE.md",
+    "LICENSE",
+    "README.md",
+    "README.txt",
+    "SHA256SUMS.txt",
+    "Standalone/TE-2350 Antigravity.exe",
+    "THIRD-PARTY-NOTICES.txt",
+    "VST3/TE-2350 Antigravity.vst3/Contents/Resources/moduleinfo.json",
+    "VST3/TE-2350 Antigravity.vst3/Contents/x86_64-win/TE-2350 Antigravity.vst3",
+    "release-manifest.txt"
+  ],
+  "binary_hash_differences": [
+    "SHA256SUMS.txt",
+    "Standalone/TE-2350 Antigravity.exe",
+    "VST3/TE-2350 Antigravity.vst3/Contents/x86_64-win/TE-2350 Antigravity.vst3",
+    "release-manifest.txt"
+  ],
+  "line_ending_differences": [
+    "LICENSE"
+  ],
+  "logical_payload_identical": true
+}
