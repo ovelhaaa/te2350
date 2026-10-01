@@ -871,7 +871,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
             selectedUserPreset = -1;
             processor.setCurrentProgram(selectedID - 1);
             observedProgramIndex = processor.getCurrentProgram();
-            loadedPresetSnapshot = processor.apvts.copyState();
+            loadedPresetSnapshot = processor.getPresetBaseline().createCopy();
             presetDirty = false;
             rebuildPresetSelector();
             updatePresetStatus();
@@ -1047,7 +1047,7 @@ TE2350AudioProcessorEditor::TE2350AudioProcessorEditor(TE2350AudioProcessor& pro
 
     snapshotA = processor.apvts.copyState();
     snapshotB = snapshotA.createCopy();
-    loadedPresetSnapshot = snapshotA.createCopy();
+    loadedPresetSnapshot = processor.getPresetBaseline().createCopy();
 
     corePanel->setVisible(true);
     advancedPanel->setVisible(advancedExpanded);
@@ -1352,9 +1352,10 @@ void TE2350AudioProcessorEditor::rebuildPresetSelector()
     presetSelector.clear(juce::dontSendNotification);
 
     const auto& descriptors = te2350::getFactoryPresetDescriptors();
-    const juce::StringArray categories {
-        "FOUNDATIONS", "RHYTHMIC", "MOTION", "SHIMMER", "DEEP SPACE", "EXPERIMENTAL"
-    };
+    juce::StringArray categories;
+    for (const auto& descriptor : descriptors)
+        categories.addIfNotAlreadyThere(descriptor.category);
+    presetSelector.addSectionHeading("FACTORY");
 
     for (const auto& category : categories)
     {
@@ -1427,7 +1428,14 @@ void TE2350AudioProcessorEditor::rebuildPresetSelector()
 void TE2350AudioProcessorEditor::showPresetActionsMenu()
 {
     juce::PopupMenu menu;
-    menu.addItem(1, "Save current sound as user preset...");
+    menu.addItem(1, "Save Preset As...");
+    menu.addItem(6, "Save", selectedUserPreset >= 0);
+    menu.addItem(7, "Rename...", selectedUserPreset >= 0);
+    menu.addItem(8, "Import Preset...");
+    menu.addItem(9, "Export Preset...", selectedUserPreset >= 0);
+    menu.addItem(14, "Previous Preset");
+    menu.addItem(15, "Next Preset");
+    menu.addItem(13, "Reload Preset", !processor.isActivePresetUser() || selectedUserPreset >= 0);
     menu.addItem(2, "Delete selected user preset...",
                  selectedUserPreset >= 0);
     menu.addSeparator();
@@ -1461,6 +1469,30 @@ void TE2350AudioProcessorEditor::showPresetActionsMenu()
                 safeThis->promptToSaveUserPreset();
             else if (result == 2)
                 safeThis->confirmDeleteUserPreset();
+            else if (result == 6)
+                safeThis->saveUserPreset(safeThis->processor.getActivePresetName(), true);
+            else if (result == 7)
+                safeThis->promptToSaveUserPreset(true);
+            else if (result == 8 || result == 9)
+                safeThis->choosePresetFile(result == 8);
+            else if (result == 14 || result == 15) {
+                const auto factoryCount = safeThis->processor.getNumPrograms();
+                const auto count = factoryCount + static_cast<int>(safeThis->userPresetManager.getPresets().size());
+                const auto current = safeThis->processor.isActivePresetUser() && safeThis->selectedUserPreset >= 0
+                    ? factoryCount + safeThis->selectedUserPreset : safeThis->processor.getCurrentProgram();
+                const auto next = (current + (result == 15 ? 1 : count - 1)) % count;
+                if (next >= factoryCount) safeThis->loadUserPreset(next - factoryCount);
+                else { safeThis->processor.setCurrentProgram(next); safeThis->rebuildPresetSelector(); }
+            }
+            else if (result == 13)
+            {
+                if (safeThis->selectedUserPreset >= 0) safeThis->loadUserPreset(safeThis->selectedUserPreset);
+                else {
+                    safeThis->processor.setCurrentProgram(safeThis->processor.getCurrentProgram());
+                    safeThis->loadedPresetSnapshot = safeThis->processor.getPresetBaseline().createCopy();
+                    safeThis->rebuildPresetSelector();
+                }
+            }
             else if (result == 3)
                 safeThis->processor.undo();
             else if (result == 4)
@@ -1477,11 +1509,11 @@ void TE2350AudioProcessorEditor::showPresetActionsMenu()
         });
 }
 
-void TE2350AudioProcessorEditor::promptToSaveUserPreset()
+void TE2350AudioProcessorEditor::promptToSaveUserPreset(bool rename)
 {
     savePresetDialog = std::make_unique<juce::AlertWindow>(
-        "Save User Preset",
-        "Give this sound a memorable name. Saving an existing name replaces that preset.",
+        rename ? "Rename User Preset" : "Save User Preset",
+        "Give this sound a memorable name.",
         juce::MessageBoxIconType::NoIcon,
         this);
     savePresetDialog->addTextEditor(
@@ -1495,7 +1527,7 @@ void TE2350AudioProcessorEditor::promptToSaveUserPreset()
     savePresetDialog->enterModalState(
         true,
         juce::ModalCallbackFunction::create(
-            [safeThis] (int result)
+            [safeThis, rename] (int result)
             {
                 if (safeThis == nullptr)
                     return;
@@ -1511,20 +1543,50 @@ void TE2350AudioProcessorEditor::promptToSaveUserPreset()
                 if (result != 1)
                     return;
 
-                const auto saveResult = safeThis->userPresetManager.save(name);
-                if (saveResult.failed())
-                {
-                    safeThis->showPresetError(saveResult.getErrorMessage());
-                    return;
-                }
-
-                safeThis->processor.setActiveUserPreset(name.trim().substring(0, 48));
-                safeThis->loadedPresetSnapshot = safeThis->processor.apvts.copyState();
-                safeThis->presetDirty = false;
-                safeThis->rebuildPresetSelector();
-                safeThis->updatePresetStatus();
+                if (rename) {
+                    const auto outcome = safeThis->userPresetManager.rename(safeThis->selectedUserPreset, name);
+                    if (outcome.failed()) safeThis->showPresetError(outcome.getErrorMessage());
+                    else { safeThis->processor.renameActiveUserPreset(te2350::UserPresetManager::sanitiseName(name)); safeThis->rebuildPresetSelector(); }
+                } else safeThis->saveUserPreset(name, false);
             }),
         false);
+}
+
+void TE2350AudioProcessorEditor::saveUserPreset(const juce::String& name, bool overwrite)
+{
+    if (!overwrite && userPresetManager.findByName(name) >= 0) {
+        auto safeThis = juce::Component::SafePointer<TE2350AudioProcessorEditor>(this);
+        juce::AlertWindow::showOkCancelBox(juce::MessageBoxIconType::QuestionIcon,
+            "Overwrite User Preset", "Replace the saved user preset?", "Replace", "Cancel", this,
+            juce::ModalCallbackFunction::create([safeThis, name](int result) {
+                if (safeThis != nullptr && result == 1) safeThis->saveUserPreset(name, true);
+            }));
+        return;
+    }
+    const auto result = userPresetManager.save(name, overwrite);
+    if (result.failed()) { showPresetError(result.getErrorMessage()); return; }
+    processor.setActiveUserPreset(te2350::UserPresetManager::sanitiseName(name));
+    loadedPresetSnapshot = processor.getPresetBaseline().createCopy();
+    presetDirty = false;
+    rebuildPresetSelector();
+    updatePresetStatus();
+}
+
+void TE2350AudioProcessorEditor::choosePresetFile(bool importing)
+{
+    presetFileChooser = std::make_unique<juce::FileChooser>(importing ? "Import Preset" : "Export Preset",
+        juce::File(), "*.te2350preset");
+    auto safeThis = juce::Component::SafePointer<TE2350AudioProcessorEditor>(this);
+    const auto index = selectedUserPreset;
+    presetFileChooser->launchAsync(importing ? (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles)
+        : (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting),
+        [safeThis, importing, index](const juce::FileChooser& chooser) {
+            if (safeThis == nullptr || chooser.getResult() == juce::File()) return;
+            const auto result = importing ? safeThis->userPresetManager.importPreset(chooser.getResult())
+                : safeThis->userPresetManager.exportPreset(index, chooser.getResult().withFileExtension(".te2350preset"));
+            if (result.failed()) safeThis->showPresetError(result.getErrorMessage());
+            else safeThis->rebuildPresetSelector();
+        });
 }
 
 void TE2350AudioProcessorEditor::confirmDeleteUserPreset()
@@ -1581,7 +1643,7 @@ void TE2350AudioProcessorEditor::loadUserPreset(int index)
 
     processor.setActiveUserPreset(presetName);
     selectedUserPreset = index;
-    loadedPresetSnapshot = processor.apvts.copyState();
+    loadedPresetSnapshot = processor.getPresetBaseline().createCopy();
     presetDirty = false;
     rebuildPresetSelector();
     updatePresetStatus();
@@ -1599,28 +1661,19 @@ void TE2350AudioProcessorEditor::showPresetError(const juce::String& message)
 
 bool TE2350AudioProcessorEditor::hasPresetChanges() const
 {
-    if (! loadedPresetSnapshot.isValid())
-        return true;
-
-    for (const auto& parameterState : loadedPresetSnapshot)
-    {
-        const auto parameterID = parameterState.getProperty("id").toString();
-        const auto* raw = processor.apvts.getRawParameterValue(parameterID);
-        if (raw == nullptr || ! parameterState.hasProperty("value"))
-            continue;
-
-        const auto savedValue = static_cast<float>(
-            static_cast<double>(parameterState.getProperty("value")));
-        if (std::fabs(raw->load() - savedValue) > 0.0001f)
-            return true;
-    }
-
-    return false;
+    return processor.isPresetModified();
 }
 
 void TE2350AudioProcessorEditor::updatePresetStatus()
 {
-    auto label = presetDirty ? juce::String("MODIFIED") : juce::String();
+    auto label = processor.isActivePresetUser() ? juce::String("USER") : juce::String("FACTORY");
+    if (!processor.isActivePresetUser()) {
+        const auto& descriptors = te2350::getFactoryPresetDescriptors();
+        const auto index = processor.getCurrentProgram();
+        if (juce::isPositiveAndBelow(index, static_cast<int>(descriptors.size())))
+            label = descriptors[static_cast<size_t>(index)].category;
+    }
+    if (presetDirty) label << " / MODIFIED";
 
     presetCaption.setText(label, juce::dontSendNotification);
     presetCaption.setColour(juce::Label::textColourId,
@@ -1688,13 +1741,15 @@ void TE2350AudioProcessorEditor::timerCallback()
     const auto selectorRepresentsUserPreset =
         presetSelector.getSelectedId() >= userPresetIDBase;
     if (observedProgramIndex != programIndex
-        || selectorRepresentsUserPreset != processor.isActivePresetUser())
+        || selectorRepresentsUserPreset != processor.isActivePresetUser()
+        || (presetSelector.getText() != processor.getActivePresetName()
+            && presetSelector.getText() != processor.getActivePresetName() + " (Embedded)"))
     {
         observedProgramIndex = programIndex;
         selectedUserPreset = -1;
         rebuildPresetSelector();
-        loadedPresetSnapshot = processor.apvts.copyState();
-        presetDirty = false;
+        loadedPresetSnapshot = processor.getPresetBaseline().createCopy();
+        presetDirty = hasPresetChanges();
         updatePresetStatus();
     }
     else

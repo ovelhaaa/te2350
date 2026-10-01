@@ -69,7 +69,9 @@ private:
     void applySnapshot(const juce::ValueTree& snapshot);
     void rebuildPresetSelector();
     void showPresetActionsMenu();
-    void promptToSaveUserPreset();
+    void promptToSaveUserPreset(bool rename = false);
+    void saveUserPreset(const juce::String& name, bool overwrite);
+    void choosePresetFile(bool importing);
     void confirmDeleteUserPreset();
     void loadUserPreset(int index);
     void showPresetError(const juce::String& message);
@@ -117,6 +119,7 @@ private:
     juce::TextButton mutateButton { "MUTATE" };
     juce::TooltipWindow tooltipWindow { this, 700 };
     std::unique_ptr<juce::AlertWindow> savePresetDialog;
+    std::unique_ptr<juce::FileChooser> presetFileChooser;
 
     std::vector<std::unique_ptr<juce::Component>> ownedComponents;
     std::vector<juce::Component*> macroControls;

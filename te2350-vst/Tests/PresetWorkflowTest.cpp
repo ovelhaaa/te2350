@@ -148,7 +148,7 @@ bool verifyUserPresetRoundTrip()
     }
 
     setParameter(processor, "mix", 0.41f);
-    if (const auto result = manager.save("My Orbit"); result.failed()
+    if (const auto result = manager.save("My Orbit", true); result.failed()
         || manager.getPresets().size() != 1)
     {
         std::fprintf(stderr, "saving an existing preset did not replace it atomically\n");
@@ -189,6 +189,85 @@ bool verifyUserPresetRoundTrip()
         return false;
     }
 
+    return true;
+}
+
+bool verifyM12Library()
+{
+    TemporaryPresetDirectory temporary;
+    TE2350AudioProcessor processor;
+    const auto folder = temporary.directory.getChildFile("new-library");
+    te2350::UserPresetManager manager(processor.apvts, folder);
+    if (!manager.getPresets().empty() || manager.save("").wasOk()
+        || manager.save("..").wasOk() || manager.save("CON").wasOk()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    const auto blocked = temporary.directory.getChildFile("blocked");
+    blocked.replaceWithText("not a directory");
+    te2350::UserPresetManager unavailable(processor.apvts, blocked);
+    if (!unavailable.getPresets().empty() || unavailable.save("Unavailable").wasOk()) return false;
+    // Snapshot every parameter, including macros, switches, advanced controls and bypass.
+    for (auto* parameter : processor.getParameters())
+        parameter->setValueNotifyingHost(0.73f);
+    const auto expected = processor.apvts.copyState();
+    if (manager.save("Orbit").failed() || manager.save("orbit").wasOk()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    processor.setCurrentProgram(0);
+    if (manager.load(0).failed()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    for (const auto& saved : expected) {
+        const auto id = saved.getProperty("id").toString();
+        const auto* parameter = processor.apvts.getParameter(id);
+        if (parameter != nullptr && !approximatelyEqual(parameter->getValue(),
+            parameter->convertTo0to1(static_cast<float>(static_cast<double>(saved.getProperty("value")))), 0.00001f)) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    }
+    if (manager.save("Orbit", true).failed() || manager.rename(0, "New Orbit").failed()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    const auto exported = temporary.directory.getChildFile("export.te2350preset");
+    if (manager.exportPreset(0, exported).failed() || manager.remove(0).failed()
+        || manager.importPreset(exported).failed() || manager.importPreset(exported).wasOk()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    te2350::UserPresetManager reopened(processor.apvts, folder);
+    if (reopened.getPresets().size() != 1 || reopened.load(0).failed()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    if (reopened.save("Other").failed() || reopened.rename(0, "Other").wasOk()
+        || reopened.remove(-1).wasOk() || reopened.rename(-1, "Factory").wasOk()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    const auto bad = temporary.directory.getChildFile("bad.te2350preset");
+    for (const auto* text : { "", "<", "<WRONG/>",
+        "<TE2350_PRESET formatVersion=\"999\"><PARAMETERS/></TE2350_PRESET>",
+        "<TE2350_PRESET formatVersion=\"1\"><PARAMETERS><PARAM id=\"mix\" value=\"nan\"/></PARAMETERS></TE2350_PRESET>",
+        "<TE2350_PRESET formatVersion=\"1\"><PARAMETERS><PARAM id=\"mix\" value=\"oops\"/></PARAMETERS></TE2350_PRESET>" }) {
+        bad.replaceWithText(text);
+        if (manager.importPreset(bad).wasOk()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    }
+    processor.setActiveUserPreset("New Orbit");
+    const auto baseline = processor.getPresetBaseline().createCopy();
+    if (processor.isPresetModified()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    for (auto* parameter : processor.getParameters()) {
+        const auto original = parameter->getValue();
+        parameter->setValueNotifyingHost(original > 0.5f ? 0.0f : 1.0f);
+        if (!processor.isPresetModified()) return false;
+        parameter->setValueNotifyingHost(original);
+        if (processor.isPresetModified()) return false;
+    }
+    const auto originalSpace = getParameter(processor, "space");
+    setParameter(processor, "space", 0.12f);
+    if (!processor.isPresetModified()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    setParameter(processor, "space", originalSpace);
+    if (processor.isPresetModified()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    setParameter(processor, "space", 0.12f);
+    juce::MemoryBlock data;
+    processor.getStateInformation(data);
+    manager.remove(manager.findByName("New Orbit"));
+    TE2350AudioProcessor restored;
+    restored.setStateInformation(data.getData(), static_cast<int>(data.getSize()));
+    if (!approximatelyEqual(getParameter(restored, "space"), 0.12f)
+        || !restored.isPresetModified()
+        || restored.getPresetBaseline().getNumChildren() != baseline.getNumChildren()) { std::fprintf(stderr, "M12 failure at line %d\n", __LINE__); return false; }
+    for (const auto& saved : baseline) {
+        const auto id = saved.getProperty("id").toString();
+        bool found = false;
+        for (const auto& loaded : restored.getPresetBaseline())
+            if (loaded.getProperty("id").toString() == id) {
+                found = approximatelyEqual(static_cast<float>(static_cast<double>(saved.getProperty("value"))),
+                    static_cast<float>(static_cast<double>(loaded.getProperty("value"))), 0.00001f);
+                break;
+            }
+        if (!found) return false;
+    }
     return true;
 }
 
@@ -310,6 +389,7 @@ int main()
     juce::ScopedJuceInitialiser_GUI juceInitialiser;
     if (!verifyFactoryCatalog()
         || !verifyUserPresetRoundTrip()
+        || !verifyM12Library()
         || !verifyMutationSafetyAndUndo()
         || !verifyEmbeddedUserPresetState())
     {

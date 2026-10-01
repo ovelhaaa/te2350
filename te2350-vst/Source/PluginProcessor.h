@@ -59,7 +59,10 @@ public:
     bool redo();
     void mutateParameters(float amount, juce::uint32 seed = 0);
     void setActiveUserPreset(const juce::String& name);
+    void renameActiveUserPreset(const juce::String& name) { activePresetName = name; }
     const juce::String& getActivePresetName() const noexcept { return activePresetName; }
+    bool isPresetModified() const;
+    const juce::ValueTree& getPresetBaseline() const noexcept { return presetBaseline; }
     bool isActivePresetUser() const noexcept { return activePresetIsUser; }
 
     juce::AudioProcessorValueTreeState apvts;
@@ -95,6 +98,7 @@ private:
     std::atomic<float> inputMeter { 0.0f };
     std::atomic<float> outputMeter { 0.0f };
     juce::ValueTree defaultState;
+    juce::ValueTree presetBaseline;
     juce::String activePresetName;
     bool activePresetIsUser = false;
     int currentProgram = 0;

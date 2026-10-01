@@ -243,7 +243,7 @@ int main(int argc, char* argv[])
             const auto text = label->getText();
             if (text.contains("MODIFIED"))
             {
-                if (text != "MODIFIED") return false;
+                if (!text.endsWith(" / MODIFIED")) return false;
                 modified = true;
             }
             for (auto character : text)

@@ -3,6 +3,7 @@
 #include "Presets/FactoryPresets.h"
 
 #include <array>
+#include <cmath>
 
 namespace
 {
@@ -37,6 +38,7 @@ TE2350AudioProcessor::TE2350AudioProcessor()
     apvts.copyState();
     undoManager.clearUndoHistory();
     activePresetName = getProgramName(currentProgram);
+    presetBaseline = apvts.copyState();
 }
 
 void TE2350AudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -189,6 +191,7 @@ void TE2350AudioProcessor::setCurrentProgram(int index)
     apvts.copyState();
     activePresetName = getProgramName(index);
     activePresetIsUser = false;
+    presetBaseline = apvts.copyState();
 }
 
 const juce::String TE2350AudioProcessor::getProgramName(int index)
@@ -204,6 +207,11 @@ void TE2350AudioProcessor::getStateInformation(juce::MemoryBlock& destData)
     state.setProperty("stateVersion", currentStateVersion, nullptr);
     state.setProperty("activePresetName", activePresetName, nullptr);
     state.setProperty("activePresetIsUser", activePresetIsUser, nullptr);
+    state.removeChild(state.getChildWithName("PRESET_BASELINE"), nullptr);
+    auto baseline = juce::ValueTree("PRESET_BASELINE");
+    for (const auto& parameter : presetBaseline)
+        if (parameter.hasType("PARAM")) baseline.addChild(parameter.createCopy(), -1, nullptr);
+    state.addChild(baseline, -1, nullptr);
 
     if (auto xml = state.createXml())
         copyXmlToBinary(*xml, destData);
@@ -228,7 +236,12 @@ void TE2350AudioProcessor::setStateInformation(const void* data, int sizeInBytes
                 activePresetName = getProgramName(currentProgram);
                 activePresetIsUser = false;
             }
-            apvts.replaceState(migrateState(incomingState));
+            auto parameters = migrateState(incomingState);
+            presetBaseline = incomingState.getChildWithName("PRESET_BASELINE").createCopy();
+            parameters.removeChild(parameters.getChildWithName("PRESET_BASELINE"), nullptr);
+            apvts.replaceState(parameters);
+            if (!presetBaseline.isValid() || presetBaseline.getNumChildren() == 0)
+                presetBaseline = apvts.copyState();
         }
 }
 
@@ -308,6 +321,7 @@ void TE2350AudioProcessor::setActiveUserPreset(const juce::String& name)
 {
     activePresetName = name.trim();
     activePresetIsUser = true;
+    presetBaseline = apvts.copyState();
 }
 
 juce::ValueTree TE2350AudioProcessor::migrateState(const juce::ValueTree& incomingState) const
@@ -448,4 +462,19 @@ float TE2350AudioProcessor::getEffectiveControlValue(juce::StringRef parameterID
         if (parameterID == juce::StringRef(ids[i]))
             return effectiveControls[i].load(std::memory_order_relaxed);
     return getRawFloat(parameterID, 0.0f);
+}
+
+bool TE2350AudioProcessor::isPresetModified() const
+{
+    if (!presetBaseline.isValid()) return true;
+    for (const auto& saved : presetBaseline) {
+        const auto id = saved.getProperty("id").toString();
+        const auto* parameter = apvts.getParameter(id);
+        if (parameter != nullptr && saved.hasProperty("value")) {
+            const auto value = static_cast<float>(static_cast<double>(saved.getProperty("value")));
+            if (std::fabs(parameter->getValue() - parameter->convertTo0to1(value)) > 0.00001f)
+                return true;
+        }
+    }
+    return false;
 }

@@ -22,7 +22,12 @@ public:
     const std::vector<UserPresetInfo>& getPresets() const noexcept { return presets; }
     const juce::File& getDirectory() const noexcept { return directory; }
 
-    juce::Result save(const juce::String& name);
+    juce::Result save(const juce::String& name, bool overwrite = false);
+    juce::Result rename(int index, const juce::String& name);
+    juce::Result importPreset(const juce::File& file, bool overwrite = false);
+    juce::Result exportPreset(int index, const juce::File& file);
+    int findByName(const juce::String& name) const;
+    static juce::String sanitiseName(const juce::String& name);
     juce::Result load(int index);
     juce::Result remove(int index);
 
