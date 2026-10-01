@@ -1,0 +1,27 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {"major": 3, "minor": 22, "patch": 0},
+  "configurePresets": [
+    {"name": "common", "hidden": true, "cacheVariables": {
+      "TE2350_BUILD_GOLDEN_TESTS": "ON", "BUILD_TESTING": "ON",
+      "TE2350_COPY_PLUGIN_AFTER_BUILD": "OFF", "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+    }},
+    {"name": "release", "inherits": "common", "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../build/release", "cacheVariables": {"CMAKE_BUILD_TYPE": "Release"}},
+    {"name": "debug", "inherits": "common", "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../build/debug", "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug"}},
+    {"name": "windows-release", "inherits": "common", "generator": "Visual Studio 17 2022",
+      "architecture": "x64", "binaryDir": "${sourceDir}/../build/release-msvc"}
+  ],
+  "buildPresets": [
+    {"name": "release", "configurePreset": "release", "configuration": "Release",
+      "targets": ["TE2350Antigravity_VST3", "TE2350Antigravity_Standalone"]},
+    {"name": "debug", "configurePreset": "debug", "configuration": "Debug",
+      "targets": ["TE2350Antigravity_VST3", "TE2350Antigravity_Standalone"]},
+    {"name": "windows-release", "configurePreset": "windows-release", "configuration": "Release",
+      "targets": ["TE2350Antigravity_VST3", "TE2350Antigravity_Standalone"]},
+    {"name": "qualify", "configurePreset": "release", "configuration": "Release", "targets": ["release_qualification"]},
+    {"name": "package", "configurePreset": "release", "configuration": "Release", "targets": ["package_te2350"]},
+    {"name": "windows-package", "configurePreset": "windows-release", "configuration": "Release", "targets": ["package_te2350"]}
+  ]
+}

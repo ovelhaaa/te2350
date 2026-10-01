@@ -66,7 +66,8 @@ juce::Result UserPresetManager::save(const juce::String& requestedName, bool ove
     auto document = juce::ValueTree(presetType);
     document.setProperty("formatVersion", presetFormatVersion, nullptr);
     document.setProperty("name", name, nullptr);
-    document.setProperty("pluginVersion", "0.2.0", nullptr);
+    document.setProperty("presetFormatVersion", presetFormatVersion, nullptr);
+    document.setProperty("pluginVersion", JucePlugin_VersionString, nullptr);
     document.setProperty("category", "USER", nullptr);
     document.setProperty("plugin", "TE-2350 Antigravity", nullptr);
     auto snapshot = juce::ValueTree(parameterStateType);
@@ -253,7 +254,12 @@ juce::ValueTree UserPresetManager::readPresetDocument(const juce::File& file)
         return {};
 
     auto document = juce::ValueTree::fromXml(*xml);
-    const auto version = static_cast<int>(document.getProperty("formatVersion", 0));
+    // M12 used formatVersion; keep it as a backwards-compatible alias.
+    const auto version = static_cast<int>(document.getProperty("presetFormatVersion",
+                                                            document.getProperty("formatVersion", 0)));
+    if (document.hasProperty("formatVersion")
+        && static_cast<int>(document.getProperty("formatVersion")) != version)
+        return {};
     if (version <= 0
         || version > presetFormatVersion
         || !document.getChildWithName(parameterStateType).isValid())

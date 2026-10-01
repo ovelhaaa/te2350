@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(TE2350AntigravityPlugin VERSION 0.2.0 LANGUAGES C CXX)
+project(TE2350AntigravityPlugin VERSION 0.3.0 LANGUAGES C CXX)
 
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build configuration" FORCE)
@@ -14,19 +14,37 @@ include(CTest)
 
 option(TE2350_FETCH_JUCE "Fetch JUCE with CMake FetchContent when TE2350_JUCE_PATH is not set" ON)
 set(TE2350_JUCE_PATH "" CACHE PATH "Path to a local JUCE checkout")
-set(TE2350_JUCE_TAG "8.0.8" CACHE STRING "JUCE tag used when TE2350_FETCH_JUCE is enabled")
+# Fixed upstream tag, verified against the immutable commit after fetching.
+set(TE2350_JUCE_TAG "7.0.12")
+set(TE2350_JUCE_PIN "4f43011b96eb0636104cb3e433894cda98243626")
 set(TE2350_MAIN_DELAY_SIZE "524288" CACHE STRING "Desktop main delay size (power of two; 524288 covers 2 s through 192 kHz)")
 math(EXPR TE2350_MAIN_DELAY_SIZE_MASK "${TE2350_MAIN_DELAY_SIZE} & (${TE2350_MAIN_DELAY_SIZE} - 1)")
 if(TE2350_MAIN_DELAY_SIZE LESS 4 OR NOT TE2350_MAIN_DELAY_SIZE_MASK EQUAL 0)
     message(FATAL_ERROR "TE2350_MAIN_DELAY_SIZE must be a power of two")
 endif()
 set(TE2350_PLUGIN_COPY_DIR "${CMAKE_CURRENT_BINARY_DIR}/InstalledPlugins" CACHE PATH "Writable plugin copy directory")
-set(TE2350_RELEASE_CHANNEL "rc1" CACHE STRING "Pre-release channel appended to distribution packages")
-set(TE2350_PACKAGE_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/Packages" CACHE PATH "Distribution package output directory")
+option(TE2350_COPY_PLUGIN_AFTER_BUILD "Copy to the explicit developer plugin directory" OFF)
+set(TE2350_PACKAGE_OUTPUT_DIR "${CMAKE_CURRENT_LIST_DIR}/../dist" CACHE PATH "Distribution package output directory")
+
+# Ship compiler runtimes statically; no developer-toolchain DLLs are required.
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+elseif(MINGW)
+    add_link_options(-static)
+endif()
 
 get_filename_component(TE2350_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
 if(TE2350_JUCE_PATH)
+    if(NOT EXISTS "${TE2350_JUCE_PATH}/modules/juce_core/juce_core.h"
+       OR NOT EXISTS "${TE2350_JUCE_PATH}/extras/Build/CMake/JUCEUtils.cmake")
+        message(FATAL_ERROR "TE2350_JUCE_PATH must point directly to a real JUCE checkout, not another project's wrapper")
+    endif()
+    file(READ "${TE2350_JUCE_PATH}/CMakeLists.txt" juce_cmake)
+    if(NOT juce_cmake MATCHES "project\\(JUCE[ \r\n]")
+        message(FATAL_ERROR "TE2350_JUCE_PATH is not the JUCE project root")
+    endif()
+    set(juce_SOURCE_DIR "${TE2350_JUCE_PATH}")
     add_subdirectory("${TE2350_JUCE_PATH}" JUCE)
 elseif(TE2350_FETCH_JUCE)
     include(FetchContent)
@@ -40,6 +58,25 @@ elseif(TE2350_FETCH_JUCE)
 else()
     message(FATAL_ERROR "Set TE2350_JUCE_PATH or enable TE2350_FETCH_JUCE")
 endif()
+
+find_package(Git REQUIRED)
+execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${juce_SOURCE_DIR}" rev-parse HEAD
+    OUTPUT_VARIABLE TE2350_JUCE_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE juce_git_result ERROR_QUIET)
+if(NOT TE2350_JUCE_PATH AND (NOT juce_git_result EQUAL 0 OR NOT TE2350_JUCE_COMMIT STREQUAL TE2350_JUCE_PIN))
+    message(FATAL_ERROR "Fetched JUCE does not match the pinned 7.0.12 commit")
+endif()
+if(NOT juce_git_result EQUAL 0)
+    set(TE2350_JUCE_COMMIT "unversioned-local-checkout")
+endif()
+file(READ "Source/Presets/UserPresetManager.h" preset_header)
+string(REGEX MATCH "presetFormatVersion = ([0-9]+)" unused "${preset_header}")
+set(TE2350_PRESET_FORMAT_VERSION "${CMAKE_MATCH_1}")
+file(READ "Source/PluginProcessor.cpp" processor_source)
+string(REGEX MATCH "currentStateVersion = ([0-9]+)" unused "${processor_source}")
+set(TE2350_STATE_VERSION "${CMAKE_MATCH_1}")
+configure_file(cmake/ReleaseMetadata.h.in generated/ReleaseMetadata.h @ONLY)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 add_library(te2350_core STATIC
     "${TE2350_ROOT}/src/te2350.c"
@@ -65,6 +102,7 @@ juce_add_binary_data(TE2350Assets
 )
 
 juce_add_plugin(TE2350Antigravity
+    VERSION "${PROJECT_VERSION}"
     COMPANY_NAME "TE-2350"
     BUNDLE_ID "com.te2350.antigravity"
     PLUGIN_MANUFACTURER_CODE TeAg
@@ -78,7 +116,7 @@ juce_add_plugin(TE2350Antigravity
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     VST3_COPY_DIR "${TE2350_PLUGIN_COPY_DIR}/VST3"
     AU_COPY_DIR "${TE2350_PLUGIN_COPY_DIR}/AU"
-    COPY_PLUGIN_AFTER_BUILD FALSE
+    COPY_PLUGIN_AFTER_BUILD ${TE2350_COPY_PLUGIN_AFTER_BUILD}
 )
 
 target_sources(TE2350Antigravity PRIVATE
@@ -118,34 +156,10 @@ target_link_libraries(TE2350Antigravity PRIVATE
     juce::juce_recommended_warning_flags
 )
 
-string(TOLOWER "${CMAKE_SYSTEM_NAME}" TE2350_PACKAGE_SYSTEM)
-string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" TE2350_PACKAGE_ARCH)
-if(NOT TE2350_PACKAGE_ARCH)
-    set(TE2350_PACKAGE_ARCH "unknown-arch")
+option(TE2350_BUILD_GOLDEN_TESTS "Build the complete release qualification suite" ON)
+if(TE2350_BUILD_GOLDEN_TESTS AND NOT BUILD_TESTING)
+    message(FATAL_ERROR "Qualification requires BUILD_TESTING=ON")
 endif()
-set(TE2350_RELEASE_VERSION "${PROJECT_VERSION}-${TE2350_RELEASE_CHANNEL}")
-set(TE2350_PACKAGE_NAME
-    "TE2350-Antigravity-${TE2350_RELEASE_VERSION}-${TE2350_PACKAGE_SYSTEM}-${TE2350_PACKAGE_ARCH}")
-
-add_custom_target(TE2350PackageBeta
-    COMMAND "${CMAKE_COMMAND}"
-        "-DTE2350_VST3_BINARY=$<TARGET_FILE:TE2350Antigravity_VST3>"
-        "-DTE2350_PACKAGE_OUTPUT_DIR=${TE2350_PACKAGE_OUTPUT_DIR}"
-        "-DTE2350_PACKAGE_NAME=${TE2350_PACKAGE_NAME}"
-        "-DTE2350_RELEASE_VERSION=${TE2350_RELEASE_VERSION}"
-        "-DTE2350_BUILD_CONFIGURATION=$<CONFIG>"
-        "-DTE2350_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}"
-        "-DTE2350_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}"
-        "-DTE2350_INSTALL_GUIDE=${CMAKE_CURRENT_SOURCE_DIR}/Packaging/INSTALL.md"
-        "-DTE2350_CHANGELOG=${CMAKE_CURRENT_SOURCE_DIR}/CHANGELOG.md"
-        "-DTE2350_PLUGIN_README=${CMAKE_CURRENT_SOURCE_DIR}/README.md"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PackageBeta.cmake"
-    DEPENDS TE2350Antigravity_VST3
-    COMMENT "Packaging TE-2350 Antigravity ${TE2350_RELEASE_VERSION} VST3"
-    VERBATIM
-)
-
-option(TE2350_BUILD_GOLDEN_TESTS "Build the golden-reference scaffold executable" OFF)
 if(TE2350_BUILD_GOLDEN_TESTS)
     add_executable(TE2350MacroCalibrationTest Tests/MacroCalibrationTest.cpp)
     target_include_directories(TE2350MacroCalibrationTest PRIVATE Source "${TE2350_ROOT}/include")
@@ -269,6 +283,7 @@ if(TE2350_BUILD_GOLDEN_TESTS)
     add_executable(TE2350PresetWorkflowTest Tests/PresetWorkflowTest.cpp)
     target_include_directories(TE2350PresetWorkflowTest PRIVATE Source "${TE2350_ROOT}/include")
     target_compile_definitions(TE2350PresetWorkflowTest PRIVATE
+        TE2350_M12_PRESET_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/Tests/Fixtures/M12-v1.te2350preset"
         JucePlugin_Name="TE-2350 Antigravity"
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0)
@@ -311,3 +326,5 @@ if(TE2350_BUILD_GOLDEN_TESTS)
     set_tests_properties(TE2350FreezeConsistencyTest PROPERTIES
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/FreezeConsistencyOutput")
 endif()
+
+include(cmake/Release.cmake)

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TE2350_PRESET formatVersion="1" name="M12 Compatibility" plugin="TE-2350 Antigravity" pluginVersion="0.2.0" category="USER">
+  <PARAMETERS>
+    <PARAM id="space" value="0.73"/>
+    <PARAM id="wild" value="0.46"/>
+    <PARAM id="bloom" value="0.2"/>
+    <PARAM id="timeMs" value="420"/>
+    <PARAM id="syncMode" value="0"/>
+    <PARAM id="feedback" value="0.45"/>
+    <PARAM id="mix" value="0.37"/>
+    <PARAM id="killDry" value="0"/>
+    <PARAM id="lowCutHz" value="80"/>
+    <PARAM id="highCutHz" value="9000"/>
+    <PARAM id="diffusion" value="0.4"/>
+    <PARAM id="chaos" value="0"/>
+    <PARAM id="wobble" value="0.1"/>
+    <PARAM id="presence" value="0.5"/>
+    <PARAM id="modRateHz" value="0.15"/>
+    <PARAM id="modDepth" value="0.1"/>
+    <PARAM id="modShape" value="1"/>
+    <PARAM id="shimmerInterval" value="2"/>
+    <PARAM id="shimmerAmount" value="0"/>
+    <PARAM id="shimmerFeedback" value="0.3"/>
+    <PARAM id="duckThreshold" value="-24"/>
+    <PARAM id="duckAmount" value="0.1"/>
+    <PARAM id="inputTrim" value="0"/>
+    <PARAM id="outputTrim" value="0"/>
+    <PARAM id="bypass" value="0"/>
+    <PARAM id="qualityMode" value="0"/>
+    <PARAM id="freezeEngage" value="0"/>
+    <PARAM id="freezeMode" value="1"/>
+    <PARAM id="atmosFdnOn" value="0"/>
+    <PARAM id="wetWidth" value="0.6"/>
+  </PARAMETERS>
+</TE2350_PRESET>

@@ -6,7 +6,13 @@ The project combines a compact fixed-point DSP core with:
 
 - a **hardware firmware build** for RP2350 using the Pico SDK,
 - a **browser build** that runs the same core through Wasm,
-- an **offline validation host** for simple render testing.
+- an **offline validation host** for simple render testing,
+- a **Windows x64 JUCE VST3 desktop product**, with 20 factory presets and a
+  persistent user preset browser (Save/Import/Export). Standalone is a developer preview.
+
+Desktop configure/build/test/package/install instructions: [te2350-vst/README.md](te2350-vst/README.md).
+The desktop version is defined once by the plugin CMake project; the firmware
+root CMake build remains separate.
 
 Live demo: <https://ovelhaaa.github.io/te2350/>
 
@@ -413,7 +419,8 @@ If you contribute, try to preserve the core design principle of the repo:
 
 ## License
 
-No license file is visible in the repository root at the time of writing. If you plan to accept outside contributions or want others to build on the code safely, adding an explicit license should be a priority.
+Own project code is licensed under [MIT](LICENSE). JUCE and bundled third-party
+components retain separate terms; see [desktop notices](te2350-vst/Packaging/THIRD-PARTY-NOTICES.txt).
 
 ---
 

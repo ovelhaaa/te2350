@@ -1,189 +1,141 @@
-# TE-2350 Antigravity JUCE Plugin
+# TE-2350 Antigravity
 
-This directory contains the JUCE front-end scaffold for the shared TE-2350 DSP
-core. The plugin links the existing portable C files from the repository root;
-it does not copy or fork `te2350.c`, `dsp_delay.c`, `dsp_filters.c`,
-`dsp_modulation.c`, `dsp_pitch.c`, or `dsp_fdn.c`.
+TE-2350 Antigravity is a stereo ambient delay/reverb texture instrument built
+around the shared fixed-point TE-2350 core. The approved sound, 30 parameter
+IDs and 20 factory programs are frozen for M13.
 
-The current desktop release candidate is **0.2.0-rc1**. The plug-in binary
-reports semantic version `0.2.0`; `rc1` identifies the distribution package.
+## Product and controls
 
-## Build
+Windows 10/11 x64 VST3 is the current release qualification scope. Standalone
+is included as a **developer preview**, with no official audio-device support
+claim. macOS VST3/AU/Standalone and other platforms remain developer builds;
+M13 does not qualify or package them.
 
-```bash
-cmake -S te2350-vst -B build/te2350-vst -DCMAKE_BUILD_TYPE=Release -DTE2350_JUCE_PATH=/path/to/JUCE
-cmake --build build/te2350-vst --config Release
+SPACE, WILD and BLOOM shape space, motion and feedback bloom. Time/Sync,
+Feedback, Mix, wet filtering, diffusion, shimmer, modulation, ducking, wet
+width, I/O trim, Atmos, Freeze, Bypass and Hardware/Studio remain automatable.
+PERFORM and SCULPT provide the existing performance and detailed views.
+Freeze and bypass preserve the approved capture/spillover behavior. Hardware
+uses the Q31 core; Studio adds the existing 2x oversampled finishing stage.
+
+The categorized browser contains **20 embedded factory presets**. The User
+section supports Save Preset As, explicit Save/overwrite, Rename, Delete,
+Import, Export, Reload and Previous/Next. Edits display MODIFIED. User files
+are readable XML `.te2350preset` v1; user files store parameters, not live tails
+or Freeze audio. DAW sessions embed current parameters and PRESET_BASELINE,
+so recall remains self-contained if a user file is moved or deleted.
+
+User storage remains JUCE `userApplicationDataDirectory/TE-2350/Antigravity/Presets`
+(Windows `%APPDATA%\TE-2350\Antigravity\Presets`). Upgrading the binary does
+not replace this library. Tests inject temporary libraries and never save in it.
+Factory presets, logo, UI and DSP are compiled into the product; the installed
+binary requires no source tree or JUCE checkout.
+
+## Clean build, qualification and package
+
+CMake >= 3.22, Git and a Windows x64 C++17 toolchain are required. CI uses
+Visual Studio 2022 Build Tools with Desktop development with C++ and Windows
+SDK on windows-2022. GCC 14.2 MinGW-w64 UCRT + Ninja is the locally qualified
+alternative. Run Ninja presets in the selected toolchain's shell.
+
+```powershell
+git clone https://github.com/ovelhaaa/te2350.git
+cd te2350/te2350-vst
+cmake --preset windows-release
+cmake --build --preset windows-release --parallel 4
+cmake --build ../build/release-msvc --config Release --target release_qualification --parallel 4
+ctest --test-dir ../build/release-msvc -C Release --output-on-failure
+cmake --build --preset windows-package --parallel 4
 ```
 
-If `TE2350_JUCE_PATH` is not set, CMake can fetch JUCE with FetchContent:
+For Ninja, use `release`, `qualify` and `package` presets. They explicitly set
+`CMAKE_BUILD_TYPE=Release` and isolate outputs in `build/release`; `debug` uses
+`build/debug`. Multi-config Visual Studio uses `build/release-msvc` and Release.
+Product targets are **TE2350Antigravity_VST3** and **TE2350Antigravity_Standalone**.
+No unrestricted build of every target is required. The firmware root CMake
+project is separate; configure the desktop plugin from `te2350-vst`.
 
-```bash
-cmake -S te2350-vst -B build/te2350-vst -DCMAKE_BUILD_TYPE=Release -DTE2350_FETCH_JUCE=ON
-```
+Default JUCE is fetched directly from upstream tag **7.0.12**, verified against
+commit `4f43011b96eb0636104cb3e433894cda98243626`. This matches the actually
+qualified M12 dependency; the former unused 8.0.8 default was misleading.
+There is no dependency on another plugin or local wrapper. Offline developer
+override: `-DTE2350_JUCE_PATH=/path/to/JUCE` must point at a real JUCE project
+root with modules and build tools. Its actual commit is recorded in the manifest.
+An override with another version is a developer experiment requiring qualification.
+Never reuse a historical cache; start a new build directory when changing JUCE.
 
-For single-configuration generators such as Ninja, `CMAKE_BUILD_TYPE=Release`
-selects optimization and `NDEBUG`; `--config Release` alone is only meaningful
-to multi-configuration generators. If no build type is supplied, this project
-now defaults single-configuration builds to Release.
+`TE2350_COPY_PLUGIN_AFTER_BUILD=OFF` is the default. Developers can enable it
+with an explicit `TE2350_PLUGIN_COPY_DIR`; CI does not install anything.
+MSVC and MinGW compiler runtimes are statically linked. Packaging audits both
+binaries and rejects non-system imported DLLs. Release uses optimization and
+NDEBUG, has no sanitizer configuration, and excludes PDB/debug artifacts.
 
-The build enables VST3 on every platform and AU on Apple platforms.
+`release_qualification` builds the required tools, checks all 15 required CTest
+names are registered and runs the entire inventory (including added tests).
+`package_te2350` reruns qualification on every invocation, then stages the
+complete VST3 bundle, preview Standalone, instructions, licenses, changelog,
+manifest, dependency report and per-file SHA256 checksums. It extracts the
+ZIP, verifies payload hashes and loads the extracted VST3 with only Windows
+system paths on PATH before publishing to `dist`. Any qualification or final
+verification failure prevents a new distribution; previous outputs with the
+same name are removed at the beginning of the packaging script.
+`TE2350PackageBeta` remains a compatibility alias to the same gated target.
 
-To create the local VST3 release-candidate archive after configuring the build:
+The package name/version is derived from `project(... VERSION ...)`, the sole
+product version authority. `TE2350_PACKAGE_OUTPUT_DIR` can override `dist`.
+Verify the archive with `Get-FileHash -Algorithm SHA256` against the external
+`SHA256SUMS.txt`. Do not distribute build trees or test artifacts.
 
-```bash
-cmake --build build/te2350-vst --config Release --target TE2350PackageBeta
-```
+## Install on Windows
 
-The archive, build manifest, and SHA-256 checksum are written to
-`build/te2350-vst/Packages`. Installation instructions are included in the
-archive.
+Close the DAW and copy the **whole** `VST3/TE-2350 Antigravity.vst3` directory to
+`C:\Program Files\Common Files\VST3`, preserving `Contents/x86_64-win` and
+`Contents/Resources`. Reopen the host and rescan VST3. Installation there may
+require administrator rights; configure/build/test/package do not.
+The package is unsigned and has no installer. Preview Standalone can run from
+its extracted directory; audio device routing requires local setup.
 
-## Current Scope
+## Version and compatibility policy
 
-- `AudioProcessorValueTreeState` includes the complete Layer 1-3 parameter set.
-- `SPACE`, `WILD`, and `BLOOM` are implemented as smoothed macro offsets over
-  raw parameter values; the raw APVTS parameters remain automatable. `BLOOM`
-  uses a measured six-point feedback curve that approximates a 0.5-60 second
-  RT60 range at 500 ms and scales with the selected loop duration, while
-  retaining the core's diffusion/tone shaping.
-- The plugin wrapper calls the existing fixed-point core setters and sample
-  processor directly.
-- The internal melody generator is linked only because the current core owns
-  that state; it is disabled by the wrapper and not exposed as plugin UI.
-- The editor exposes the performance, modulation, texture, engine, freeze, and
-  utility controls in main and advanced views.
-- The custom TE-2350 SVG logo lives in `Source/Assets` and is embedded through
-  JUCE BinaryData for future UI work.
+- Product release: edit the semantic version in `te2350-vst/CMakeLists.txt`.
+  JUCE VST3/Standalone metadata, preset `pluginVersion`, generated release
+  metadata, archive filename and manifest derive from it. Changelog headings
+  are historical release records, not build inputs; README uses the build authority.
+- `.te2350preset` schema changes: increment `UserPresetManager::presetFormatVersion`
+  only when needed. Current v1 also writes `presetFormatVersion`; legacy
+  `formatVersion=1` is preserved/read as an alias for M12 compatibility.
+  `pluginVersion` is provenance and never gates loading. Future schemas and
+  conflicting version aliases are rejected before application.
+- Host state schema changes: increment `currentStateVersion` only when needed.
+  It remains 3; legacy states and M12 PRESET_BASELINE are supported.
+- Never change ParameterIDs, factory indices 0-19 or VST3 identity casually:
+  manufacturer TE-2350 / TeAg, plugin code T235, bundle com.te2350.antigravity.
 
-## Notes
+## Regression references and CI
 
-- Hardware Mode uses the same Q31 fixed-point processing path as the firmware
-  and web ports. The firmware default remains `32768`; the VST build overrides
-  `TE2350_MAIN_DELAY_SIZE` to `524288`, enough for 2 seconds through 192 kHz.
-- Studio Mode runs a floating-point harmonic finishing stage at 2x
-  oversampling. Hardware and bypass paths receive the same fixed latency, so
-  mode changes use a click-free 20 ms crossfade without changing DAW latency.
-  Its calibrated gain stays within approximately +0.1/-0.5 dB from Hardware
-  Mode over the tested -18 to -1.4 dBFS sine range.
-- `highCutHz` maps to the core tone setter. `lowCutHz` filters the wet return,
-  and `wetWidth` scales only the wet side signal while preserving the stereo
-  dry path.
-- Sync mode reads host BPM and sends an exact sample target to the core. The
-  wide Hermite reader preserves exact targets beyond 65535 samples.
-- Mod Shape selects Triangle, Random Walk, or Sample & Hold. Freeze can be
-  momentary (active only while pressed) or latched.
-- Shimmer feedback is dormant while Shimmer Amount is zero, so neutral presets
-  no longer acquire hidden octave coloration.
-- The factory library contains 20 categorized presets. M11 preserves the first
-  13 programs and appends Long Shadow, Afterimage, Diffuse Halo, Fifth Nebula,
-  Submerged Choir, Prism Drift, and Ghost Room: dry-forward long tails, diffuse
-  harmonic shimmer, moving pitch texture, and subtle ambience. See the
-  [M11 audit](../docs/M11/M11-Preset-Expansion.md) for parameters, metrics,
-  regression results, and unnormalised listening renders.
-- User presets use versioned `.te2350preset` files, atomic replacement, and
-  malformed-file rejection. Their identity is embedded in host state, so a
-  project retains its sound when the original local preset file is unavailable.
-- Protected Mutate actions vary the sound at three depths while leaving Time,
-  Sync, Mix, I/O, Engine, Bypass, Freeze, and Kill Dry unchanged. Preset loads,
-  mutations, and parameter resets support Undo/Redo.
-- Host blocks larger than the size passed to `prepareToPlay` are processed in
-  bounded chunks. Fixed latency, Studio coloration, bypass ramps, and delay
-  state remain continuous across chunk boundaries without resizing buffers in
-  the audio callback.
-- Macro control values use preallocated indexed storage. Together with chunked
-  bypass scratch space, the warmed audio callback performs zero tracked C++
-  allocations in the compatibility regression.
-- State chunks include `stateVersion=3`. Loading an older or partial state
-  merges known parameter values into a complete default tree, so parameters
-  introduced after that state was saved receive deterministic defaults.
-- The editor separates the performance-focused `PERFORM` view from the
-  detailed `SCULPT` view. Horizontal macro cards keep Space, Wild, and Bloom
-  readable at the 960x680 minimum size, and Freeze is available directly from
-  the performance deck.
-- The system strip exposes Input/Output trim, Kill Dry, Atmos, Engine, live
-  meters, and the gravity display. Preset edits are marked as modified, A/B
-  clearly identifies the active side, and controls that are inactive because
-  of Sync or dependent effect amounts are visually dimmed.
-- Sliders, selectors, and switches provide accessible names, descriptions,
-  keyboard focus, tooltips, and visible focus treatment.
-- `Source/Assets/te2350_logo_custom.svg` is available to C++ as BinaryData
-  (`te2350_logo_custom_svg`) once the plugin target is built.
+The gate retains MacroCalibration, PresetVoicing, PresetWorkflow, MusicalBehaviour,
+FreezeConsistency, HostCompatibility, VST3Load, UIRender, ReleaseReadiness,
+OfflineReferenceRender, GoldenReferenceRender/Compare, CoreControl, PluginSmoke
+and Calibration. HostCompatibility also benchmarks warmed extreme DSP settings
+and checks zero tracked audio-callback allocations.
 
-## Validation
+Core goldens compare independent offline/core renders byte for byte;
+GoldenReference is a core-wrapper render, not a full DAW audio golden.
+Plugin DSP render/recall tolerances live in calibration/musical/host/readiness
+tests. Factory snapshots in M10FactorySnapshot and PresetVoicing stay frozen.
+UIRender creates deterministic PNGs and checks layout/interaction; it does not
+claim a stored pixel-baseline gate. Preserve PNG evidence and compare it when
+needed. Builds never refresh approved golden data automatically.
 
-The optional golden-reference scaffold renders an impulse through the same core:
+Windows GitHub Actions performs a clean configure with no dependency cache,
+explicit product build, gated package/final scan and source-cleanliness check.
+It uploads ZIP/checksums and separate qualification evidence; workflow_dispatch
+is available. It does not create a GitHub Release. CI status is reported in
+[the M13 report](../docs/M13/M13-Release-Hardening.md), separately from local results.
 
-```bash
-cmake -S te2350-vst -B build/te2350-vst -DTE2350_JUCE_PATH=/path/to/JUCE -DTE2350_BUILD_GOLDEN_TESTS=ON
-cmake --build build/te2350-vst --target TE2350GoldenReference
-```
+## Licensing
 
-Compare `plugin_reference.raw` with `output.raw` from `src/web/offline_host.c`
-after aligning the same parameter values and `TE_MAIN_DELAY_SIZE`.
-
-The calibration regression measures direct -60 dB decay time and Hardware /
-Studio gain at several levels:
-
-```bash
-cmake --build build/te2350-vst --target TE2350CalibrationTest
-ctest --test-dir build/te2350-vst -R TE2350CalibrationTest --output-on-failure
-```
-
-To generate the deterministic musical reference and all factory-preset WAVs:
-
-```bash
-cmake --build build/te2350-vst --target TE2350CalibrationRender
-build/te2350-vst/TE2350CalibrationRender build/te2350-vst/CalibrationRenders
-```
-
-The host-compatibility regression covers fixed latency in oversized buffers,
-variable block sizes from 1 to 4096 samples, Hardware/Studio transitions,
-bypass, mono/stereo, 44.1-192 kHz operation, legacy-state migration, callback
-allocations, and an extreme-settings real-time benchmark:
-
-```bash
-cmake --build build/te2350-vst --target TE2350HostCompatibilityTest
-ctest --test-dir build/te2350-vst -R TE2350HostCompatibilityTest --output-on-failure
-```
-
-The external load test scans and instantiates the built bundle through JUCE's
-VST3 host API, then checks metadata, audio processing, state round-trip,
-latency, and tail reporting:
-
-```bash
-cmake --build build/te2350-vst --target TE2350VST3LoadTest
-ctest --test-dir build/te2350-vst -R TE2350VST3LoadTest --output-on-failure
-```
-
-To render deterministic PNG references of the Perform and Sculpt layouts at
-the minimum, default, and maximum editor sizes:
-
-```bash
-cmake --build build/te2350-vst --target TE2350UIRender
-build/te2350-vst/TE2350UIRender build/te2350-vst/UIRenders
-```
-
-`TE2350UIRenderTest` also checks the initial panel hierarchy, the I/O control
-layout, and the Perform/Sculpt view transition.
-
-The preset workflow regression covers the categorized factory catalog, user
-preset save/load/delete, malformed and partial files, embedded project state,
-protected mutation, and Undo/Redo:
-
-```bash
-cmake --build build/te2350-vst --target TE2350PresetWorkflowTest
-ctest --test-dir build/te2350-vst -R TE2350PresetWorkflowTest --output-on-failure
-```
-
-The release-readiness regression sweeps every one of the 30 automatable
-parameters through endpoints and continuous changes, switches all 20 factory
-programs under load, exercises mono/stereo processing from 44.1 to 192 kHz,
-and verifies sample-identical audio after host-state recall:
-
-```bash
-cmake --build build/te2350-vst --target TE2350ReleaseReadinessTest
-ctest --test-dir build/te2350-vst -R TE2350ReleaseReadinessTest --output-on-failure
-```
-
-CI additionally runs `pluginval` at strictness level 5 against each generated
-VST3/AU bundle before uploading artifacts.
+Own project code: [MIT](../LICENSE). JUCE 7 and bundled third-party terms remain
+separate; see Packaging/THIRD-PARTY-NOTICES.txt and the included upstream license.
+Public distribution must select and comply with a JUCE licensing route. Local
+qualification does not assert that a commercial license has been acquired.

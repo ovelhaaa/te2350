@@ -1,0 +1,23 @@
+TE-2350 Antigravity @VERSION@ - Windows x64
+
+VST3: Copy the COMPLETE VST3/TE-2350 Antigravity.vst3 directory to:
+  C:\Program Files\Common Files\VST3
+Then reopen your DAW and rescan. Preserve Contents and its subdirectories.
+The installer folder may require administrator rights; building does not.
+
+Standalone/TE-2350 Antigravity.exe is a developer preview, not an officially
+qualified standalone audio-device product. Device routing and loopback safety
+depend on the machine. VST3 is the supported distribution format for M13.
+
+Factory presets (20), UI assets and DSP are embedded. No source checkout or
+JUCE source is needed at runtime. No extra compiler-runtime DLL is required.
+Windows 10/11 x64 is the current qualification scope. Package is unsigned.
+
+User presets: JUCE userApplicationDataDirectory/TE-2350/Antigravity/Presets.
+On Windows: %APPDATA%\TE-2350\Antigravity\Presets. Upgrades preserve it.
+Use the preset browser for Save Preset As, Save, Rename, Delete, Import, Export
+and Reload. DAW state embeds parameters and preset baseline independently.
+
+Verify the ZIP using the external SHA256SUMS.txt; the internal SHA256SUMS.txt
+covers every payload file. release-manifest.txt identifies the build.
+See LICENSE, JUCE-LICENSE.md and THIRD-PARTY-NOTICES.txt before distribution.

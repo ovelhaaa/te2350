@@ -1,217 +1,56 @@
-name: Build TE-2350 Antigravity
+name: Qualify TE-2350 Windows release
 
 on:
   push:
-    branches: [ main, master ]
-    paths:
-      - ".github/workflows/build-plugin.yml"
-      - "te2350-vst/**"
-      - "src/**"
-      - "include/**"
-      - "CMakeLists.txt"
+    branches: [main, master, 'codex/m13-*']
+    paths: ['te2350-vst/**', 'src/**', 'include/**', 'LICENSE', '.github/workflows/build-plugin.yml']
   pull_request:
-    paths:
-      - ".github/workflows/build-plugin.yml"
-      - "te2350-vst/**"
-      - "src/**"
-      - "include/**"
-      - "CMakeLists.txt"
+    paths: ['te2350-vst/**', 'src/**', 'include/**', 'LICENSE', '.github/workflows/build-plugin.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: te2350-plugin-${{ github.ref }}
+  group: te2350-windows-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  BUILD_DIR: build/te2350-vst
-  JUCE_TAG: 8.0.8
-
 jobs:
-  build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Windows VST3 + Standalone
-            os: windows-latest
-            artifact: te2350-antigravity-windows-vst3-standalone
-          - name: macOS VST3 + AU + Standalone
-            os: macos-14
-            artifact: te2350-antigravity-macos-vst3-au-standalone
-
+  windows-release:
+    runs-on: windows-2022
+    timeout-minutes: 45
     steps:
-      - name: Check out repository
+      - name: Clean checkout
         uses: actions/checkout@v4
-
-      - name: Cache JUCE and CMake dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.BUILD_DIR }}/_deps
-            ${{ env.BUILD_DIR }}/JUCE
-          key: ${{ runner.os }}-juce-${{ env.JUCE_TAG }}-${{ hashFiles('te2350-vst/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-juce-${{ env.JUCE_TAG }}-
-
-      - name: Configure Windows
-        if: runner.os == 'Windows'
+      - name: Configure pinned JUCE, no dependency or build cache
+        working-directory: te2350-vst
+        run: cmake --preset windows-release
+      - name: Build official product targets
+        working-directory: te2350-vst
+        run: cmake --build --preset windows-release --parallel 4
+      - name: Qualification, ZIP packaging and final extracted VST3 validation
+        working-directory: te2350-vst
+        run: cmake --build --preset windows-package --parallel 4
+      - name: Ensure the build did not modify source files
         shell: pwsh
         run: |
-          cmake `
-            -S "te2350-vst" `
-            -B "${{ env.BUILD_DIR }}" `
-            -A x64 `
-            "-DTE2350_FETCH_JUCE=ON" `
-            "-DTE2350_JUCE_TAG=${{ env.JUCE_TAG }}" `
-            "-DTE2350_BUILD_GOLDEN_TESTS=ON" `
-            "-DTE2350_PLUGIN_COPY_DIR=${{ github.workspace }}/build/installed-plugins"
-
-      - name: Configure macOS
-        if: runner.os == 'macOS'
-        shell: pwsh
-        run: |
-          cmake `
-            -S "te2350-vst" `
-            -B "${{ env.BUILD_DIR }}" `
-            -G "Ninja" `
-            "-DCMAKE_BUILD_TYPE=Release" `
-            "-DTE2350_FETCH_JUCE=ON" `
-            "-DTE2350_JUCE_TAG=${{ env.JUCE_TAG }}" `
-            "-DTE2350_BUILD_GOLDEN_TESTS=ON" `
-            "-DTE2350_PLUGIN_COPY_DIR=${{ github.workspace }}/build/installed-plugins"
-
-      - name: Build plugin and validation tools
-        run: cmake --build "${{ env.BUILD_DIR }}" --config Release --parallel 4
-
-      - name: Run CTest validation
-        run: ctest --test-dir "${{ env.BUILD_DIR }}" --build-config Release --output-on-failure
-
-      - name: Build release-candidate package
-        run: cmake --build "${{ env.BUILD_DIR }}" --config Release --target TE2350PackageBeta
-
-      - name: Download pluginval
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          New-Item -ItemType Directory -Force tools/pluginval | Out-Null
-
-          $release = gh api repos/Tracktion/pluginval/releases/latest | ConvertFrom-Json
-          $assetPattern = if ($env:RUNNER_OS -eq "Windows") {
-            "win|windows"
-          } elseif ($env:RUNNER_OS -eq "macOS") {
-            "mac|macos|osx|darwin"
-          } else {
-            "linux"
-          }
-
-          $assets = @($release.assets | Where-Object { $_.name -match $assetPattern })
-          if ($assets.Count -eq 0) {
-            $available = ($release.assets | ForEach-Object { $_.name }) -join ", "
-            throw "No pluginval asset matched '$assetPattern'. Available assets: $available"
-          }
-
-          foreach ($asset in $assets) {
-            gh release download $release.tag_name --repo Tracktion/pluginval --pattern $asset.name --dir tools/pluginval --clobber
-          }
-
-          Get-ChildItem tools/pluginval -File | ForEach-Object {
-            if ($_.Extension -eq ".zip") {
-              Expand-Archive -LiteralPath $_.FullName -DestinationPath tools/pluginval -Force
-            } elseif ($_.Name -like "*.tar.gz" -or $_.Extension -eq ".tgz") {
-              tar -xf $_.FullName -C tools/pluginval
-            }
-          }
-
-          $pluginval = Get-ChildItem tools/pluginval -Recurse -File |
-            Where-Object { $_.Name -eq "pluginval.exe" -or $_.Name -eq "pluginval" } |
-            Select-Object -First 1
-
-          if ($null -eq $pluginval) {
-            throw "pluginval executable was not found in downloaded release assets"
-          }
-
-          if ($env:RUNNER_OS -ne "Windows") {
-            chmod +x $pluginval.FullName
-          }
-
-          "PLUGINVAL=$($pluginval.FullName)" >> $env:GITHUB_ENV
-
-      - name: Validate plugin bundles with pluginval
-        shell: pwsh
-        run: |
-          $reportDirectory = Join-Path "${{ env.BUILD_DIR }}" "PluginvalReports"
-          New-Item -ItemType Directory -Force $reportDirectory | Out-Null
-
-          $artefactsDirectory = Join-Path (Join-Path "${{ env.BUILD_DIR }}" "TE2350Antigravity_artefacts") "Release"
-          $plugins = @(Get-ChildItem $artefactsDirectory -Recurse -Directory -Filter "*.vst3" |
-            Where-Object { $_.Name -like "*Antigravity*" })
-
-          if ($env:RUNNER_OS -eq "macOS") {
-            $componentInstallDir = Join-Path $HOME "Library/Audio/Plug-Ins/Components"
-            New-Item -ItemType Directory -Force $componentInstallDir | Out-Null
-
-            $components = @(Get-ChildItem $artefactsDirectory -Recurse -Directory -Filter "*.component" |
-              Where-Object { $_.Name -like "*Antigravity*" })
-
-            foreach ($component in $components) {
-              $installedComponent = Join-Path $componentInstallDir $component.Name
-              if (Test-Path $installedComponent) {
-                Remove-Item -Recurse -Force $installedComponent
-              }
-
-              Copy-Item -Recurse -Force $component.FullName $installedComponent
-              $plugins += Get-Item $installedComponent
-            }
-          }
-
-          if ($plugins.Count -eq 0) {
-            throw "No TE-2350 Antigravity plugin bundle was found"
-          }
-
-          foreach ($plugin in $plugins) {
-            Write-Host "Validating $($plugin.FullName)"
-            $reportName = (($plugin.Name -replace '[^A-Za-z0-9._-]', '_') + ".txt")
-            & "$env:PLUGINVAL" `
-              --strictness-level 5 `
-              --sample-rates 44100,48000,96000,192000 `
-              --block-sizes 1,16,64,127,512,1024,4096 `
-              --random-seed 2350 `
-              --timeout-ms 60000 `
-              --output-dir "$reportDirectory" `
-              --output-filename "$reportName" `
-              --verbose `
-              --validate "$($plugin.FullName)" | Out-Host
-
-            if ($LASTEXITCODE -ne 0) {
-              throw "pluginval failed for $($plugin.FullName) with exit code $LASTEXITCODE"
-            }
-          }
-
-      - name: Upload plugin bundles
+          $status = git status --porcelain
+          if ($status) { throw "Source tree changed during release: $status" }
+      - name: Upload qualified distribution only
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
+          name: TE-2350-windows-x64
           if-no-files-found: error
           path: |
-            ${{ env.BUILD_DIR }}/**/*Antigravity*.vst3/**
-            ${{ env.BUILD_DIR }}/**/*Antigravity*.component/**
-            ${{ env.BUILD_DIR }}/**/*Antigravity*.app/**
-            ${{ env.BUILD_DIR }}/**/*Antigravity*.exe
-            ${{ env.BUILD_DIR }}/Packages/*.zip
-            ${{ env.BUILD_DIR }}/Packages/*.sha256
-            ${{ env.BUILD_DIR }}/PluginvalReports/**
-
-      - name: Upload golden-reference output
+            dist/*.zip
+            dist/SHA256SUMS.txt
+            dist/*.sha256
+      - name: Upload qualification evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}-golden-reference
+          name: TE-2350-qualification-evidence
           if-no-files-found: warn
           path: |
-            ${{ env.BUILD_DIR }}/GoldenReferenceOutput/**
-            ${{ env.BUILD_DIR }}/**/TE2350GoldenReference*
+            build/release-msvc/Testing/Temporary/*.log
+            build/release-msvc/UIRenders/*.png

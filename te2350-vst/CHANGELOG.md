@@ -1,11 +1,40 @@
 # Changelog
 
-## Unreleased � M11
+## 0.3.0 — 2026-10-01 (M13)
 
-- Expanded the factory bank from 13 to 20 programs, appending seven musical roles.
-- Preserved M10 names, indices and saved parameter bits with a frozen regression fixture.
-- Added piano/bass and chord diagnostics, diffusion A/B, and an unnormalised listening audit.
-- DSP, macros, UI and parameter contracts remain unchanged.
+### DSP, Freeze and Macros
+
+- Consolidates the approved fixed-point DSP, Hardware/Studio, musical macro
+  calibration, Freeze consistency and bypass/spillover. M13 changes no DSP or
+  parameter behavior.
+
+### UI and presets
+
+- Preserves PERFORM/SCULPT and the approved visual/interaction design.
+- Expands the earlier bank to 20 categorized factory presets, preserving program
+  order and the approved snapshots (M11).
+- Includes the persistent M12 user preset browser: Save As, explicit Save,
+  Rename, Delete, Import, Export and Reload; MODIFIED tracking and embedded
+  preset baseline survive DAW recall without the local library.
+- Preset creator version now derives from build metadata. User format v1 and
+  host state v3 remain compatible; M12 formatVersion is retained as an alias.
+
+### Stability and distribution
+
+- Direct pinned JUCE 7.0.12, matching the actual M12 build dependency; rejects
+  cross-project wrappers. Product metadata retains its existing identity.
+- Isolated Debug/Release presets, explicit product targets and a full 15-test
+  qualification gate. Packaging fails closed, scans the extracted final VST3
+  and audits runtime DLL dependencies.
+- Windows x64 ZIP includes the complete VST3 bundle, developer preview
+  Standalone, instructions, licenses, manifest and SHA256 checksums.
+- Windows clean-build CI uploads qualified artifacts without publishing releases.
+- Own project code adopts MIT; JUCE/third-party terms apply separately.
+
+### Limits
+
+- Unsigned Windows package; no installer. Standalone audio-device support and
+  macOS/Linux distributions are not qualified by M13.
 
 ## 0.2.0-rc1 — 2026-07-31
 

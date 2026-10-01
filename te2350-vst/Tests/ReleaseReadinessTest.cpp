@@ -1,6 +1,8 @@
 #include <JuceHeader.h>
 
 #include "PluginProcessor.h"
+#include "Presets/UserPresetManager.h"
+#include "ReleaseMetadata.h"
 
 #include <array>
 #include <cmath>
@@ -77,6 +79,15 @@ void fillInput(juce::AudioBuffer<float>& buffer,
 bool verifyParameterAndProgramContract()
 {
     TE2350AudioProcessor processor;
+    if (processor.getName() != "TE-2350 Antigravity"
+        || juce::String(TE2350_PRODUCT_VERSION).isEmpty()
+        || te2350::UserPresetManager::presetFormatVersion != 1
+        || TE2350_RELEASE_PRESET_FORMAT_VERSION != 1
+        || TE2350_RELEASE_STATE_VERSION != 3)
+    {
+        std::fprintf(stderr, "release metadata/schema contract changed\n");
+        return false;
+    }
     const auto& parameters = processor.getParameters();
     if (parameters.size() != expectedParameterIDs.size())
     {

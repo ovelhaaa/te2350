@@ -1,0 +1,19 @@
+TE-2350 Antigravity - third-party licensing
+
+The project's own license does not replace third-party terms.
+JUCE 7.0.12 modules: applicable JUCE 7 license terms or GPLv3; some modules
+use ISC.
+Full upstream notice is included as JUCE-LICENSE.md.
+https://github.com/juce-framework/JUCE/blob/7.0.12/LICENSE.md
+https://www.juce.com/juce-7-licence
+
+A public binary release must select a compliant JUCE licensing route. This
+local build does not assert commercial JUCE entitlement or automatically
+fulfil GPL corresponding-source obligations. Preserve applicable notices
+for JUCE's bundled dependencies (including the VST3 SDK, audio codecs,
+graphics/font libraries); the upstream notice lists their license sources.
+
+Windows system DLLs are supplied by the OS, not redistributed in this ZIP.
+MinGW builds link GCC/libstdc++ runtime under their respective runtime-library
+exceptions. MSVC builds link the Microsoft runtime statically. No third-party
+runtime DLL is copied from a developer machine.
