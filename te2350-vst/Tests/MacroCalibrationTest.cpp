@@ -37,6 +37,7 @@ struct Case
     bool wetOnly = false;
     juce::String manualID;
     float manual = 0;
+    juce::String diagnosticGroup;
 };
 float source(int n, int type)
 {
@@ -50,6 +51,12 @@ float source(int n, int type)
                      (std::sin(t * 1382.3007676) + .3 * std::sin(t * 2764.6015352) +
                       .15 * std::sin(t * 4146.9023028)) *
                      std::min(1., t * 100) * std::min(1., (active - t) * 100));
+    if (type == 4)
+    {
+        const double hit = std::fmod(t, .5);
+        return float(.12 * std::sin(t * 1382.3007676)
+                     + .18 * std::sin(hit * 450) * std::exp(-hit * 25));
+    }
     if (type == 2)
     {
         double phase = std::fmod(t, .5);
@@ -162,7 +169,86 @@ Metrics measure(const juce::AudioBuffer<float> &a)
         m.pitch = std::max(0., pitchSq / frames - std::pow(pitchSum / frames, 2));
     return m;
 }
-juce::AudioBuffer<float> render(const Case &c, int type)
+// Offline counterfactuals only: restore one pre-M9 target group without changing
+// preset data or production definitions. Invert the current monotonic mapping
+// through APVTS and report any target outside its attainable range.
+void restoreLegacyGroup(TE2350AudioProcessor& p, const Case& c, std::ofstream* log)
+{
+    te2350::MacroEngine engine;
+    engine.prepare(sr, bs);
+    settle(engine, p);
+    const auto raw = [&](const char* id) { return p.apvts.getRawParameterValue(id)->load(); };
+    const auto effective = [&](const char* id) { return engine.getEffectiveValue(id, 0); };
+    const float s = raw("space"), w = raw("wild"), b = raw("bloom");
+    const auto group = c.diagnosticGroup;
+    std::vector<std::pair<const char*, float>> targets;
+    const float manualFeedback = raw("feedback"), safe = .95f + .04f * w;
+    if (group == "wild_feedback")
+    {
+        float f = juce::jmin(1.05f, manualFeedback + .60f * w);
+        f += .30f * b / 1.05f * juce::jmax(0.f, safe - f);
+        targets.push_back({"feedback", juce::jmin(f, .95f + .10f * w)});
+    }
+    if (group == "bloom_feedback")
+        targets.push_back({"feedback", manualFeedback + .12f * w / 1.05f
+                          * juce::jmax(0.f, safe - manualFeedback)});
+    if (group == "space_shimmer")
+        targets.push_back({"shimmerAmount", raw("shimmerAmount") + .32f * s});
+    if (group == "bloom_shimmer")
+        targets.push_back({"shimmerAmount", effective("shimmerAmount") + .18f * b});
+    if (group == "space_spatial")
+    {
+        targets.push_back({"diffusion", raw("diffusion") + .38f * s});
+        targets.push_back({"wetWidth", raw("wetWidth") + .35f * s});
+    }
+    if (group == "wild_modulation")
+    {
+        targets.push_back({"chaos", raw("chaos") + .85f * w * w});
+        targets.push_back({"wobble", raw("wobble") + .75f * w * w});
+        targets.push_back({"modDepth", raw("modDepth") + .75f * w * w});
+        targets.push_back({"modRateHz", raw("modRateHz") + .15f * (std::pow(8.f, w) - 1.f)});
+    }
+    if (group == "space_time_tone")
+    {
+        targets.push_back({"timeMs", raw("timeMs") + 420.f * (std::pow(1080.f / 420.f, s) - 1.f)});
+        targets.push_back({"lowCutHz", raw("lowCutHz") + 80.f * (std::pow(140.f / 80.f, s) - 1.f)});
+        float cut = juce::jlimit(1000.f, 18000.f,
+            raw("highCutHz") + 9000.f * (std::pow(5200.f / 9000.f, s) - 1.f));
+        cut += 9000.f * (std::pow(14000.f / 9000.f, b) - 1.f) / 9000.f * (18000.f - cut);
+        targets.push_back({"highCutHz", cut});
+    }
+    if (group == "bloom_tone_mix")
+    {
+        float cut = raw("highCutHz");
+        cut += 9000.f * (std::pow(5200.f / 9000.f, s) - 1.f) / 8000.f * (cut - 1000.f);
+        targets.push_back({"highCutHz", cut + 9000.f * (std::pow(14000.f / 9000.f, b) - 1.f)});
+        targets.push_back({"mix", raw("mix") + .17f * b});
+    }
+    for (const auto& target : targets)
+    {
+        const auto* spec = te2350::findParameterSpec(target.first);
+        const float wanted = juce::jlimit(spec->minimum, spec->maximum, target.second);
+        float low = spec->minimum, high = spec->maximum;
+        for (int iteration = 0; iteration < 24; ++iteration)
+        {
+            const float candidate = .5f * (low + high);
+            set(p, target.first, candidate);
+            settle(engine, p);
+            if (engine.getEffectiveValue(target.first, 0) < wanted)
+                low = candidate;
+            else
+                high = candidate;
+        }
+        set(p, target.first, .5f * (low + high));
+        settle(engine, p);
+        const float reached = engine.getEffectiveValue(target.first, 0);
+        if (log)
+            *log << c.name << ',' << target.first << ',' << wanted << ',' << reached << ','
+                 << (std::abs(reached - wanted) <= 5.e-6f * juce::jmax(1.f, std::abs(wanted))
+                        ? "REACHED" : "LIMITED") << '\n';
+    }
+}
+juce::AudioBuffer<float> render(const Case &c, int type, std::ofstream* log = nullptr)
 {
     TE2350AudioProcessor p;
     if (c.preset >= 0)
@@ -183,6 +269,8 @@ juce::AudioBuffer<float> render(const Case &c, int type)
         set(p, "killDry", 1);
     if (c.manualID.isNotEmpty())
         set(p, c.manualID.toRawUTF8(), c.manual);
+    if (c.diagnosticGroup.isNotEmpty())
+        restoreLegacyGroup(p, c, log);
     p.prepareToPlay(sr, bs);
     juce::AudioBuffer<float> b(2, bs), out(2, duration * sr);
     out.clear();
@@ -241,6 +329,65 @@ bool audit(juce::File dir, bool baseline)
                 csv << '\n';
             }
         }
+    // Contract: zero macros are an identity, independent of wrapper/core ceilings.
+    std::ofstream authority(dir.getChildFile("manual_authority.csv").getFullPathName().toStdString());
+    authority << "parameter,manual,effective_macros_zero,result\n";
+    for (const char* id : {"feedback", "wetWidth", "shimmerAmount", "duckAmount", "diffusion",
+                           "modDepth", "chaos", "wobble", "modRateHz", "highCutHz", "lowCutHz",
+                           "timeMs", "mix"})
+    {
+        const auto* spec = te2350::findParameterSpec(id);
+        std::vector<float> manualValues;
+        for (int k = 0; k <= 4; ++k)
+            manualValues.push_back(spec->minimum + .25f * k * (spec->maximum - spec->minimum));
+        if (juce::String(id) == "feedback")
+            for (float v : {.20f, .70f, .85f, .90f, 1.05f})
+                manualValues.push_back(v);
+        for (float manual : manualValues)
+        {
+            defaults(p);
+            set(p, id, manual);
+            settle(e, p);
+            const float actual = e.getEffectiveValue(id, 0);
+            const float tolerance = 1.e-6f * juce::jmax(1.f, std::abs(manual));
+            const bool pass = std::abs(actual - manual) <= tolerance;
+            authority << id << ',' << manual << ',' << actual << ',' << (pass ? "PASS" : "FAIL") << '\n';
+            if (!baseline && !pass)
+            {
+                std::cerr << "Zero-macro manual authority failed: " << id << " manual=" << manual
+                          << " actual=" << actual << '\n';
+                ok = false;
+            }
+        }
+    }
+    std::ofstream feedbackSurface(dir.getChildFile("feedback_surface.csv").getFullPathName().toStdString());
+    feedbackSurface << "manual,wild,bloom,effective_feedback\n";
+    for (float manual : {.20f, .45f, .70f, .90f, 1.05f})
+        for (float wild : {0.f, .5f, 1.f})
+        {
+            float previous = manual;
+            for (float bloom : {0.f, .5f, 1.f})
+            {
+                defaults(p);
+                set(p, "feedback", manual);
+                set(p, "wild", wild);
+                set(p, "bloom", bloom);
+                settle(e, p);
+                const float actual = e.getEffectiveValue("feedback", 0);
+                const float ceiling = .95f + .04f * wild;
+                feedbackSurface << manual << ',' << wild << ',' << bloom << ',' << actual << '\n';
+                if (!baseline)
+                {
+                    ok &= actual >= manual - 1.e-6f && actual >= previous - 1.e-6f;
+                    ok &= actual <= juce::jmax(manual, ceiling) + 1.e-6f;
+                    if (bloom > 0 && manual < ceiling)
+                        ok &= actual > previous + 1.e-5f;
+                    if (wild == 0 && bloom == 0)
+                        ok &= std::abs(actual - manual) < 1.e-6f;
+                }
+                previous = actual;
+            }
+        }
     // All three macros at all five positions; manual surface at five fractions.
     for (float s : {0.f, .25f, .5f, .75f, 1.f})
         for (float w : {0.f, .25f, .5f, .75f, 1.f})
@@ -264,6 +411,27 @@ bool audit(juce::File dir, bool baseline)
                     }
                 }
             }
+    // Preserve legacy timing where the physical delay has ample headroom;
+    // near its limit, only the added time enters the continuous shoulder.
+    defaults(p);
+    set(p, "timeMs", 720.f);
+    set(p, "space", .58f);
+    settle(e, p);
+    const float expectedTime = 720.f + 420.f * (std::pow(1080.f / 420.f, .58f) - 1.f);
+    if (!baseline)
+        ok &= std::abs(e.getEffectiveValue("timeMs", 0) - expectedTime) < .005f;
+    defaults(p);
+    set(p, "timeMs", 1900.f);
+    float previousTime = 1900.f;
+    for (int k = 0; k <= 10; ++k)
+    {
+        set(p, "space", .1f * k);
+        settle(e, p);
+        const float actual = e.getEffectiveValue("timeMs", 0);
+        if (!baseline && k)
+            ok &= actual > previousTime && actual < 2000.f;
+        previousTime = actual;
+    }
     // Instability must accelerate usefully across the complete WILD range.
     defaults(p);
     float lastInstability = -1;
@@ -345,7 +513,26 @@ int main(int argc, char **argv)
     bool baseline = argc > 2 && juce::String(argv[2]) == "baseline";
     if (!dir.createDirectory())
         return 1;
-    bool ok = audit(dir, baseline);
+    const bool focus = argc > 2 && juce::String(argv[2]) == "focus";
+    const bool diagnostic = argc > 2 && juce::String(argv[2]) == "diagnostic";
+    bool ok = (focus || diagnostic) ? true : audit(dir, baseline);
+    {
+        TE2350AudioProcessor p;
+        te2350::MacroEngine e;
+        e.prepare(sr, bs);
+        std::ofstream motion(dir.getChildFile("wild_controls.csv").getFullPathName().toStdString());
+        motion << "wild,feedback,chaos,wobble,mod_rate_hz,mod_depth,instability\n";
+        for (float wild : {0.f, .5f, .75f, 1.f})
+        {
+            defaults(p);
+            set(p, "wild", wild);
+            settle(e, p);
+            motion << wild << ',' << e.getEffectiveValue("feedback", 0) << ','
+                   << e.getEffectiveValue("chaos", 0) << ',' << e.getEffectiveValue("wobble", 0) << ','
+                   << e.getEffectiveValue("modRateHz", 0) << ',' << e.getEffectiveValue("modDepth", 0)
+                   << ',' << e.getInstability() << '\n';
+        }
+    }
     std::vector<Case> cases;
     for (int macro = 0; macro < 3; ++macro)
         for (int k = 0; k <= 10; ++k)
@@ -447,11 +634,39 @@ int main(int argc, char **argv)
         c.preset = i;
         cases.push_back(c);
     }
+    if (diagnostic)
+    {
+        cases.clear();
+        for (int i = 0; i < names.size(); ++i)
+            for (const char* group : {"wild_feedback", "bloom_feedback", "space_shimmer", "bloom_shimmer",
+                                      "space_spatial", "wild_modulation", "space_time_tone", "bloom_tone_mix"})
+            {
+                Case c;
+                c.name = "restore_" + juce::String(group) + "_preset_" + juce::String(i);
+                c.preset = i;
+                c.diagnosticGroup = group;
+                cases.push_back(c);
+            }
+    }
+    if (focus)
+    {
+        cases.erase(std::remove_if(cases.begin(), cases.end(), [](const Case& c)
+        {
+            return c.preset < 0 && c.name != "wild_0" && c.name != "wild_50"
+                && c.name != "wild_100";
+        }), cases.end());
+        Case c;
+        c.name = "wild_75";
+        c.wild = .75f;
+        cases.insert(cases.begin() + 2, c);
+    }
     std::ofstream csv(dir.getChildFile("audio_metrics.csv").getFullPathName().toStdString());
     csv << "case,source,rms,peak,tail_energy,width,centroid,hf_ratio,lf_ratio,modulation_proxy,pitch_"
            "variance_proxy,transient_rms,decay_proxy_seconds,tail_density,dc,last_second_rms,adjacent_"
            "relative_difference\n";
-    std::array<juce::AudioBuffer<float>, 4> previousAudio;
+    std::ofstream diagnosticLog(dir.getChildFile("counterfactual_targets.csv").getFullPathName().toStdString());
+    diagnosticLog << "case,target,wanted,reached,result\n";
+    std::array<juce::AudioBuffer<float>, 5> previousAudio;
     std::array<double, 4> previousBloomTail{}, initialBloomTail{};
     double previousSpaceDecay = 0;
     for (const auto &c : cases)
@@ -465,10 +680,10 @@ int main(int argc, char **argv)
                         ? 0
                     : c.name.startsWith("bloom_") && !c.name.startsWith("bloom_shimmer") ? 0
                                                                                          : 1;
-        int last = first == 0 ? 3 : 2;
+        int last = first == 0 ? (focus ? 4 : 3) : 2;
         for (int type = first; type <= last; ++type)
         {
-            auto audio = render(c, type);
+            auto audio = render(c, type, diagnostic ? &diagnosticLog : nullptr);
             auto m = measure(audio);
             if (!baseline && first == 0 && c.name.startsWith("bloom_") && type > 0)
             {

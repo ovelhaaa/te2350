@@ -1,0 +1,33 @@
+Test project C:/progs/vst/te2350/build/te2350-vst-ninja-net
+      Start  3: TE2350GoldenReferenceRender
+      Start  2: TE2350OfflineReferenceRender
+ 1/14 Test  #2: TE2350OfflineReferenceRender .....   Passed    0.08 sec
+      Start  1: TE2350MacroCalibrationTest
+ 2/14 Test  #3: TE2350GoldenReferenceRender ......   Passed    0.42 sec
+      Start 14: TE2350FreezeConsistencyTest
+ 3/14 Test #14: TE2350FreezeConsistencyTest ......   Passed   31.58 sec
+      Start 13: TE2350MusicalBehaviourTest
+ 4/14 Test #13: TE2350MusicalBehaviourTest .......   Passed    9.86 sec
+      Start  7: TE2350CalibrationTest
+ 5/14 Test  #7: TE2350CalibrationTest ............   Passed    3.07 sec
+      Start 10: TE2350UIRenderTest
+ 6/14 Test #10: TE2350UIRenderTest ...............   Passed    1.54 sec
+      Start 12: TE2350ReleaseReadinessTest
+ 7/14 Test #12: TE2350ReleaseReadinessTest .......   Passed    0.57 sec
+      Start  8: TE2350HostCompatibilityTest
+ 8/14 Test  #8: TE2350HostCompatibilityTest ......   Passed    0.73 sec
+      Start 11: TE2350PresetWorkflowTest
+ 9/14 Test #11: TE2350PresetWorkflowTest .........   Passed    0.39 sec
+      Start  9: TE2350VST3LoadTest
+10/14 Test  #9: TE2350VST3LoadTest ...............   Passed    0.12 sec
+      Start  6: TE2350PluginSmokeTest
+11/14 Test  #6: TE2350PluginSmokeTest ............   Passed    0.39 sec
+      Start  5: TE2350CoreControlTest
+12/14 Test  #5: TE2350CoreControlTest ............   Passed    0.55 sec
+      Start  4: TE2350GoldenReferenceCompare
+13/14 Test  #4: TE2350GoldenReferenceCompare .....   Passed    0.05 sec
+14/14 Test  #1: TE2350MacroCalibrationTest .......   Passed  160.84 sec
+
+100% tests passed, 0 tests failed out of 14
+
+Total Test time (real) = 160.94 sec

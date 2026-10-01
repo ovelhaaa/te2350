@@ -202,25 +202,35 @@ void MacroEngine::calculateTargets(const juce::AudioProcessorValueTreeState& sta
                 if (target.headroomScale > 0.0f)
                     if (const auto* spec = findParameterSpec(target.paramID))
                     {
+                        auto upper = spec->maximum;
+                        if (target.paramID == juce::StringRef("feedback") && offset >= 0.0f)
+                            upper = juce::jmin(upper, 0.95f + 0.04f * wildMacro);
+                        // Only the added regeneration uses safe headroom. A manual
+                        // value above that boundary remains intact, even at 1.05.
                         const auto headroom = offset >= 0.0f
-                            ? spec->maximum - value->target : value->target - spec->minimum;
-                        contribution *= target.headroomScale * headroom;
+                            ? juce::jmax(0.0f, upper - value->target)
+                            : value->target - spec->minimum;
+                        if (target.paramID == juce::StringRef("timeMs") && offset >= 0.0f)
+                        {
+                            // Preserve musical repeat timing until the requested
+                            // addition approaches the physical delay boundary.
+                            // The rational shoulder remains below the maximum;
+                            // it never compresses the manual base or hard-clamps
+                            // a wide interval of the macro.
+                            const auto knee = 0.99f * headroom;
+                            const auto shoulder = headroom - knee;
+                            const auto excess = juce::jmax(0.0f, offset - knee);
+                            contribution = offset <= knee ? offset
+                                : knee + (shoulder > 0.0f
+                                    ? shoulder * excess / (shoulder + excess) : 0.0f);
+                        }
+                        else
+                            contribution *= target.headroomScale * headroom;
                     }
                 value->target = clampForParameter(target.paramID, value->target + contribution);
             }
         }
     }
 
-    const auto wild = getMacroValue("wild");
-    const auto wildFeedbackCeiling = 0.95f + wild * 0.04f;
-    if (auto* feedback = findValue("feedback"))
-    {
-        // Compress only the upper manual range; no flat hard-ceiling interval.
-        // Stay below unity at the Q31 boundary, including WILD=100%.
-        constexpr float knee = 0.85f;
-        if (feedback->target > knee)
-            feedback->target = knee + (feedback->target - knee)
-                * (wildFeedbackCeiling - knee) / (1.05f - knee);
-    }
 }
 }
