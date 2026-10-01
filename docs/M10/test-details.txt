@@ -1,0 +1,580 @@
+Start testing: Sep 30 23:32 Hora oficial do Brasil
+----------------------------------------------------------
+2/15 Testing: TE2350OfflineReferenceRender
+2/15 Test: TE2350OfflineReferenceRender
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350OfflineReference.exe"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net/GoldenReferenceOutput
+"TE2350OfflineReferenceRender" start time: Sep 30 23:32 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+Starting offline validation host...
+Generating 96000 samples...
+Validation complete. Wrote output.raw (48kHz, 16-bit, stereo)
+<end of output>
+Test time =   0.11 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350OfflineReferenceRender" end time: Sep 30 23:32 Hora oficial do Brasil
+"TE2350OfflineReferenceRender" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/15 Testing: TE2350GoldenReferenceRender
+3/15 Test: TE2350GoldenReferenceRender
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350GoldenReference.exe"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net/GoldenReferenceOutput
+"TE2350GoldenReferenceRender" start time: Sep 30 23:32 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+Wrote plugin_reference.raw, plugin_reference.wav, and plugin_reference_metrics.txt
+Peak L/R 0.633057 0.633057, RMS L/R 0.002068 0.002067
+<end of output>
+Test time =   0.43 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350GoldenReferenceRender" end time: Sep 30 23:32 Hora oficial do Brasil
+"TE2350GoldenReferenceRender" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/15 Testing: TE2350PresetVoicingTest
+11/15 Test: TE2350PresetVoicingTest
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350PresetVoicingTest.exe" "C:/progs/vst/te2350/build/te2350-vst-ninja-net/PresetVoicingOutput"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net
+"TE2350PresetVoicingTest" start time: Sep 30 23:32 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+Low Orbit rendered (six sources, mix/wet/no-shimmer)
+Tidal Lock rendered (six sources, mix/wet/no-shimmer)
+Trade Winds rendered (six sources, mix/wet/no-shimmer)
+Solar Wind rendered (six sources, mix/wet/no-shimmer)
+Escape Velocity rendered (six sources, mix/wet/no-shimmer)
+Zero-G rendered (six sources, mix/wet/no-shimmer)
+Event Horizon rendered (six sources, mix/wet/no-shimmer)
+Glass Transit rendered (six sources, mix/wet/no-shimmer)
+Cassette Moon rendered (six sources, mix/wet/no-shimmer)
+Pulsar Eighths rendered (six sources, mix/wet/no-shimmer)
+Frozen Choir rendered (six sources, mix/wet/no-shimmer)
+Dark Matter rendered (six sources, mix/wet/no-shimmer)
+Microgravity Slap rendered (six sources, mix/wet/no-shimmer)
+Measured diversity: decay 0.7..15.4 s, impulse width 0.0284105..0.268221, percussion centroid 1885.85..6980.34 Hz
+Preset voicing test passed: 13 presets, six sources, diagnostic parity, safety, transitions
+<end of output>
+Test time = 133.45 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350PresetVoicingTest" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350PresetVoicingTest" time elapsed: 00:02:13
+----------------------------------------------------------
+
+1/15 Testing: TE2350MacroCalibrationTest
+1/15 Test: TE2350MacroCalibrationTest
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350MacroCalibrationTest.exe" "C:/progs/vst/te2350/build/te2350-vst-ninja-net/MacroCalibrationOutput"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net
+"TE2350MacroCalibrationTest" start time: Sep 30 23:32 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+Effective mapping/range/manual headroom PASSED
+space_0 rendered
+space_10 rendered
+space_20 rendered
+space_30 rendered
+space_40 rendered
+space_50 rendered
+space_60 rendered
+space_70 rendered
+space_80 rendered
+space_90 rendered
+space_100 rendered
+wild_0 rendered
+wild_10 rendered
+wild_20 rendered
+wild_30 rendered
+wild_40 rendered
+wild_50 rendered
+wild_60 rendered
+wild_70 rendered
+wild_80 rendered
+wild_90 rendered
+wild_100 rendered
+bloom_0 rendered
+bloom_10 rendered
+bloom_20 rendered
+bloom_30 rendered
+bloom_40 rendered
+bloom_50 rendered
+bloom_60 rendered
+bloom_70 rendered
+bloom_80 rendered
+bloom_90 rendered
+bloom_100 rendered
+space_bloom_0_0 rendered
+space_bloom_0_25 rendered
+space_bloom_0_50 rendered
+space_bloom_0_75 rendered
+space_bloom_0_100 rendered
+space_bloom_25_0 rendered
+space_bloom_25_25 rendered
+space_bloom_25_50 rendered
+space_bloom_25_75 rendered
+space_bloom_25_100 rendered
+space_bloom_50_0 rendered
+space_bloom_50_25 rendered
+space_bloom_50_50 rendered
+space_bloom_50_75 rendered
+space_bloom_50_100 rendered
+space_bloom_75_0 rendered
+space_bloom_75_25 rendered
+space_bloom_75_50 rendered
+space_bloom_75_75 rendered
+space_bloom_75_100 rendered
+space_bloom_100_0 rendered
+space_bloom_100_25 rendered
+space_bloom_100_50 rendered
+space_bloom_100_75 rendered
+space_bloom_100_100 rendered
+wild_feedback_0_20 rendered
+wild_feedback_0_45 rendered
+wild_feedback_0_70 rendered
+wild_feedback_0_90 rendered
+wild_feedback_25_20 rendered
+wild_feedback_25_45 rendered
+wild_feedback_25_70 rendered
+wild_feedback_25_90 rendered
+wild_feedback_50_20 rendered
+wild_feedback_50_45 rendered
+wild_feedback_50_70 rendered
+wild_feedback_50_90 rendered
+wild_feedback_75_20 rendered
+wild_feedback_75_45 rendered
+wild_feedback_75_70 rendered
+wild_feedback_75_90 rendered
+wild_feedback_100_20 rendered
+wild_feedback_100_45 rendered
+wild_feedback_100_70 rendered
+wild_feedback_100_90 rendered
+bloom_shimmer_0_0_0.3 rendered
+bloom_shimmer_0_0_0.75 rendered
+bloom_shimmer_0_25_0.3 rendered
+bloom_shimmer_0_25_0.75 rendered
+bloom_shimmer_0_50_0.3 rendered
+bloom_shimmer_0_50_0.75 rendered
+bloom_shimmer_0_75_0.3 rendered
+bloom_shimmer_0_75_0.75 rendered
+bloom_shimmer_25_0_0.3 rendered
+bloom_shimmer_25_0_0.75 rendered
+bloom_shimmer_25_25_0.3 rendered
+bloom_shimmer_25_25_0.75 rendered
+bloom_shimmer_25_50_0.3 rendered
+bloom_shimmer_25_50_0.75 rendered
+bloom_shimmer_25_75_0.3 rendered
+bloom_shimmer_25_75_0.75 rendered
+bloom_shimmer_50_0_0.3 rendered
+bloom_shimmer_50_0_0.75 rendered
+bloom_shimmer_50_25_0.3 rendered
+bloom_shimmer_50_25_0.75 rendered
+bloom_shimmer_50_50_0.3 rendered
+bloom_shimmer_50_50_0.75 rendered
+bloom_shimmer_50_75_0.3 rendered
+bloom_shimmer_50_75_0.75 rendered
+bloom_shimmer_75_0_0.3 rendered
+bloom_shimmer_75_0_0.75 rendered
+bloom_shimmer_75_25_0.3 rendered
+bloom_shimmer_75_25_0.75 rendered
+bloom_shimmer_75_50_0.3 rendered
+bloom_shimmer_75_50_0.75 rendered
+bloom_shimmer_75_75_0.3 rendered
+bloom_shimmer_75_75_0.75 rendered
+bloom_shimmer_100_0_0.3 rendered
+bloom_shimmer_100_0_0.75 rendered
+bloom_shimmer_100_25_0.3 rendered
+bloom_shimmer_100_25_0.75 rendered
+bloom_shimmer_100_50_0.3 rendered
+bloom_shimmer_100_50_0.75 rendered
+bloom_shimmer_100_75_0.3 rendered
+bloom_shimmer_100_75_0.75 rendered
+wild_freeze_0_0 rendered
+wild_freeze_0_1 rendered
+wild_freeze_25_0 rendered
+wild_freeze_25_1 rendered
+wild_freeze_50_0 rendered
+wild_freeze_50_1 rendered
+wild_freeze_75_0 rendered
+wild_freeze_75_1 rendered
+wild_freeze_100_0 rendered
+wild_freeze_100_1 rendered
+space_width_0_0 rendered
+space_width_0_50 rendered
+space_width_0_100 rendered
+space_width_50_0 rendered
+space_width_50_50 rendered
+space_width_50_100 rendered
+space_width_100_0 rendered
+space_width_100_50 rendered
+space_width_100_100 rendered
+all_axes_0_0_0 rendered
+all_axes_0_0_50 rendered
+all_axes_0_0_100 rendered
+all_axes_0_50_0 rendered
+all_axes_0_50_50 rendered
+all_axes_0_50_100 rendered
+all_axes_0_100_0 rendered
+all_axes_0_100_50 rendered
+all_axes_0_100_100 rendered
+all_axes_50_0_0 rendered
+all_axes_50_0_50 rendered
+all_axes_50_0_100 rendered
+all_axes_50_50_0 rendered
+all_axes_50_50_50 rendered
+all_axes_50_50_100 rendered
+all_axes_50_100_0 rendered
+all_axes_50_100_50 rendered
+all_axes_50_100_100 rendered
+all_axes_100_0_0 rendered
+all_axes_100_0_50 rendered
+all_axes_100_0_100 rendered
+all_axes_100_50_0 rendered
+all_axes_100_50_50 rendered
+all_axes_100_50_100 rendered
+all_axes_100_100_0 rendered
+all_axes_100_100_50 rendered
+all_axes_100_100_100 rendered
+manual_feedback_0 rendered
+manual_feedback_25 rendered
+manual_feedback_50 rendered
+manual_feedback_75 rendered
+manual_feedback_100 rendered
+manual_highCutHz_0 rendered
+manual_highCutHz_25 rendered
+manual_highCutHz_50 rendered
+manual_highCutHz_75 rendered
+manual_highCutHz_100 rendered
+manual_wetWidth_0 rendered
+manual_wetWidth_25 rendered
+manual_wetWidth_50 rendered
+manual_wetWidth_75 rendered
+manual_wetWidth_100 rendered
+manual_shimmerAmount_0 rendered
+manual_shimmerAmount_25 rendered
+manual_shimmerAmount_50 rendered
+manual_shimmerAmount_75 rendered
+manual_shimmerAmount_100 rendered
+manual_duckAmount_0 rendered
+manual_duckAmount_25 rendered
+manual_duckAmount_50 rendered
+manual_duckAmount_75 rendered
+manual_duckAmount_100 rendered
+manual_diffusion_0 rendered
+manual_diffusion_25 rendered
+manual_diffusion_50 rendered
+manual_diffusion_75 rendered
+manual_diffusion_100 rendered
+manual_modDepth_0 rendered
+manual_modDepth_25 rendered
+manual_modDepth_50 rendered
+manual_modDepth_75 rendered
+manual_modDepth_100 rendered
+manual_chaos_0 rendered
+manual_chaos_25 rendered
+manual_chaos_50 rendered
+manual_chaos_75 rendered
+manual_chaos_100 rendered
+manual_wobble_0 rendered
+manual_wobble_25 rendered
+manual_wobble_50 rendered
+manual_wobble_75 rendered
+manual_wobble_100 rendered
+manual_modRateHz_0 rendered
+manual_modRateHz_25 rendered
+manual_modRateHz_50 rendered
+manual_modRateHz_75 rendered
+manual_modRateHz_100 rendered
+preset_0 rendered
+preset_1 rendered
+preset_2 rendered
+preset_3 rendered
+preset_4 rendered
+preset_5 rendered
+preset_6 rendered
+preset_7 rendered
+preset_8 rendered
+preset_9 rendered
+preset_10 rendered
+preset_11 rendered
+preset_12 rendered
+MacroCalibration PASSED
+<end of output>
+Test time = 148.51 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350MacroCalibrationTest" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350MacroCalibrationTest" time elapsed: 00:02:28
+----------------------------------------------------------
+
+14/15 Testing: TE2350MusicalBehaviourTest
+14/15 Test: TE2350MusicalBehaviourTest
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350MusicalBehaviourTest.exe"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net
+"TE2350MusicalBehaviourTest" start time: Sep 30 23:35 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 init PASSED
+M8 interval peak/finite PASSED
+M8 early tail present PASSED
+M8 no long-tail runaway PASSED
+M8 freeze retains energy for 20 seconds PASSED
+M8 freeze HF does not run away PASSED
+M8 HF interval=0 low=0.603942 high=0.60324
+M8 HF bounded at high Regen PASSED
+M8 HF interval=1 low=0.617333 high=0.635949
+M8 HF bounded at high Regen PASSED
+M8 HF interval=2 low=0.621529 high=0.644188
+M8 HF bounded at high Regen PASSED
+M8 duck attack within 1 ms PASSED
+M8 duck recovery within 500 ms PASSED
+M8 moderate sustain without pumping PASSED
+M8 duck attack within 1 ms PASSED
+M8 duck recovery within 500 ms PASSED
+M8 moderate sustain without pumping PASSED
+M8 moderate sustain without pumping PASSED
+M8 threshold remains effective PASSED
+M8 duck attack within 1 ms PASSED
+M8 duck recovery within 500 ms PASSED
+M8 moderate sustain without pumping PASSED
+M8 duck attack within 1 ms PASSED
+M8 duck recovery within 500 ms PASSED
+M8 moderate sustain without pumping PASSED
+M8 moderate sustain without pumping PASSED
+M8 threshold remains effective PASSED
+M8 duck attack within 1 ms PASSED
+M8 duck recovery within 500 ms PASSED
+M8 moderate sustain without pumping PASSED
+M8 duck attack within 1 ms PASSED
+M8 duck recovery within 500 ms PASSED
+M8 moderate sustain without pumping PASSED
+M8 moderate sustain without pumping PASSED
+M8 threshold remains effective PASSED
+M8 Q31 saturation edges PASSED
+M8 Bloom duck headroom PASSED
+Bypass gain law PASSED: quality=0 host=0
+Bypass spillover PASSED: quality=0 host=0
+Bypass gain law PASSED: quality=0 host=1
+Bypass spillover PASSED: quality=0 host=1
+Bypass gain law PASSED: quality=1 host=0
+Bypass spillover PASSED: quality=1 host=0
+Bypass gain law PASSED: quality=1 host=1
+Bypass spillover PASSED: quality=1 host=1
+Running Pitch Shifter Tests...
+Pitch Test: -1 oct estimated frequency: 229.005 Hz
+  PASSED
+Pitch Test: 5th estimated frequency: 658.014 Hz
+  PASSED
+Pitch Test: +1 oct estimated frequency: 908.019 Hz
+  PASSED
+Running Spillover Tests...
+  Spillover Tail OK: Peak=0.0380016
+  Spillover Test: PASSED
+Running Filter Tests...
+  Low Cut Test: PASSED
+Running Ducking Tests...
+  Ducking Test: PASSED
+Running Perlin Tests...
+  Perlin Test: -335544320, 1493172222, 1476395006, -436207616, -1426063360
+  Perlin Test: PASSED
+<end of output>
+Test time =  10.45 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350MusicalBehaviourTest" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350MusicalBehaviourTest" time elapsed: 00:00:10
+----------------------------------------------------------
+
+13/15 Testing: TE2350ReleaseReadinessTest
+13/15 Test: TE2350ReleaseReadinessTest
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350ReleaseReadinessTest.exe"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net
+"TE2350ReleaseReadinessTest" start time: Sep 30 23:35 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+Release readiness passed: 30 automatable parameters, 13 programs, 44.1-192 kHz, mono/stereo, maxPeak=0.6947 recallDiff=0.000000000
+<end of output>
+Test time =   0.64 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350ReleaseReadinessTest" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350ReleaseReadinessTest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/15 Testing: TE2350HostCompatibilityTest
+8/15 Test: TE2350HostCompatibilityTest
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350HostCompatibilityTest.exe"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net
+"TE2350HostCompatibilityTest" start time: Sep 30 23:35 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+Performance: rate=48000 block=128 mode=Hardware load=2.61% speed=38.28x
+Performance: rate=48000 block=128 mode=Studio load=3.95% speed=25.30x
+Performance: rate=192000 block=256 mode=Studio load=13.21% speed=7.57x
+Host compatibility test passed: oversized, variable blocks, fixed latency, bypass, mono, 44.1-192 kHz
+<end of output>
+Test time =   0.97 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350HostCompatibilityTest" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350HostCompatibilityTest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/15 Testing: TE2350PresetWorkflowTest
+12/15 Test: TE2350PresetWorkflowTest
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350PresetWorkflowTest.exe"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net
+"TE2350PresetWorkflowTest" start time: Sep 30 23:35 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+Preset workflow test passed: factory catalog, user library, embedded state, mutation safety, Undo/Redo
+<end of output>
+Test time =   0.43 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350PresetWorkflowTest" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350PresetWorkflowTest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/15 Testing: TE2350VST3LoadTest
+9/15 Test: TE2350VST3LoadTest
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350VST3LoadTest.exe" "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350Antigravity_artefacts/Release/VST3/TE-2350 Antigravity.vst3"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net
+"TE2350VST3LoadTest" start time: Sep 30 23:35 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+VST3 load test passed: TE-2350 Antigravity 0.2.0, params=31 latency=4 tail=65.0 s
+<end of output>
+Test time =   0.12 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350VST3LoadTest" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350VST3LoadTest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/15 Testing: TE2350GoldenReferenceCompare
+4/15 Test: TE2350GoldenReferenceCompare
+Command: "C:/Program Files/CMake/bin/cmake.exe" "-E" "compare_files" "output.raw" "plugin_reference.raw"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net/GoldenReferenceOutput
+"TE2350GoldenReferenceCompare" start time: Sep 30 23:35 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.07 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350GoldenReferenceCompare" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350GoldenReferenceCompare" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/15 Testing: TE2350FreezeConsistencyTest
+15/15 Test: TE2350FreezeConsistencyTest
+Command: "C:/progs/vst/te2350/build/te2350-vst-ninja-net/TE2350FreezeConsistencyTest.exe"
+Directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net/FreezeConsistencyOutput
+"TE2350FreezeConsistencyTest" start time: Sep 30 23:35 Hora oficial do Brasil
+Output:
+----------------------------------------------------------
+edge sr=44100 delay_ms=20 retention=0.840143 injected_field_delta=0.000405 PASS
+edge sr=44100 delay_ms=50 retention=0.842065 injected_field_delta=0.000483 PASS
+edge sr=48000 delay_ms=20 retention=0.854534 injected_field_delta=0.000428 PASS
+edge sr=48000 delay_ms=50 retention=0.843794 injected_field_delta=0.000488 PASS
+edge sr=96000 delay_ms=20 retention=0.846837 injected_field_delta=0.000439 PASS
+edge sr=96000 delay_ms=50 retention=0.847634 injected_field_delta=0.000485 PASS
+edge sr=192000 delay_ms=20 retention=0.835105 injected_field_delta=0.000418 PASS
+edge sr=192000 delay_ms=50 retention=0.839381 injected_field_delta=0.000495 PASS
+Freeze matrix: 48 x 30 s, PASS
+<end of output>
+Test time =  32.31 sec
+----------------------------------------------------------
+Test Passed.
+"TE2350FreezeConsistencyTest" end time: Sep 30 23:35 Hora oficial do Brasil
+"TE2350FreezeConsistencyTest" time elapsed: 00:00:32
+----------------------------------------------------------
+
+End testing: Sep 30 23:35 Hora oficial do Brasil

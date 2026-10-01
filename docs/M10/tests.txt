@@ -1,0 +1,28 @@
+Internal ctest changing into directory: C:/progs/vst/te2350/build/te2350-vst-ninja-net
+Test project C:/progs/vst/te2350/build/te2350-vst-ninja-net
+      Start  3: TE2350GoldenReferenceRender
+      Start  2: TE2350OfflineReferenceRender
+ 1/11 Test  #2: TE2350OfflineReferenceRender .....   Passed    0.11 sec
+      Start 11: TE2350PresetVoicingTest
+ 2/11 Test  #3: TE2350GoldenReferenceRender ......   Passed    0.43 sec
+      Start  1: TE2350MacroCalibrationTest
+ 3/11 Test #11: TE2350PresetVoicingTest ..........   Passed  133.45 sec
+      Start 15: TE2350FreezeConsistencyTest
+ 4/11 Test  #1: TE2350MacroCalibrationTest .......   Passed  148.51 sec
+      Start 14: TE2350MusicalBehaviourTest
+ 5/11 Test #14: TE2350MusicalBehaviourTest .......   Passed   10.45 sec
+      Start 13: TE2350ReleaseReadinessTest
+ 6/11 Test #13: TE2350ReleaseReadinessTest .......   Passed    0.64 sec
+      Start  8: TE2350HostCompatibilityTest
+ 7/11 Test  #8: TE2350HostCompatibilityTest ......   Passed    0.97 sec
+      Start 12: TE2350PresetWorkflowTest
+ 8/11 Test #12: TE2350PresetWorkflowTest .........   Passed    0.43 sec
+      Start  9: TE2350VST3LoadTest
+ 9/11 Test  #9: TE2350VST3LoadTest ...............   Passed    0.12 sec
+      Start  4: TE2350GoldenReferenceCompare
+10/11 Test  #4: TE2350GoldenReferenceCompare .....   Passed    0.07 sec
+11/11 Test #15: TE2350FreezeConsistencyTest ......   Passed   32.31 sec
+
+100% tests passed, 0 tests failed out of 11
+
+Total Test time (real) = 165.89 sec

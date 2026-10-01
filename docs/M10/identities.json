@@ -1,0 +1,54 @@
+{
+  "Low Orbit": {
+    "identity": "Escuro / compacto / focado / deriva discreta; acompanhamento sem ocupar o primeiro plano.",
+    "reason": "Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual."
+  },
+  "Tidal Lock": {
+    "identity": "Profundo / largo / ecos longos ducked; abre nos espaços entre frases.",
+    "reason": "Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido."
+  },
+  "Trade Winds": {
+    "identity": "Aéreo / movimento de chorus / cauda média; anima arpejos e pads.",
+    "reason": "Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+  },
+  "Solar Wind": {
+    "identity": "Brilhante / quinta acima / movimento caótico / regen baixo; halo ativo.",
+    "reason": "Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado."
+  },
+  "Escape Velocity": {
+    "identity": "Expansão rápida / forte movimento / ataques claros; transições e linhas articuladas.",
+    "reason": "Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques."
+  },
+  "Zero-G": {
+    "identity": "Flutuante / suave / muito difuso / deriva lenta / sem regen de shimmer; cama atmosférica.",
+    "reason": "Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+  },
+  "Event Horizon": {
+    "identity": "Enorme / escuro / cauda muito longa / movimento contido; drone quase infinito sem Freeze automático.",
+    "reason": "Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros."
+  },
+  "Glass Transit": {
+    "identity": "Vítreo / transparente / oitava acima / pouca modulação; brilho limpo atrás de notas.",
+    "reason": "Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+  },
+  "Cassette Moon": {
+    "identity": "Quente / fita instável / stereo moderado / ecos definidos; textura lo-fi.",
+    "reason": "Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos."
+  },
+  "Pulsar Eighths": {
+    "identity": "Oitavas rítmicas sincronizadas / pouca difusão / ducking moderado; groove e repetição clara.",
+    "reason": "Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+  },
+  "Frozen Choir": {
+    "identity": "Coro sustentado / quinta / regen alto / difusão longa; pronto para capturar Freeze manualmente.",
+    "reason": "Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+  },
+  "Dark Matter": {
+    "identity": "Denso / escuro / oitava abaixo / movimento mínimo / largura moderada; profundidade grave.",
+    "reason": "Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon."
+  },
+  "Microgravity Slap": {
+    "identity": "Slap curto / focado / seco / percussivo; definição rítmica com pequeno espaço.",
+    "reason": "Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão."
+  }
+}

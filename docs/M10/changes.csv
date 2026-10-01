@@ -1,0 +1,230 @@
+preset,parameter,old,new,reason
+Low Orbit,wild,0.05,0.02,Reposiciona movimento e deixa margem para intensificar WILD. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,bloom,0.2,0.18,"Equilibra sustain, abertura tonal e ducking do BLOOM. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual."
+Low Orbit,timeMs,360.0,230.0,Define duração e separação dos ecos para o papel musical. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,feedback,0.42,0.34,Controla persistência dos ecos sem depender do teto de feedback. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,mix,0.32,0.3,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual."
+Low Orbit,lowCutHz,80.0,100.0,Equilibra corpo grave e acúmulo na recirculação. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,highCutHz,8200.0,4800.0,Ajusta cor tonal considerando a abertura efetiva de BLOOM. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,diffusion,0.48,0.35,"Distingue ecos articulados de nuvens densas, preservando margem manual. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual."
+Low Orbit,wobble,0.1,0.04,Separa deriva lenta de instabilidade de fita/órbita. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,presence,0.5,0.42,Ajusta articulação e cor interna do preset. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,modRateHz,0.15,0.12,Define velocidade de deriva/movimento conforme a função musical. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,modDepth,0.1,0.03,Define amplitude de movimento e mantém margem para WILD/manual. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,shimmerFeedback,0.3,0.0,Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,duckAmount,0.1,0.08,Equilibra abertura da cauda entre frases e preservação do ataque. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Low Orbit,wetWidth,0.6,0.28,Distingue foco stereo de expansão sem carregar o knob no máximo. Escurece e concentra a ambiência curta; reduz recirculação e preserva margem manual.
+Tidal Lock,space,0.58,0.56,Reposiciona dimensão e deixa margem para expansão de SPACE. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,wild,0.12,0.1,Reposiciona movimento e deixa margem para intensificar WILD. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,bloom,0.44,0.48,"Equilibra sustain, abertura tonal e ducking do BLOOM. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido."
+Tidal Lock,timeMs,720.0,650.0,Define duração e separação dos ecos para o papel musical. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,feedback,0.62,0.67,Controla persistência dos ecos sem depender do teto de feedback. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,mix,0.46,0.36,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido."
+Tidal Lock,lowCutHz,80.0,135.0,Equilibra corpo grave e acúmulo na recirculação. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,highCutHz,9000.0,6800.0,Ajusta cor tonal considerando a abertura efetiva de BLOOM. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,diffusion,0.72,0.6,"Distingue ecos articulados de nuvens densas, preservando margem manual. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido."
+Tidal Lock,chaos,0.0,0.01,Separa centro estável de órbita caótica. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,wobble,0.1,0.12,Separa deriva lenta de instabilidade de fita/órbita. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,presence,0.5,0.4,Ajusta articulação e cor interna do preset. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,modRateHz,0.15,0.12,Define velocidade de deriva/movimento conforme a função musical. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,shimmerFeedback,0.3,0.0,Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,duckAmount,0.24,0.26,Equilibra abertura da cauda entre frases e preservação do ataque. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Tidal Lock,outputTrim,1.25,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Tidal Lock,wetWidth,0.6,0.78,Distingue foco stereo de expansão sem carregar o knob no máximo. Diferencia ecos profundos da nuvem Zero-G; ducking protege frases e regen zero evita halo repetido.
+Trade Winds,space,0.42,0.36,"Reposiciona dimensão e deixa margem para expansão de SPACE. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,wild,0.28,0.3,"Reposiciona movimento e deixa margem para intensificar WILD. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,bloom,0.3,0.26,"Equilibra sustain, abertura tonal e ducking do BLOOM. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,timeMs,540.0,420.0,"Define duração e separação dos ecos para o papel musical. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,feedback,0.45,0.46,"Controla persistência dos ecos sem depender do teto de feedback. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,mix,0.35,0.32,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,lowCutHz,80.0,95.0,"Equilibra corpo grave e acúmulo na recirculação. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,highCutHz,9000.0,12000.0,"Ajusta cor tonal considerando a abertura efetiva de BLOOM. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,diffusion,0.4,0.42,"Distingue ecos articulados de nuvens densas, preservando margem manual. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,chaos,0.0,0.02,"Separa centro estável de órbita caótica. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,wobble,0.32,0.28,"Separa deriva lenta de instabilidade de fita/órbita. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,presence,0.5,0.62,"Ajusta articulação e cor interna do preset. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,modRateHz,0.32,0.64,"Define velocidade de deriva/movimento conforme a função musical. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,modDepth,0.28,0.4,"Define amplitude de movimento e mantém margem para WILD/manual. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,modShape,0.0,1.0,"Escolhe o caráter temporal de modulação, em vez de variar apenas profundidade. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,shimmerFeedback,0.3,0.0,"Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Trade Winds,wetWidth,0.74,0.64,"Distingue foco stereo de expansão sem carregar o knob no máximo. Prioriza chorus aéreo e cauda média, com forma triangular e espaço para ampliar WILD."
+Solar Wind,space,0.66,0.58,Reposiciona dimensão e deixa margem para expansão de SPACE. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,wild,0.34,0.58,Reposiciona movimento e deixa margem para intensificar WILD. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,bloom,0.55,0.46,"Equilibra sustain, abertura tonal e ducking do BLOOM. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado."
+Solar Wind,timeMs,900.0,680.0,Define duração e separação dos ecos para o papel musical. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,feedback,0.72,0.64,Controla persistência dos ecos sem depender do teto de feedback. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,mix,0.35,0.33,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado."
+Solar Wind,lowCutHz,80.0,180.0,Equilibra corpo grave e acúmulo na recirculação. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,highCutHz,9000.0,14500.0,Ajusta cor tonal considerando a abertura efetiva de BLOOM. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,diffusion,0.4,0.48,"Distingue ecos articulados de nuvens densas, preservando margem manual. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado."
+Solar Wind,chaos,0.0,0.32,Separa centro estável de órbita caótica. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,wobble,0.1,0.46,Separa deriva lenta de instabilidade de fita/órbita. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,presence,0.62,0.68,Ajusta articulação e cor interna do preset. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,modRateHz,0.15,0.45,Define velocidade de deriva/movimento conforme a função musical. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,modDepth,0.1,0.5,Define amplitude de movimento e mantém margem para WILD/manual. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,shimmerAmount,0.18,0.21,Define quanto o pitch processing participa da identidade. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,shimmerFeedback,0.42,0.23,Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,duckAmount,0.1,0.18,Equilibra abertura da cauda entre frases e preservação do ataque. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Solar Wind,outputTrim,0.4,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Solar Wind,wetWidth,0.6,0.78,Distingue foco stereo de expansão sem carregar o knob no máximo. Separa halo de quinta animado do Glass Transit limpo e Frozen Choir sustentado.
+Escape Velocity,space,0.76,0.44,Reposiciona dimensão e deixa margem para expansão de SPACE. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,wild,0.62,0.65,Reposiciona movimento e deixa margem para intensificar WILD. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,bloom,0.48,0.38,"Equilibra sustain, abertura tonal e ducking do BLOOM. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques."
+Escape Velocity,timeMs,1120.0,330.0,Define duração e separação dos ecos para o papel musical. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,feedback,0.78,0.6,Controla persistência dos ecos sem depender do teto de feedback. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,mix,0.35,0.31,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques."
+Escape Velocity,lowCutHz,80.0,155.0,Equilibra corpo grave e acúmulo na recirculação. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,highCutHz,9000.0,11500.0,Ajusta cor tonal considerando a abertura efetiva de BLOOM. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,diffusion,0.4,0.57,"Distingue ecos articulados de nuvens densas, preservando margem manual. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques."
+Escape Velocity,chaos,0.36,0.28,Separa centro estável de órbita caótica. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,wobble,0.48,0.35,Separa deriva lenta de instabilidade de fita/órbita. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,presence,0.5,0.58,Ajusta articulação e cor interna do preset. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,modRateHz,0.15,0.75,Define velocidade de deriva/movimento conforme a função musical. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,modDepth,0.1,0.56,Define amplitude de movimento e mantém margem para WILD/manual. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,shimmerFeedback,0.3,0.0,Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,duckAmount,0.1,0.32,Equilibra abertura da cauda entre frases e preservação do ataque. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Escape Velocity,outputTrim,0.5,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Escape Velocity,wetWidth,0.6,0.72,Distingue foco stereo de expansão sem carregar o knob no máximo. Troca órbita longa redundante por expansão mais rápida; movimento forte e ducking sustentam ataques.
+Zero-G,space,0.88,0.72,"Reposiciona dimensão e deixa margem para expansão de SPACE. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,wild,0.18,0.06,"Reposiciona movimento e deixa margem para intensificar WILD. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,bloom,0.74,0.68,"Equilibra sustain, abertura tonal e ducking do BLOOM. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,timeMs,1500.0,1000.0,"Define duração e separação dos ecos para o papel musical. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,feedback,0.86,0.7,"Controla persistência dos ecos sem depender do teto de feedback. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,mix,0.58,0.34,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,lowCutHz,80.0,95.0,"Equilibra corpo grave e acúmulo na recirculação. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,diffusion,0.86,0.82,"Distingue ecos articulados de nuvens densas, preservando margem manual. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,wobble,0.1,0.06,"Separa deriva lenta de instabilidade de fita/órbita. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,presence,0.5,0.46,"Ajusta articulação e cor interna do preset. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,modRateHz,0.15,0.07,"Define velocidade de deriva/movimento conforme a função musical. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,modDepth,0.1,0.08,"Define amplitude de movimento e mantém margem para WILD/manual. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,shimmerFeedback,0.3,0.0,"Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Zero-G,outputTrim,2.25,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Zero-G,wetWidth,0.6,0.86,"Distingue foco stereo de expansão sem carregar o knob no máximo. Prioriza campo difuso flutuante, lenta deriva e ausência de recirculação shimmer."
+Event Horizon,space,1.0,0.78,Reposiciona dimensão e deixa margem para expansão de SPACE. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,wild,0.92,0.32,Reposiciona movimento e deixa margem para intensificar WILD. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,bloom,0.82,0.42,"Equilibra sustain, abertura tonal e ducking do BLOOM. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros."
+Event Horizon,timeMs,1900.0,1450.0,Define duração e separação dos ecos para o papel musical. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,feedback,0.95,0.89,Controla persistência dos ecos sem depender do teto de feedback. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,mix,0.7,0.34,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros."
+Event Horizon,lowCutHz,80.0,60.0,Equilibra corpo grave e acúmulo na recirculação. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,highCutHz,9000.0,1000.0,Ajusta cor tonal considerando a abertura efetiva de BLOOM. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,diffusion,0.4,0.76,"Distingue ecos articulados de nuvens densas, preservando margem manual. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros."
+Event Horizon,chaos,0.72,0.1,Separa centro estável de órbita caótica. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,wobble,0.82,0.26,Separa deriva lenta de instabilidade de fita/órbita. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,presence,0.5,0.18,Ajusta articulação e cor interna do preset. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,modRateHz,0.15,0.07,Define velocidade de deriva/movimento conforme a função musical. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,modDepth,0.1,0.2,Define amplitude de movimento e mantém margem para WILD/manual. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,modShape,2.0,1.0,"Escolhe o caráter temporal de modulação, em vez de variar apenas profundidade. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros."
+Event Horizon,shimmerInterval,2.0,0.0,"Seleciona registro harmônico; 0 = oitava abaixo, 1 = quinta, 2 = oitava acima. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros."
+Event Horizon,shimmerAmount,0.34,0.0,Define quanto o pitch processing participa da identidade. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,shimmerFeedback,0.3,0.0,Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,duckAmount,0.1,0.16,Equilibra abertura da cauda entre frases e preservação do ataque. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Event Horizon,outputTrim,3.25,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Event Horizon,wetWidth,0.6,0.83,Distingue foco stereo de expansão sem carregar o knob no máximo. Mantém papel quase infinito com tom escuro e movimento contido; evita extremos simultâneos dos macros.
+Glass Transit,space,0.54,0.46,"Reposiciona dimensão e deixa margem para expansão de SPACE. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,wild,0.08,0.04,"Reposiciona movimento e deixa margem para intensificar WILD. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,bloom,0.46,0.36,"Equilibra sustain, abertura tonal e ducking do BLOOM. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,timeMs,640.0,510.0,"Define duração e separação dos ecos para o papel musical. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,feedback,0.57,0.52,"Controla persistência dos ecos sem depender do teto de feedback. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,mix,0.42,0.34,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,lowCutHz,80.0,180.0,"Equilibra corpo grave e acúmulo na recirculação. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,highCutHz,13000.0,15500.0,"Ajusta cor tonal considerando a abertura efetiva de BLOOM. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,diffusion,0.68,0.52,"Distingue ecos articulados de nuvens densas, preservando margem manual. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,wobble,0.1,0.04,"Separa deriva lenta de instabilidade de fita/órbita. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,presence,0.68,0.74,"Ajusta articulação e cor interna do preset. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,modRateHz,0.15,0.18,"Define velocidade de deriva/movimento conforme a função musical. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,modDepth,0.1,0.05,"Define amplitude de movimento e mantém margem para WILD/manual. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,shimmerAmount,0.26,0.3,"Define quanto o pitch processing participa da identidade. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,shimmerFeedback,0.38,0.34,"Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,duckAmount,0.1,0.14,"Equilibra abertura da cauda entre frases e preservação do ataque. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Glass Transit,outputTrim,0.5,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Glass Transit,wetWidth,0.92,0.87,"Distingue foco stereo de expansão sem carregar o knob no máximo. Prioriza transparência e oitava limpa, reduz movimento e mantém largura sem endpoint."
+Cassette Moon,space,0.38,0.32,Reposiciona dimensão e deixa margem para expansão de SPACE. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,bloom,0.24,0.2,"Equilibra sustain, abertura tonal e ducking do BLOOM. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos."
+Cassette Moon,timeMs,460.0,375.0,Define duração e separação dos ecos para o papel musical. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,feedback,0.52,0.44,Controla persistência dos ecos sem depender do teto de feedback. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,mix,0.4,0.31,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos."
+Cassette Moon,lowCutHz,110.0,100.0,Equilibra corpo grave e acúmulo na recirculação. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,highCutHz,5800.0,3400.0,Ajusta cor tonal considerando a abertura efetiva de BLOOM. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,diffusion,0.32,0.23,"Distingue ecos articulados de nuvens densas, preservando margem manual. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos."
+Cassette Moon,chaos,0.18,0.08,Separa centro estável de órbita caótica. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,wobble,0.62,0.52,Separa deriva lenta de instabilidade de fita/órbita. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,presence,0.38,0.3,Ajusta articulação e cor interna do preset. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,modRateHz,0.2,0.1,Define velocidade de deriva/movimento conforme a função musical. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,modDepth,0.46,0.4,Define amplitude de movimento e mantém margem para WILD/manual. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,shimmerInterval,2.0,0.0,"Seleciona registro harmônico; 0 = oitava abaixo, 1 = quinta, 2 = oitava acima. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos."
+Cassette Moon,shimmerFeedback,0.3,0.0,Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,duckAmount,0.1,0.12,Equilibra abertura da cauda entre frases e preservação do ataque. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Cassette Moon,outputTrim,1.0,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Cassette Moon,wetWidth,0.7,0.48,Distingue foco stereo de expansão sem carregar o knob no máximo. Concentra cor quente e instabilidade de fita; menos difusão para preservar identidade dos ecos.
+Pulsar Eighths,space,0.28,0.18,"Reposiciona dimensão e deixa margem para expansão de SPACE. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,wild,0.24,0.08,"Reposiciona movimento e deixa margem para intensificar WILD. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,bloom,0.18,0.14,"Equilibra sustain, abertura tonal e ducking do BLOOM. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,timeMs,420.0,250.0,"Define duração e separação dos ecos para o papel musical. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,feedback,0.64,0.58,"Controla persistência dos ecos sem depender do teto de feedback. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,mix,0.44,0.33,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,lowCutHz,80.0,150.0,"Equilibra corpo grave e acúmulo na recirculação. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,highCutHz,9000.0,10000.0,"Ajusta cor tonal considerando a abertura efetiva de BLOOM. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,diffusion,0.24,0.06,"Distingue ecos articulados de nuvens densas, preservando margem manual. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,chaos,0.12,0.0,"Separa centro estável de órbita caótica. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,wobble,0.18,0.06,"Separa deriva lenta de instabilidade de fita/órbita. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,presence,0.5,0.68,"Ajusta articulação e cor interna do preset. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,modRateHz,0.5,0.3,"Define velocidade de deriva/movimento conforme a função musical. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,modDepth,0.34,0.05,"Define amplitude de movimento e mantém margem para WILD/manual. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,modShape,2.0,1.0,"Escolhe o caráter temporal de modulação, em vez de variar apenas profundidade. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,shimmerFeedback,0.3,0.0,"Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,duckThreshold,-28.0,-24.0,"Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,duckAmount,0.42,0.27,"Equilibra abertura da cauda entre frases e preservação do ataque. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Pulsar Eighths,outputTrim,1.0,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Pulsar Eighths,wetWidth,0.82,0.52,"Distingue foco stereo de expansão sem carregar o knob no máximo. Prioriza oitavas nítidas no tempo, reduz caos/difusão e protege a articulação com ducking moderado."
+Frozen Choir,space,0.82,0.68,"Reposiciona dimensão e deixa margem para expansão de SPACE. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,bloom,0.86,0.78,"Equilibra sustain, abertura tonal e ducking do BLOOM. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,timeMs,1350.0,1050.0,"Define duração e separação dos ecos para o papel musical. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,feedback,0.82,0.77,"Controla persistência dos ecos sem depender do teto de feedback. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,mix,0.64,0.35,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,lowCutHz,80.0,220.0,"Equilibra corpo grave e acúmulo na recirculação. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,highCutHz,12000.0,11500.0,"Ajusta cor tonal considerando a abertura efetiva de BLOOM. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,diffusion,0.92,0.86,"Distingue ecos articulados de nuvens densas, preservando margem manual. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,wobble,0.1,0.08,"Separa deriva lenta de instabilidade de fita/órbita. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,presence,0.7,0.6,"Ajusta articulação e cor interna do preset. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,modRateHz,0.15,0.09,"Define velocidade de deriva/movimento conforme a função musical. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,modDepth,0.1,0.14,"Define amplitude de movimento e mantém margem para WILD/manual. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,shimmerAmount,0.38,0.44,"Define quanto o pitch processing participa da identidade. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,shimmerFeedback,0.55,0.62,"Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,duckAmount,0.1,0.18,"Equilibra abertura da cauda entre frases e preservação do ataque. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Frozen Choir,outputTrim,1.5,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Frozen Choir,wetWidth,1.0,0.76,"Distingue foco stereo de expansão sem carregar o knob no máximo. Separa sustain de coro do shimmer limpo; regen alto e difusão densa, Freeze manual e margem de macro."
+Dark Matter,space,0.9,0.7,Reposiciona dimensão e deixa margem para expansão de SPACE. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,wild,0.56,0.04,Reposiciona movimento e deixa margem para intensificar WILD. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,bloom,0.7,0.3,"Equilibra sustain, abertura tonal e ducking do BLOOM. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon."
+Dark Matter,timeMs,1700.0,1150.0,Define duração e separação dos ecos para o papel musical. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,feedback,0.88,0.77,Controla persistência dos ecos sem depender do teto de feedback. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,mix,0.62,0.34,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon."
+Dark Matter,lowCutHz,160.0,60.0,Equilibra corpo grave e acúmulo na recirculação. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,highCutHz,4200.0,1500.0,Ajusta cor tonal considerando a abertura efetiva de BLOOM. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,diffusion,0.8,0.84,"Distingue ecos articulados de nuvens densas, preservando margem manual. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon."
+Dark Matter,chaos,0.48,0.0,Separa centro estável de órbita caótica. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,wobble,0.6,0.03,Separa deriva lenta de instabilidade de fita/órbita. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,presence,0.22,0.12,Ajusta articulação e cor interna do preset. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,modRateHz,0.09,0.045,Define velocidade de deriva/movimento conforme a função musical. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,modDepth,0.52,0.04,Define amplitude de movimento e mantém margem para WILD/manual. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,shimmerAmount,0.12,0.13,Define quanto o pitch processing participa da identidade. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,shimmerFeedback,0.25,0.22,Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Dark Matter,outputTrim,2.0,0.0,"Retira compensação herdada; balanceamento usa Mix/voicing, trim neutro."
+Dark Matter,wetWidth,0.88,0.4,Distingue foco stereo de expansão sem carregar o knob no máximo. Concentra sombra densa com oitava abaixo e pouco movimento; largura moderada distingue Event Horizon.
+Microgravity Slap,space,0.12,0.07,Reposiciona dimensão e deixa margem para expansão de SPACE. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,wild,0.08,0.03,Reposiciona movimento e deixa margem para intensificar WILD. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,bloom,0.06,0.04,"Equilibra sustain, abertura tonal e ducking do BLOOM. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão."
+Microgravity Slap,timeMs,95.0,75.0,Define duração e separação dos ecos para o papel musical. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,feedback,0.32,0.24,Controla persistência dos ecos sem depender do teto de feedback. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,mix,0.28,0.25,"Equilibra presença wet, nível ativo e clareza do dry sem usar trim. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão."
+Microgravity Slap,lowCutHz,140.0,160.0,Equilibra corpo grave e acúmulo na recirculação. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,highCutHz,10500.0,12500.0,Ajusta cor tonal considerando a abertura efetiva de BLOOM. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,diffusion,0.18,0.1,"Distingue ecos articulados de nuvens densas, preservando margem manual. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão."
+Microgravity Slap,wobble,0.1,0.02,Separa deriva lenta de instabilidade de fita/órbita. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,presence,0.7,0.72,Ajusta articulação e cor interna do preset. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,modDepth,0.08,0.0,Define amplitude de movimento e mantém margem para WILD/manual. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,modShape,0.0,1.0,"Escolhe o caráter temporal de modulação, em vez de variar apenas profundidade. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão."
+Microgravity Slap,shimmerFeedback,0.3,0.0,Separa halo/sustain de recirculação; zero evita regen em papéis sem shimmer. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,duckAmount,0.1,0.04,Equilibra abertura da cauda entre frases e preservação do ataque. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.
+Microgravity Slap,wetWidth,0.55,0.2,Distingue foco stereo de expansão sem carregar o knob no máximo. Encurta slap e concentra stereo; pouca difusão/modulação preserva percussão.

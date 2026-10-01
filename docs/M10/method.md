@@ -1,0 +1,20 @@
+## Método e limites
+
+Banco original: `c8797a3478c233d93da677a353c88d05a6a9f400`. Os dois bancos usam o mesmo DSP e MacroEngine M9.1. 48 kHz, blocos de 128, Hardware, fallback de 120 BPM, 100 blocos de silêncio antes da entrada. Seis fontes mono idênticas: impulso 0,5; pluck aditivo com oito notas e ataques a cada 0,5 s; fonte harmônica vocal com formantes; pad; percussão determinística; quatro acordes. Cada WAV contém 4 s de fonte e 20 s de cauda, sem normalização (24-bit PCM). São 234 renders por banco + seis dry. Mode 0 = plugin mix; 1 = plugin Kill Dry; 2 = wrapper wet sem shimmer amount/regen, preservando a evolução real dos demais controles, inclusive alinhamento de latência Hardware. Paridade wrapper/plugin verificada em quatro presets incluindo Sync. Os limites de segurança usam float antes da escrita PCM.
+
+RMS nas tabelas de loudness = média dos dB RMS **ativos** das cinco fontes musicais, excluindo impulso; representa nível comparável entre presets, não LUFS/percepção humana. Peak = maior pico das seis fontes mix. Espectro, largura, cauda, pitch e movimento usam wet para não esconder diferenças atrás do dry. CSVs completos por fonte incluem RMS integral, crest factor, LF <200 Hz, HF >6 kHz, centroid de potência por canal e tail energy integral depois de 4 s. O crest factor usa pico/RMS da janela inteira, incluindo silêncio/cauda.
+
+Decay proxy = último bin wet de 100 ms acima de -40 dB do máximo; para fontes musicais desconta os 4 s de entrada, para impulso começa em 0. Censored significa que a janela acabou antes da queda. T20 = extrapolação de -5 a -25 dB da integral de Schroeder somente no impulso, com span ≥15 dB, R² >0,85 e exclusão dos últimos 2 s; NaN significa ajuste inaplicável. Não é RT60 certificado nem medição de sala. Transient preservation = RMS mix / dry nas janelas de 20 ms dos ataques, não inteligibilidade. Para pad/vocal o ataque sintético é suave.
+
+Width = sqrt(Eside/(Emid+Eside)), não o knob Width. Modulation proxy = desvio relativo do envelope wet de 10 ms à tendência de 250 ms; inclui ritmo/dinâmica e não prova profundidade de LFO. Pitch variance = variância do bin espectral dominante (Hz²), não tracking polifônico. Adicionalmente vocal_pitch_std_cents usa interpolação do fundamental 160–280 Hz durante a entrada; é apenas proxy. Shimmer contribution = RMS(wet − wet sem shimmer)/RMS(wet); inclui mudança no feedback e pode exceder 1. SPACE ainda adiciona shimmer discreto mesmo com Amount manual zero; Regen zero evita sua recirculação nos presets sem shimmer central. Nenhuma alteração no MacroEngine foi feita para contornar isso.
+
+Não houve escuta humana validada nesta execução. Os papéis são intenções de voicing sustentadas por renders/proxies, para aprovação auditiva posterior. Todos os nomes e a ordem dos 13 presets foram preservados. Freeze carrega desligado: Frozen Choir precisa receber áudio antes de capturar; seu render de performance liga Freeze aos 4 s e libera aos 12 s. Event Horizon usa feedback longo sem Freeze automático.
+
+## Reprodução
+
+1. No commit original, adicione somente `PresetVoicingTest.cpp` e seu target CMake; compile e execute `TE2350PresetVoicingTest.exe C:/progs/vst/te2350/build/m10/before --audit-only`. O baseline pula os novos gates de segurança/diversidade, mas mede todo o áudio e verifica paridade/estados/transições.
+2. No banco final, compile os targets de regressão e rode CTest. O target `TE2350PresetVoicingTest` grava `build/te2350-vst-ninja-net/PresetVoicingOutput`.
+3. Execute `python te2350-vst/Tests/preset_voicing_report.py` (NumPy requerido). `--before-only` mede apenas baseline; `--cached` regenera tabelas a partir dos CSVs salvos.
+4. Abra `docs/M10/listen.html` para A/B das seis fontes de cada preset. Os WAVs permanecem em `build`, ignorados pelo Git, sem normalização. O índice depende desses arquivos locais.
+
+Os CSVs de parâmetros registram valores brutos e efetivos do MacroEngine. Sync Eighths substitui o Time efetivo por 250 ms a 120 BPM; o CSV registra o valor do MacroEngine antes desse override. A matriz usa escala comum antes/depois, salva em `feature_scaling.csv`, para comparação reproduzível.

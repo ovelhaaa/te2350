@@ -257,6 +257,15 @@ if(TE2350_BUILD_GOLDEN_TESTS)
         COMMAND $<TARGET_FILE:TE2350UIRender>
             "${CMAKE_CURRENT_BINARY_DIR}/UIRenders")
 
+    add_executable(TE2350PresetVoicingTest Tests/PresetVoicingTest.cpp)
+    target_include_directories(TE2350PresetVoicingTest PRIVATE Source "${TE2350_ROOT}/include")
+    target_compile_definitions(TE2350PresetVoicingTest PRIVATE
+        JucePlugin_Name="TE-2350 Antigravity" JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(TE2350PresetVoicingTest PRIVATE
+        TE2350Antigravity juce::juce_audio_utils juce::juce_dsp)
+    add_test(NAME TE2350PresetVoicingTest COMMAND TE2350PresetVoicingTest
+        "${CMAKE_CURRENT_BINARY_DIR}/PresetVoicingOutput")
+
     add_executable(TE2350PresetWorkflowTest Tests/PresetWorkflowTest.cpp)
     target_include_directories(TE2350PresetWorkflowTest PRIVATE Source "${TE2350_ROOT}/include")
     target_compile_definitions(TE2350PresetWorkflowTest PRIVATE

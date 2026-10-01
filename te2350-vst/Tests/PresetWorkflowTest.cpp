@@ -263,6 +263,7 @@ bool verifyMutationSafetyAndUndo()
     undoProcessor.setCurrentProgram(0);
     const auto originalMix = getParameter(undoProcessor, "mix");
     undoProcessor.setCurrentProgram(6);
+    const auto eventHorizonMix = getParameter(undoProcessor, "mix");
     if (!undoProcessor.canUndo() || !undoProcessor.undo()
         || !approximatelyEqual(getParameter(undoProcessor, "mix"), originalMix))
     {
@@ -270,7 +271,7 @@ bool verifyMutationSafetyAndUndo()
         return false;
     }
     if (!undoProcessor.canRedo() || !undoProcessor.redo()
-        || !approximatelyEqual(getParameter(undoProcessor, "mix"), 0.70f))
+        || !approximatelyEqual(getParameter(undoProcessor, "mix"), eventHorizonMix))
     {
         std::fprintf(stderr, "preset load was not reversible through Redo\n");
         return false;
