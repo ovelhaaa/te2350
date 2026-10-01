@@ -47,10 +47,12 @@ int main(int argc, char* argv[])
     }
 
     if (description.name != "TE-2350 Antigravity"
+        || description.manufacturerName != "TE-2350"
         || description.version != TE2350_EXPECTED_PLUGIN_VERSION
         || instance->getTotalNumInputChannels() != 2
         || instance->getTotalNumOutputChannels() != 2
-        || instance->getParameters().size() < 30)
+        || instance->getParameters().size() != 30
+        || instance->getNumPrograms() != 20)
     {
         std::fprintf(stderr,
                      "unexpected VST3 metadata: name=%s version=%s in=%d out=%d params=%d\n",
@@ -93,6 +95,16 @@ int main(int argc, char* argv[])
         return 1;
     }
     instance->setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+
+    // Exercise packaged resources and editor creation through the real host ABI.
+    // The browser only scans the user library here; no preset is saved.
+    std::unique_ptr<juce::AudioProcessorEditor> editor(instance->createEditorIfNeeded());
+    if (editor == nullptr || editor->getWidth() <= 0 || editor->getHeight() <= 0)
+    {
+        std::fprintf(stderr, "packaged VST3 editor failed to initialise\n");
+        return 1;
+    }
+    editor.reset();
 
     if (instance->getLatencySamples() <= 0 || instance->getTailLengthSeconds() < 60.0)
     {

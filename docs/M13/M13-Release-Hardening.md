@@ -94,10 +94,11 @@ an actual clean-machine audio-device test remain separate from import auditing.
 ## Compatibility
 
 No factory, DSP, CoreWrapper, MacroEngine, ParameterLayout or editor source is
-changed. PresetWorkflow tests a frozen representative M12 v1 XML schema fixture
+changed. PresetWorkflow tests a frozen M12-created v1 XML fixture
 with all 30 parameter IDs, arbitrary product-version provenance, both schema
-keys and future/conflicting schema rejection. The fixture represents the M12
-serialized schema; it is not an archived user-library file. Existing tests cover
+keys and future/conflicting schema rejection. The fixture was generated with the approved M12 static library
+(saved creator version 0.2.0) into a temporary library; it was not regenerated
+by the new writer. The clean build uses only this checked-in fixture. Existing tests cover
 legacy partial host states, M12 PRESET_BASELINE recall after library deletion,
 all factory indices 0-19 and self-contained current parameter recall.
 

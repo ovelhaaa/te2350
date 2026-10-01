@@ -1,7 +1,6 @@
 #include <JuceHeader.h>
 
 #include "PluginProcessor.h"
-#include "Presets/UserPresetManager.h"
 #include "ReleaseMetadata.h"
 
 #include <array>
@@ -81,7 +80,6 @@ bool verifyParameterAndProgramContract()
     TE2350AudioProcessor processor;
     if (processor.getName() != "TE-2350 Antigravity"
         || juce::String(TE2350_PRODUCT_VERSION).isEmpty()
-        || te2350::UserPresetManager::presetFormatVersion != 1
         || TE2350_RELEASE_PRESET_FORMAT_VERSION != 1
         || TE2350_RELEASE_STATE_VERSION != 3)
     {

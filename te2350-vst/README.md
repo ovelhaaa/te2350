@@ -71,7 +71,7 @@ binaries and rejects non-system imported DLLs. Release uses optimization and
 NDEBUG, has no sanitizer configuration, and excludes PDB/debug artifacts.
 
 `release_qualification` builds the required tools, checks all 15 required CTest
-names are registered and runs the entire inventory (including added tests).
+names are registered and runs the entire inventory (16 tests on Windows, including PackagingGateTest).
 `package_te2350` reruns qualification on every invocation, then stages the
 complete VST3 bundle, preview Standalone, instructions, licenses, changelog,
 manifest, dependency report and per-file SHA256 checksums. It extracts the
