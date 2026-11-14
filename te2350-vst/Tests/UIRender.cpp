@@ -1,29 +1,13 @@
 #include <JuceHeader.h>
 
 #include "PluginProcessor.h"
+#include "UI/GravityField.h"
 
 #include <cstdio>
 #include <memory>
 
 namespace
 {
-juce::Button* findButtonWithText(juce::Component& parent, const juce::String& text)
-{
-    for (auto* child : parent.getChildren())
-    {
-        if (auto* button = dynamic_cast<juce::Button*>(child);
-            button != nullptr && button->getButtonText() == text)
-        {
-            return button;
-        }
-
-        if (auto* nested = findButtonWithText(*child, text))
-            return nested;
-    }
-
-    return nullptr;
-}
-
 juce::Component* findComponent(juce::Component& parent,
                                const juce::String& componentID,
                                const juce::String& name = {})
@@ -50,6 +34,8 @@ bool renderEditor(juce::AudioProcessorEditor& editor,
 {
     editor.setSize(width, height);
     editor.resized();
+    if (auto* field = dynamic_cast<te2350::ui::GravityField*>(findComponent(editor, {}, "Gravity Field")))
+        field->refresh();
 
     juce::Image image(juce::Image::ARGB, width, height, true);
     juce::Graphics graphics(image);
@@ -85,6 +71,20 @@ int main(int argc, char* argv[])
     TE2350AudioProcessor processor;
     processor.setCurrentProgram(4);
     processor.prepareToPlay(48000.0, 128);
+    juce::AudioBuffer<float> audio(2, 128);
+    juce::MidiBuffer midi;
+    const auto settle = [&]
+    {
+        for (int i = 0; i < 200; ++i)
+        {
+            audio.clear();
+            processor.processBlock(audio, midi);
+        }
+        juce::Timer::callPendingTimersSynchronously();
+        juce::Thread::sleep(150);
+        juce::Timer::callPendingTimersSynchronously();
+    };
+    settle();
     std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
     auto* performPanel = findComponent(*editor, "panel-perform");
     auto* sculptPanel = findComponent(*editor, "panel-sculpt");
@@ -149,18 +149,33 @@ int main(int argc, char* argv[])
             || std::abs(parameter->convertFrom0to1(parameter->getDefaultValue())-spec.initial) > 0.001f)
             return 1;
     }
-    auto* editButton = findButtonWithText(*editor, "ADVANCED");
+    // The editable readouts use presentation units while the attachment keeps raw units.
+    auto* spaceTile = findComponent(*editor, "space");
+    auto* spaceSlider = spaceTile != nullptr
+        ? dynamic_cast<juce::Slider*>(findComponent(*spaceTile, {}, "Space")) : nullptr;
+    if (spaceSlider == nullptr || spaceSlider->getTextBoxPosition() != juce::Slider::TextBoxBelow
+        || spaceSlider->getTextFromValue(0.37) != "37%"
+        || std::abs(spaceSlider->getValueFromText("37%") - 0.37) > 0.00001)
+        return 1;
+    const auto initialSpace = spaceSlider->getValue();
+    spaceSlider->setValue(spaceSlider->getValueFromText("37%"), juce::sendNotificationSync);
+    if (std::abs(processor.apvts.getRawParameterValue("space")->load() - 0.37f) > 0.00001f)
+        return 1;
+
+    spaceSlider->setValue(initialSpace, juce::sendNotificationSync);
+
+    auto* editButton = dynamic_cast<juce::Button*>(findComponent(*editor, "view-toggle"));
     if (editButton == nullptr)
     {
-        std::fprintf(stderr, "could not find ADVANCED button\n");
+        std::fprintf(stderr, "could not find view toggle\n");
         return 1;
     }
 
     if (editButton->onClick)
         editButton->onClick();
-    if (editButton->getButtonText() != "CLOSE")
+    if (editButton->getButtonText() != "SCULPT")
     {
-        std::fprintf(stderr, "ADVANCED button did not open the drawer\n");
+        std::fprintf(stderr, "view toggle did not open SCULPT\n");
         return 1;
     }
     if (!performPanel->isVisible() || !sculptPanel->isVisible())
@@ -180,7 +195,7 @@ int main(int argc, char* argv[])
     auto* drawer = dynamic_cast<juce::Viewport*>(findComponent(*editor,"advanced-drawer"));
     if (drawer == nullptr) return 1;
     const char* sectionNames[] { "shimmer", "color", "dynamics", "freeze", "system" };
-    const int sectionOffsets[] { 120, 240, 360, 480, 620 };
+    const int sectionOffsets[] { 118, 236, 354, 472, 590 };
     for (int i=0; i<5; ++i)
     {
         editor->setSize(1040,680);
@@ -193,15 +208,6 @@ int main(int argc, char* argv[])
     {
         auto* parameter = processor.apvts.getParameter(id);
         parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
-    };
-    juce::AudioBuffer<float> audio(2,128);
-    juce::MidiBuffer midi;
-    const auto settle = [&]
-    {
-        for (int i=0;i<200;++i) { audio.clear(); processor.processBlock(audio,midi); }
-        juce::Timer::callPendingTimersSynchronously();
-        juce::Thread::sleep(150);
-        juce::Timer::callPendingTimersSynchronously();
     };
     set("space",0); set("wild",0); set("bloom",0);
     set("shimmerAmount",0); set("duckAmount",0); set("feedback",0.2f); set("syncMode",1);
@@ -233,6 +239,12 @@ int main(int argc, char* argv[])
     snapshotButton->onClick();
     if (snapshotButton->getButtonText() != "A"
         || std::abs(processor.apvts.getRawParameterValue("feedback")->load()-before)>0.001f) return 1;
+
+    set("freezeEngage", 1.0f);
+    settle();
+    if (!renderEditor(*editor, outputDirectory.getChildFile("freeze_1040x680.png"), 1040, 680))
+        return 1;
+    set("freezeEngage", 0.0f);
 
     set("feedback", 0.31f);
     settle();

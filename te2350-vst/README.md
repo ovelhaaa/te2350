@@ -100,10 +100,15 @@ archive.
   detailed `SCULPT` view. Horizontal macro cards keep Space, Wild, and Bloom
   readable at the 960x680 minimum size, and Freeze is available directly from
   the performance deck.
-- The system strip exposes Input/Output trim, Kill Dry, Atmos, Engine, live
-  meters, and the gravity display. Preset edits are marked as modified, A/B
-  clearly identifies the active side, and controls that are inactive because
-  of Sync or dependent effect amounts are visually dimmed.
+- Gravity Field shows effective Time (including host sync), requested
+  Feedback, Diffusion, Width, and Shimmer from processor snapshots. The
+  parametric orbit marker stops during Freeze. The footer meters show
+  input/output level and requested feedback. Engine, Atmos FDN, Kill Dry,
+  and input/output trims are in SCULPT.
+- Preset edits are marked as modified, A/B identifies the active side, and
+  controls inactive because of Sync or dependent effect amounts are dimmed.
+  Click a slider value to type in its displayed units. Use Ctrl/Command-drag
+  for fine adjustment and double-click the knob to reset.
 - Sliders, selectors, and switches provide accessible names, descriptions,
   keyboard focus, tooltips, and visible focus treatment.
 - `Source/Assets/te2350_logo_custom.svg` is available to C++ as BinaryData

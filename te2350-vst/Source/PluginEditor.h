@@ -4,6 +4,8 @@
 #include <functional>
 #include "PluginProcessor.h"
 #include "Presets/UserPresetManager.h"
+#include "UI/AntigravityLookAndFeel.h"
+#include "UI/GravityField.h"
 
 class TE2350AudioProcessorEditor final : public juce::AudioProcessorEditor,
                                          private juce::Timer
@@ -20,9 +22,6 @@ private:
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-    class OrbitalLookAndFeel;
-    class KnobTile;
-    class FaderTile;
     class ComboTile;
     class ToggleTile;
     class GroupLabel;
@@ -61,7 +60,6 @@ private:
                             juce::Colour accent,
                             std::function<bool()> isMomentary = {});
     void layoutGrid(juce::Rectangle<int> area, const std::vector<juce::Component*>& group, int columns);
-    void layoutMacroControls(juce::Rectangle<int> area);
     void layoutCoreControls(juce::Rectangle<int> area);
     void layoutAdvancedControls(juce::Rectangle<int> area);
     void resetParametersToDefault();
@@ -84,19 +82,16 @@ private:
 
     TE2350AudioProcessor& processor;
     te2350::UserPresetManager userPresetManager;
-    OrbitalLookAndFeel* orbitalLookAndFeel = nullptr;
+    te2350::ui::AntigravityLookAndFeel lookAndFeel;
+    te2350::ui::GravityField gravityField;
+    juce::Rectangle<int> meterBounds;
 
-    SectionPanel* macroPanel = nullptr;
     SectionPanel* corePanel = nullptr;
     SectionPanel* advancedPanel = nullptr;
     SectionPanel* utilityPanel = nullptr;
     MeterStrip* inputMeter = nullptr;
     MeterStrip* outputMeter = nullptr;
     MeterStrip* feedbackMeter = nullptr;
-    GroupLabel* corePerformLabel = nullptr;
-    GroupLabel* coreColorLabel = nullptr;
-    GroupLabel* advancedMotionLabel = nullptr;
-    GroupLabel* advancedTextureLabel = nullptr;
     LogoMark* logoMark = nullptr;
 
     juce::Viewport advancedViewport;
@@ -114,7 +109,7 @@ private:
     juce::TextButton presetActionsButton { "..." };
     juce::TextButton abButton { "A" };
     juce::TextButton resetButton { "RESET" };
-    juce::TextButton advancedToggle { "ADVANCED" };
+    juce::TextButton advancedToggle { "PERFORM" };
     juce::ToggleButton bypassButton { "BYPASS" };
     juce::TextButton mutateButton { "MUTATE" };
     juce::TooltipWindow tooltipWindow { this, 700 };
@@ -129,6 +124,7 @@ private:
     std::vector<juce::Component*> advancedTextureControls;
     std::vector<juce::Component*> utilityControls;
     std::vector<juce::Component*> macroPerformanceControls;
+    std::vector<juce::Slider*> effectiveSliders;
     std::vector<std::unique_ptr<SliderAttachment>> sliderAttachments;
     std::vector<std::unique_ptr<ComboAttachment>> comboAttachments;
     std::vector<std::unique_ptr<ButtonAttachment>> buttonAttachments;
